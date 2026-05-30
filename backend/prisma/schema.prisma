@@ -1,0 +1,181 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  tourist
+  admin
+}
+
+enum UploadStatus {
+  pending
+  approved
+  rejected
+  reported
+}
+
+enum FileType {
+  image
+  video
+}
+
+enum QrMode {
+  open
+  paused
+  expired
+  revoked
+}
+
+enum AdMediaType {
+  image
+  video
+}
+
+model User {
+  id                  String               @id @default(cuid())
+  name                String
+  email               String               @unique
+  passwordHash        String
+  role                UserRole             @default(tourist)
+  trips               Trip[]
+  moderationLogs      AdminModerationLog[] @relation("AdminLogs")
+  emailLogs           EmailNotificationLog[]
+  ads                 InternalAd[]         @relation("AdCreator")
+  passwordResetTokens PasswordResetToken[]
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+}
+
+model Trip {
+  id               String            @id @default(cuid())
+  userId           String
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title            String
+  destination      String
+  startDate        DateTime?
+  endDate          DateTime?
+  qrToken          String            @unique
+  qrActive         Boolean           @default(true)
+  qrExpiresAt      DateTime?
+  qrMode           QrMode            @default(open)
+  uploads          Upload[]
+  shareLinks       ShareLink[]
+  blockedUploaders BlockedUploader[]
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+}
+
+model Upload {
+  id                  String               @id @default(cuid())
+  tripId              String
+  trip                Trip                 @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  uploaderAnonId      String
+  uploaderFingerprint String
+  fileUrl             String
+  filePublicId        String
+  fileType            FileType
+  status              UploadStatus         @default(pending)
+  aiFlagged           Boolean              @default(false)
+  moderationProvider  String?
+  moderationStatus    String?
+  moderationLabels    Json?
+  reportReason        String?
+  createdAt           DateTime             @default(now())
+  approvedAt          DateTime?
+  rejectedAt          DateTime?
+  moderationLogs      AdminModerationLog[]
+  emailLogs           EmailNotificationLog[]
+
+  @@index([tripId, status])
+  @@index([uploaderFingerprint])
+}
+
+model ShareLink {
+  id        String   @id @default(cuid())
+  tripId    String
+  trip      Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  pinHash   String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model BlockedUploader {
+  id                  String   @id @default(cuid())
+  tripId              String
+  trip                Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  uploaderFingerprint String
+  reason              String?
+  createdAt           DateTime @default(now())
+
+  @@unique([tripId, uploaderFingerprint])
+}
+
+model AdminModerationLog {
+  id        String   @id @default(cuid())
+  uploadId  String
+  upload    Upload   @relation(fields: [uploadId], references: [id], onDelete: Cascade)
+  adminId   String
+  admin     User     @relation("AdminLogs", fields: [adminId], references: [id], onDelete: Cascade)
+  action    String
+  notes     String?
+  createdAt DateTime @default(now())
+}
+
+model EmailNotificationLog {
+  id           String   @id @default(cuid())
+  userId       String?
+  user         User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  uploadId     String?
+  upload       Upload?  @relation(fields: [uploadId], references: [id], onDelete: SetNull)
+  toEmail      String
+  template     String
+  subject      String
+  provider     String
+  status       String
+  errorMessage String?
+  createdAt    DateTime @default(now())
+
+  @@index([userId])
+  @@index([uploadId])
+}
+
+model InternalAd {
+  id             String      @id @default(cuid())
+  title          String
+  description    String?
+  mediaUrl       String
+  mediaType      AdMediaType
+  linkUrl        String?
+  active         Boolean     @default(true)
+  priority       Int         @default(0)
+  displaySeconds Int         @default(12)
+  startsAt       DateTime?
+  endsAt         DateTime?
+  createdById    String?
+  createdBy      User?       @relation("AdCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  @@index([active, priority])
+  @@index([startsAt, endsAt])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}

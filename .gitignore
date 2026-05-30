@@ -1,0 +1,12 @@
+.env
+.env.*
+!.env.example
+node_modules/
+dist/
+build/
+.DS_Store
+coverage/
+uploads/
+tmp/
+*.log
+backend/prisma/dev.db
