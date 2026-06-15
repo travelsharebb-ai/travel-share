@@ -15,4 +15,8 @@
     "prisma:migrate": "npm run prisma:migrate --workspace backend",
     "prisma:deploy": "npm run prisma:deploy --workspace backend"
   }
+  ,
+  "overrides": {
+    "form-data": "4.0.6"
+  }
 }
