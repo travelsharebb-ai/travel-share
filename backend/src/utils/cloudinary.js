@@ -1,5 +1,4 @@
 import { v2 as cloudinary } from "cloudinary";
-import sharp from "sharp";
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -36,7 +35,19 @@ export async function uploadMedia(file) {
   }
 
   // Re-encoding images removes EXIF metadata such as GPS, timestamps, and device info.
-  const buffer = isImage ? await sharp(file.buffer).rotate().toBuffer() : file.buffer;
+  let buffer = file.buffer;
+  if (isImage) {
+    try {
+      const sharpModule = await import('sharp');
+      const sharpFn = sharpModule?.default || sharpModule;
+      buffer = await sharpFn(file.buffer).rotate().toBuffer();
+    } catch (err) {
+      // If sharp can't be loaded (missing platform binary), fall back to original buffer
+      // and log the error to help debugging deploy logs.
+      console.warn('sharp unavailable, skipping re-encode of image buffer:', err && err.message);
+      buffer = file.buffer;
+    }
+  }
 
   const result = await uploadBuffer(buffer, {
     folder: "travel-share/trips",
