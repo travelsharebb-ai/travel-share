@@ -16,6 +16,7 @@
     "prisma:deploy": "npm run prisma:deploy --workspace backend"
   }
   ,
+  "postinstall": "npm rebuild sharp --workspace backend --update-binary || npm install --workspace backend --platform=linux --arch=x64 sharp || true",
   "overrides": {
     "form-data": "4.0.6"
   }
