@@ -321,36 +321,44 @@ function GuestMode() {
         </section>
         {guest && (
           <section className="grid gap-5 xl:grid-cols-2">
-            <form onSubmit={createGuestTrip} className="card space-y-3 p-5">
-              <p className="text-sm font-black uppercase text-primary">Temporary Tourist Mode</p>
-              <h2 className="font-serif text-2xl font-black">Create guest album + QR</h2>
-              <input className="field" placeholder="Album title" value={tripForm.title} onChange={(e) => setTripForm({ ...tripForm, title: e.target.value })} />
-              <LocationField
-                value={tripForm.destination}
-                onChange={(val) => setTripForm({ ...tripForm, destination: val })}
-                latitude={null}
-                longitude={null}
-                onLatChange={null}
-                onLngChange={null}
-                placeholder="Destination"
-              />
-              {tripForm.destination && (
-                <a className="text-sm text-primary mt-1 inline-block" target="_blank" rel="noreferrer" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(tripForm.destination)}`}>
-                  View on Google Maps
-                </a>
-              )}
-              <select className="field" value={tripForm.defaultLocationVisibility} onChange={(e) => setTripForm({ ...tripForm, defaultLocationVisibility: e.target.value })}>
-                <option value="exact">Exact location</option>
-                <option value="approximate">Approximate location</option>
-                <option value="hidden">Hidden/general region</option>
-              </select>
-              <button className="btn-primary w-full"><QrCode size={18} /> Create Temporary Album</button>
-            </form>
-            <form onSubmit={createGuestEvent} className="card space-y-3 p-5">
-              <p className="text-sm font-black uppercase text-primary">Temporary Events Mode</p>
-              <h2 className="font-serif text-2xl font-black">Create guest event + QR</h2>
-              <input className="field" placeholder="Event title" value={eventForm.title} onChange={(e) => setEventForm({ ...eventForm, title: e.target.value })} />
-              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="space-y-4">
+              <h3 className="text-sm font-black uppercase text-primary">Your Temporary Albums</h3>
+              <div className="grid gap-4">
+                {guestTrips.length === 0 ? (
+                  <EmptyCard title="No guest albums" copy="Create a guest album above to collect uploads." />
+                ) : (
+                  guestTrips.map((trip) => (
+                    <div key={trip.id} className="card p-4">
+                      <Link to={`/trip/${trip.qrToken}`} className="block">
+                        <p className="font-serif text-2xl font-black">{trip.title}</p>
+                        <p className="text-slatebody">{trip.destination || "Guest album"} • {trip._count?.uploads || 0} uploads</p>
+                        <p className="mt-2 text-primary">Open album QR page</p>
+                      </Link>
+                      <div className="mt-3 flex gap-2">
+                        <button className="btn-ghost" onClick={() => { navigator.clipboard?.writeText(`${window.location.origin}/trip/${trip.qrToken}`); setGuestMessage("Album link copied to clipboard."); setShowGuestToast(true); }}>Copy link</button>
+                        <Link className="btn-ghost" to={`/trip/${trip.qrToken}`}>Open</Link>
+                        <button className="btn-ghost text-reject" onClick={async () => {
+                          if (!confirm("Delete this temporary album? This cannot be undone.")) return;
+                          try {
+                            await api(`/api/public/guest/trips/${trip.id}`, { method: "DELETE" });
+                            setGuestTrips((list) => list.filter((t) => t.id !== trip.id));
+                            setGuestMessage("Album deleted.");
+                            setShowGuestToast(true);
+                          } catch (err) {
+                            setGuestMessage(err.message || "Could not delete album.");
+                            setShowGuestToast(true);
+                          }
+                        }}>Delete</button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <h3 className="text-sm font-black uppercase text-primary">Your Temporary Events</h3>
+              <div className="grid gap-4">
                 {guestEvents.length === 0 ? (
                   <EmptyCard title="No guest events" copy="Create a guest event above to collect uploads." />
                 ) : (
@@ -391,32 +399,6 @@ function GuestMode() {
                     </div>
                   ))
                 )}
-              </div>
-                          await api(`/api/public/guest/trips/${trip.id}`, { method: "DELETE" });
-                          setGuestTrips((list) => list.filter((t) => t.id !== trip.id));
-                          setGuestMessage("Album deleted.");
-                          setShowGuestToast(true);
-                        } catch (err) {
-                          setGuestMessage(err.message || "Could not delete album.");
-                          setShowGuestToast(true);
-                        }
-                      }}>Delete</button>
-                    </div>
-                  </div>
-                ))}
-                {guestEvents.map((event) => (
-                  <div key={event.id} className="card p-4">
-                    <Link to={`/event/${event.qrToken}`} className="block">
-                      <p className="font-serif text-2xl font-black">{event.title}</p>
-                      <p className="text-slatebody">{event.location || "Guest event"} • {event._count?.uploads || 0} uploads</p>
-                      <p className="mt-2 text-primary">Open event QR page</p>
-                    </Link>
-                    <div className="mt-3 flex gap-2">
-                      <button className="btn-ghost" onClick={() => { navigator.clipboard?.writeText(`${window.location.origin}/event/${event.qrToken}`); setGuestMessage("Event link copied to clipboard."); setShowGuestToast(true); }}>Copy link</button>
-                      <Link className="btn-ghost" to={`/event/${event.qrToken}`}>Open</Link>
-                    </div>
-                  </div>
-                ))}
               </div>
             </div>
           </section>
