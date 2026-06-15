@@ -7,7 +7,7 @@
     "dev": "nodemon src/index.js",
     "build": "prisma generate",
     "start": "prisma generate && prisma migrate deploy && node src/index.js",
-    "postinstall": "npm rebuild sharp --update-binary || npm install --platform=linux --arch=x64 sharp || true",
+    "postinstall": "node ../scripts/postinstall-sharp.cjs || true",
     "test:e2e": "vitest run tests/e2e",
     "db:seed:e2e": "node prisma/seed-e2e.js",
     "prisma:generate": "prisma generate",
