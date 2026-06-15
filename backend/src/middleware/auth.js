@@ -23,8 +23,19 @@ export async function requireAuth(req, res, next) {
 }
 
 export function requireAdmin(req, res, next) {
-  if (req.user?.role !== "admin") {
+  if (!["admin", "platform_admin"].includes(req.user?.role)) {
     return res.status(403).json({ error: "Admin access required." });
   }
   next();
+}
+
+export function requireOrganizerOrAdmin(req, res, next) {
+  if (!["admin", "platform_admin", "organizer"].includes(req.user?.role)) {
+    return res.status(403).json({ error: "Organizer access required." });
+  }
+  next();
+}
+
+export function isPlatformAdmin(user) {
+  return ["admin", "platform_admin"].includes(user?.role);
 }

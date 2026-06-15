@@ -3,19 +3,19 @@ export default {
   theme: {
     extend: {
       colors: {
-        primary: "#0B6E99",
-        ocean: "#4FC3F7",
-        trust: "#FB7185",
-        sand: "#FFF7ED",
-        skysoft: "#FFF7ED",
-        navy: "#0F172A",
-        slatebody: "#475569",
+        primary: "#7C3AED",
+        ocean: "#2563EB",
+        trust: "#60A5FA",
+        sand: "#111827",
+        skysoft: "#1F2937",
+        navy: "#FFFFFF",
+        slatebody: "#D1D5DB",
         reject: "#EF4444",
-        report: "#64748B",
-        borderline: "#F5D8CB"
+        report: "#D1D5DB",
+        borderline: "#374151"
       },
       boxShadow: {
-        soft: "0 18px 50px rgba(11, 110, 153, 0.12)"
+        soft: "0 22px 60px rgba(0, 0, 0, 0.36)"
       }
     }
   },

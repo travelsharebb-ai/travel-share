@@ -1,14 +1,54 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, Navigate, Route, Routes, useNavigate, useParams } from "react-router-dom";
-import { Calendar, Check, Copy, Eye, EyeOff, ExternalLink, Lock, Megaphone, QrCode, RefreshCw, Save, ShieldCheck, Trash2, UploadCloud, Waves, X } from "lucide-react";
+import { Link, Navigate, Route, Routes, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import {
+  BarChart3,
+  Calendar,
+  Check,
+  CircleDollarSign,
+  Copy,
+  Eye,
+  EyeOff,
+  ExternalLink,
+  Flame,
+  Lock,
+  MapPin,
+  Megaphone,
+  MousePointer2,
+  QrCode,
+  RefreshCw,
+  Save,
+  ShieldCheck,
+  ShoppingBag,
+  Sparkles,
+  Trash2,
+  UploadCloud,
+  Users,
+  X
+} from "lucide-react";
 import Shell from "./components/Shell";
 import MediaCard from "./components/MediaCard";
-import { api, currentUser, setSession } from "./lib/api";
+import ScreenshotGuard from "./components/ScreenshotGuard";
+import { API_URL, api, currentUser, setSession, updateStoredUser, getGuestToken, setGuestToken, clearGuestToken } from "./lib/api";
+import LocationField from "./components/LocationField";
 
 const supportEmail = import.meta.env.VITE_SUPPORT_EMAIL || "support@example.com";
+const mapboxToken = import.meta.env.VITE_MAPBOX_TOKEN || "";
 
-function PrivateRoute({ children }) {
-  return currentUser() ? children : <Navigate to="/login" replace />;
+function isAdmin(user = currentUser()) {
+  return ["admin", "platform_admin"].includes(user?.role);
+}
+
+function isOrganizer(user = currentUser()) {
+  return ["admin", "platform_admin", "organizer"].includes(user?.role);
+}
+
+function PrivateRoute({ children, roles }) {
+  const user = currentUser();
+  if (!user) return <Navigate to="/login" replace />;
+  if (roles && !roles.includes(user.role) && !(roles.includes("platform_admin") && user.role === "admin")) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return children;
 }
 
 function BottomAd() {
@@ -18,7 +58,6 @@ function BottomAd() {
   useEffect(() => {
     let hideTimer;
     let mounted = true;
-
     api("/api/public/ads/current")
       .then((data) => {
         if (!mounted || !data.ad) return;
@@ -27,7 +66,6 @@ function BottomAd() {
         hideTimer = window.setTimeout(() => setVisible(false), Math.max(5, data.ad.displaySeconds || 12) * 1000);
       })
       .catch(() => {});
-
     return () => {
       mounted = false;
       window.clearTimeout(hideTimer);
@@ -35,63 +73,405 @@ function BottomAd() {
   }, []);
 
   if (!ad) return null;
-
-  const content = (
-    <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center">
-      <div className="h-28 w-full shrink-0 overflow-hidden rounded-xl bg-skysoft sm:h-24 sm:w-40">
-        {ad.mediaType === "video" ? (
-          <video src={ad.mediaUrl} autoPlay muted loop playsInline className="h-full w-full object-cover" />
-        ) : (
-          <img src={ad.mediaUrl} alt="" className="h-full w-full object-cover" />
-        )}
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="flex items-center gap-2 text-xs font-black uppercase text-primary"><Megaphone size={15} /> Sponsored</p>
-        <p className="break-words text-base font-black text-navy">{ad.title}</p>
-        {ad.description && <p className="line-clamp-2 break-words text-sm text-slatebody">{ad.description}</p>}
-      </div>
-      {ad.linkUrl && <ExternalLink className="hidden shrink-0 text-primary sm:block" size={20} />}
-    </div>
-  );
-
   return (
-    <div className={`fixed inset-x-0 bottom-0 z-50 px-3 pb-3 transition-all duration-700 ease-out sm:px-5 ${visible ? "translate-y-0 opacity-100" : "translate-y-full opacity-0 pointer-events-none"}`}>
-      <div className="mx-auto w-full max-w-3xl rounded-2xl border border-borderline bg-white p-3 shadow-soft">
-        <button className="absolute right-5 top-2 rounded-full bg-white p-1 text-report shadow" aria-label="Close ad" onClick={() => setVisible(false)}>
-          <X size={17} />
-        </button>
-        {ad.linkUrl ? <a href={ad.linkUrl} target="_blank" rel="noreferrer" className="block pr-6">{content}</a> : <div className="pr-6">{content}</div>}
+    <div className={`fixed inset-x-0 bottom-0 z-50 px-3 pb-3 transition-all duration-500 ${visible ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-full opacity-0"}`}>
+      <div className="relative mx-auto w-full max-w-3xl rounded-lg border border-borderline bg-panel p-3 shadow-soft">
+        <button className="absolute right-3 top-3 rounded-full bg-skysoft p-1 text-report" aria-label="Close ad" onClick={() => setVisible(false)}><X size={17} /></button>
+        <a href={ad.linkUrl || "#"} target={ad.linkUrl ? "_blank" : undefined} rel="noreferrer" className="flex min-w-0 flex-col gap-3 pr-7 sm:flex-row sm:items-center">
+          <div className="h-24 w-full shrink-0 overflow-hidden rounded-lg bg-skysoft sm:w-40">
+            {ad.mediaType === "video" ? <video src={ad.mediaUrl} autoPlay muted loop playsInline className="h-full w-full object-cover" /> : <img src={ad.mediaUrl} alt="" className="h-full w-full object-cover" />}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="flex items-center gap-2 text-xs font-black uppercase text-primary"><Megaphone size={15} /> Sponsored</p>
+            <p className="break-words text-base font-black">{ad.title}</p>
+            {ad.description && <p className="line-clamp-2 break-words text-sm text-slatebody">{ad.description}</p>}
+          </div>
+          {ad.linkUrl && <ExternalLink className="hidden shrink-0 text-primary sm:block" size={20} />}
+        </a>
       </div>
     </div>
   );
 }
 
+function AppBackground() {
+  const [videoUrl, setVideoUrl] = useState("/videos/come-to-barbados.mp4");
+  const user = currentUser();
+
+  useEffect(() => {
+    api("/api/public/appearance")
+      .then((data) => setVideoUrl(data.appearance?.backgroundVideoUrl || "/videos/come-to-barbados.mp4"))
+      .catch(() => {});
+  }, []);
+
+  if (user || !videoUrl) return null;
+  return (
+    <>
+      <video className="app-bg-video" src={videoUrl} autoPlay muted loop playsInline aria-hidden="true" />
+    </>
+  );
+}
+
+function applyActiveStoreItem(item) {
+  const root = document.documentElement;
+  root.classList.remove("has-active-skin", "has-active-theme");
+  root.style.removeProperty("--app-skin-url");
+  root.style.removeProperty("--app-accent");
+  if (!item) return;
+
+  const metadata = item.metadata && typeof item.metadata === "object" ? item.metadata : {};
+  if (item.type === "image_skin" || item.type === "album_theme" || item.type === "event_theme") {
+    const url = metadata.backgroundUrl || item.previewUrl;
+    if (url) {
+      root.style.setProperty("--app-skin-url", `url("${url}")`);
+      root.classList.add("has-active-skin");
+    }
+    if (metadata.accentColor) {
+      root.style.setProperty("--app-accent", metadata.accentColor);
+      root.classList.add("has-active-theme");
+    }
+  }
+}
+
+function SessionSync() {
+  useEffect(() => {
+    const user = currentUser();
+    applyActiveStoreItem(user?.activeStoreItem || null);
+    if (!user) return;
+    api("/api/auth/me")
+      .then((data) => {
+        updateStoredUser(data.user);
+        applyActiveStoreItem(data.user?.activeStoreItem || null);
+      })
+      .catch(() => {});
+  }, []);
+  return null;
+}
+
 function Landing() {
+  const user = currentUser();
+  if (user) return <Navigate to="/dashboard" replace />;
   return (
     <Shell>
-      <main className="overflow-hidden">
-        <section className="relative bg-sand">
-          <div className="page-shell grid min-h-[calc(100vh-74px)] content-center gap-8 py-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
-            <div className="min-w-0 space-y-6">
-              <p className="inline-flex rounded-full bg-white px-4 py-2 text-sm font-bold text-primary shadow-sm">Privacy-first travel sharing</p>
-              <h1 className="max-w-3xl break-words text-4xl font-black leading-tight text-navy sm:text-5xl lg:text-6xl">Travel Share</h1>
-              <p className="max-w-2xl text-lg leading-8 text-slatebody">
-                Create a trip album, share a personal QR code, and privately review every photo or video before it appears.
-              </p>
-              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-                <Link className="btn-primary" to="/signup"><QrCode size={19} /> Create my QR</Link>
-                <Link className="btn-ghost" to="/privacy"><ShieldCheck size={19} /> Privacy promise</Link>
-              </div>
-            </div>
-            <div className="card min-w-0 overflow-hidden p-5">
-              <div className="rounded-2xl bg-gradient-to-br from-primary via-ocean to-trust p-5 text-white">
-                <Waves size={42} />
-                <p className="mt-16 text-2xl font-black">Beach candids, tour moments, sunset snaps.</p>
-                <p className="mt-3 text-white/90">Every upload waits in your approval queue first.</p>
-              </div>
-            </div>
+      <main className="page-shell grid min-h-[calc(100vh-74px)] content-center gap-8 py-10 lg:grid-cols-[1fr_0.9fr] lg:items-center">
+        <section className="hero-copy-panel min-w-0 space-y-6">
+          <p className="inline-flex rounded-full border border-primary/30 bg-primary/10 px-4 py-2 text-sm font-bold text-primary">QR-powered travel and event memories</p>
+          <h1 className="max-w-3xl break-words font-serif text-5xl font-black leading-tight sm:text-6xl">TravelShare</h1>
+          <p className="max-w-2xl text-lg leading-8 text-slatebody">
+            Collect memories from tourists, guests, and event crowds. Map the journey, replay the experience, and manage the whole platform from one business control panel.
+          </p>
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+            <Link className="btn-primary" to="/signup"><QrCode size={19} /> Create account</Link>
+            <Link className="btn-ghost" to="/guest"><Users size={19} /> Continue as guest</Link>
+            <Link className="btn-ghost" to="/discover"><MapPin size={19} /> Discover events</Link>
+            <Link className="btn-ghost" to="/privacy"><ShieldCheck size={19} /> Privacy promise</Link>
           </div>
         </section>
+        <section className="grid gap-4">
+          {[
+            ["Tourist Mode", "Personal albums, memory maps, route replay, and QR photo collection."],
+            ["Events Mode", "Custom event maps, zones, crowd status, and location-specific QR uploads."],
+            ["Business Admin", "Users, organizers, ads, store items, reports, analytics, and settings."]
+          ].map(([title, copy]) => (
+            <div className="card p-5" key={title}>
+              <p className="font-serif text-2xl font-black">{title}</p>
+              <p className="mt-2 text-slatebody">{copy}</p>
+            </div>
+          ))}
+        </section>
+      </main>
+    </Shell>
+  );
+}
+
+function GuestMode() {
+  const [items, setItems] = useState([]);
+  const [guest, setGuest] = useState(null);
+  const [guestTrips, setGuestTrips] = useState([]);
+  const [guestEvents, setGuestEvents] = useState([]);
+  const [creatorLoading, setCreatorLoading] = useState(false);
+  const [tripForm, setTripForm] = useState({ title: "", destination: "", defaultLocationVisibility: "approximate" });
+  const [eventForm, setEventForm] = useState({ title: "", category: "", location: "", description: "" });
+  const [guestMessage, setGuestMessage] = useState("");
+  const [showGuestToast, setShowGuestToast] = useState(false);
+
+  // Auto-show toast when a guestMessage is set from anywhere
+  useEffect(() => {
+    if (guestMessage) setShowGuestToast(true);
+  }, [guestMessage]);
+
+  // Auto-hide toast after ~8 seconds when visible
+  useEffect(() => {
+    if (!showGuestToast) return;
+    const t = window.setTimeout(() => setShowGuestToast(false), 8000);
+    return () => window.clearTimeout(t);
+  }, [showGuestToast]);
+
+  useEffect(() => {
+    api("/api/public/store-preview").then((data) => setItems(data.items || [])).catch(() => {});
+    // If we have a stored guest token from earlier, try to resume creator session
+    const token = getGuestToken();
+    if (token) {
+      loadCreator(token).catch(() => {
+        // ignore resume failures
+      });
+    }
+  }, []);
+
+  async function loadCreator(token) {
+    const opts = token ? { headers: { "x-guest-token": token } } : {};
+    const data = await api("/api/public/guest/creator", opts);
+    setGuest(data.guest);
+    // persist guest token locally so user can return if cookie isn't persisted
+    if (data?.guest?.token) setGuestToken(data.guest.token);
+    setGuestTrips(data.trips || []);
+    setGuestEvents(data.events || []);
+  }
+
+  async function startCreator() {
+    if (creatorLoading) return;
+    setCreatorLoading(true);
+    try {
+      const res = await api("/api/public/guest/creator", { method: "POST", body: "{}" });
+      // Try to load creator with cookie first; if cookie wasn't set due to CORS/SameSite,
+      // fall back to using the returned token as an x-guest-token header.
+      await loadCreator(res?.guest?.token);
+      setGuestMessage("Guest creator started — you can now create temporary albums or events.");
+      // show toast when message is set
+      setShowGuestToast(true);
+    } catch (err) {
+      console.error("Failed to start guest creator:", err);
+      setGuestMessage(err?.message || "Failed to start guest creator. Try again.");
+      setShowGuestToast(true);
+    } finally {
+      setCreatorLoading(false);
+    }
+  }
+
+  async function createGuestTrip(event) {
+    event.preventDefault();
+    const data = await api("/api/public/guest/trips", { method: "POST", body: JSON.stringify(tripForm) });
+    setGuestMessage(`Guest album created. QR link: ${data.scanUrl}`);
+    setTripForm({ title: "", destination: "", defaultLocationVisibility: "approximate" });
+    await loadCreator();
+  }
+
+  async function createGuestEvent(event) {
+    event.preventDefault();
+    const data = await api("/api/public/guest/events", { method: "POST", body: JSON.stringify(eventForm) });
+    setGuestMessage(`Guest event created. QR link: ${data.scanUrl}`);
+    setEventForm({ title: "", category: "", location: "", description: "" });
+    await loadCreator();
+  }
+
+  return (
+    <Shell>
+      <main className="page-shell space-y-6">
+        <section className="hero-copy-panel">
+          <HeaderBlock eyebrow="Guest Access" title="Use TravelShare without signing up" copy="Guests can enter from QR links, public event pages, or shared albums. You can view allowed spaces and upload memories for 3 days, then create an account to keep them." />
+        </section>
+        <section className="grid gap-4 lg:grid-cols-3">
+          <div className="card p-5">
+            <MapPin className="text-primary" size={32} />
+            <h2 className="mt-3 font-serif text-2xl font-black">Tourist Guest</h2>
+            <p className="mt-2 text-slatebody">Scan a trip QR, upload photos/videos, add captions, choose location privacy, and wait for album-owner approval.</p>
+          </div>
+          <div className="card p-5">
+            <Calendar className="text-primary" size={32} />
+            <h2 className="mt-3 font-serif text-2xl font-black">Event Guest</h2>
+            <p className="mt-2 text-slatebody">Open public events, scan zone QR codes, contribute memories to stages, vendors, photo hotspots, and live event maps.</p>
+          </div>
+          <div className="card p-5">
+            <Lock className="text-primary" size={32} />
+            <h2 className="mt-3 font-serif text-2xl font-black">After 3 Days</h2>
+            <p className="mt-2 text-slatebody">Sign in to continue, claim guest uploads, buy add-ons, create albums, host events, or manage business tools.</p>
+          </div>
+        </section>
+        <section className="hero-copy-panel flex flex-col gap-3 sm:flex-row items-center">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:gap-3">
+            <Link className="btn-primary" to="/discover"><MapPin size={18} /> Discover public events</Link>
+            <Link className="btn-primary" to="/signup"><QrCode size={18} /> Create account to host</Link>
+            {!guest ? (
+              <button className={`btn-ghost ${creatorLoading ? "opacity-60 cursor-not-allowed" : ""}`} onClick={startCreator} disabled={creatorLoading} aria-busy={creatorLoading}><Sparkles size={18} /> {creatorLoading ? "Starting…" : "Start 3-day guest creator"}</button>
+            ) : (
+              <button className="btn-ghost" onClick={async () => {
+                try {
+                  await api("/api/public/guest/creator", { method: "DELETE" });
+                  setGuest(null);
+                  clearGuestToken();
+                  setGuestMessage("Guest creator deactivated.");
+                  setShowGuestToast(true);
+                } catch (err) {
+                  setGuestMessage(err.message || "Could not deactivate guest creator.");
+                  setShowGuestToast(true);
+                }
+              }}><Trash2 size={16} /> Close guest creator</button>
+            )}
+          </div>
+          {/* Guest toast placed inside the hero action area so it visually belongs to the guest flow */}
+          {showGuestToast && guestMessage && (
+            <div className="mt-2 sm:mt-0 sm:ml-4">
+              <div className="relative inline-block">
+                <div className="bg-black/75 text-white rounded-lg px-4 py-2 shadow-lg max-w-lg">
+                  <button aria-label="Dismiss" className="absolute right-2 top-1 text-white text-lg leading-none opacity-90 hover:opacity-100" onClick={() => setShowGuestToast(false)}>×</button>
+                  <p className="text-sm break-words">{guestMessage}</p>
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
+        {guest && (
+          <section className="grid gap-5 xl:grid-cols-2">
+            <form onSubmit={createGuestTrip} className="card space-y-3 p-5">
+              <p className="text-sm font-black uppercase text-primary">Temporary Tourist Mode</p>
+              <h2 className="font-serif text-2xl font-black">Create guest album + QR</h2>
+              <input className="field" placeholder="Album title" value={tripForm.title} onChange={(e) => setTripForm({ ...tripForm, title: e.target.value })} />
+              <LocationField
+                value={tripForm.destination}
+                onChange={(val) => setTripForm({ ...tripForm, destination: val })}
+                latitude={null}
+                longitude={null}
+                onLatChange={null}
+                onLngChange={null}
+                placeholder="Destination"
+              />
+              {tripForm.destination && (
+                <a className="text-sm text-primary mt-1 inline-block" target="_blank" rel="noreferrer" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(tripForm.destination)}`}>
+                  View on Google Maps
+                </a>
+              )}
+              <select className="field" value={tripForm.defaultLocationVisibility} onChange={(e) => setTripForm({ ...tripForm, defaultLocationVisibility: e.target.value })}>
+                <option value="exact">Exact location</option>
+                <option value="approximate">Approximate location</option>
+                <option value="hidden">Hidden/general region</option>
+              </select>
+              <button className="btn-primary w-full"><QrCode size={18} /> Create Temporary Album</button>
+            </form>
+            <form onSubmit={createGuestEvent} className="card space-y-3 p-5">
+              <p className="text-sm font-black uppercase text-primary">Temporary Events Mode</p>
+              <h2 className="font-serif text-2xl font-black">Create guest event + QR</h2>
+              <input className="field" placeholder="Event title" value={eventForm.title} onChange={(e) => setEventForm({ ...eventForm, title: e.target.value })} />
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                {guestEvents.length === 0 ? (
+                  <EmptyCard title="No guest events" copy="Create a guest event above to collect uploads." />
+                ) : (
+                  guestEvents.map((event) => (
+                    <div key={event.id} className="card p-4">
+                      <Link to={`/event/${event.qrToken}`} className="block">
+                        <p className="font-serif text-2xl font-black">{event.title}</p>
+                        <p className="text-slatebody">{event.location || "Guest event"} • {event._count?.uploads || 0} uploads</p>
+                        <p className="mt-2 text-primary">Open event QR page</p>
+                      </Link>
+                      <div className="mt-3 flex gap-2">
+                        <button className="btn-ghost" onClick={() => { navigator.clipboard?.writeText(`${window.location.origin}/event/${event.qrToken}`); setGuestMessage("Event link copied to clipboard."); setShowGuestToast(true); }}>Copy link</button>
+                        <Link className="btn-ghost" to={`/event/${event.qrToken}`}>Open</Link>
+                        <button className="btn-ghost" onClick={async () => {
+                          try {
+                            const data = await api(`/api/public/guest/events/${event.id}/share-links`, { method: "POST" });
+                            navigator.clipboard?.writeText(data.url);
+                            setGuestMessage("Saved event link copied to clipboard.");
+                            setShowGuestToast(true);
+                          } catch (err) {
+                            setGuestMessage(err.message || "Could not create share link.");
+                            setShowGuestToast(true);
+                          }
+                        }}>Save link</button>
+                        <button className="btn-ghost text-reject" onClick={async () => {
+                          if (!confirm("Delete this temporary event? This cannot be undone.")) return;
+                          try {
+                            await api(`/api/public/guest/events/${event.id}`, { method: "DELETE" });
+                            setGuestEvents((list) => list.filter((e) => e.id !== event.id));
+                            setGuestMessage("Event deleted.");
+                            setShowGuestToast(true);
+                          } catch (err) {
+                            setGuestMessage(err.message || "Could not delete event.");
+                            setShowGuestToast(true);
+                          }
+                        }}>Delete</button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+                          await api(`/api/public/guest/trips/${trip.id}`, { method: "DELETE" });
+                          setGuestTrips((list) => list.filter((t) => t.id !== trip.id));
+                          setGuestMessage("Album deleted.");
+                          setShowGuestToast(true);
+                        } catch (err) {
+                          setGuestMessage(err.message || "Could not delete album.");
+                          setShowGuestToast(true);
+                        }
+                      }}>Delete</button>
+                    </div>
+                  </div>
+                ))}
+                {guestEvents.map((event) => (
+                  <div key={event.id} className="card p-4">
+                    <Link to={`/event/${event.qrToken}`} className="block">
+                      <p className="font-serif text-2xl font-black">{event.title}</p>
+                      <p className="text-slatebody">{event.location || "Guest event"} • {event._count?.uploads || 0} uploads</p>
+                      <p className="mt-2 text-primary">Open event QR page</p>
+                    </Link>
+                    <div className="mt-3 flex gap-2">
+                      <button className="btn-ghost" onClick={() => { navigator.clipboard?.writeText(`${window.location.origin}/event/${event.qrToken}`); setGuestMessage("Event link copied to clipboard."); setShowGuestToast(true); }}>Copy link</button>
+                      <Link className="btn-ghost" to={`/event/${event.qrToken}`}>Open</Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+        <section className="space-y-4">
+          <div className="card p-5">
+            <HeaderBlock eyebrow="Premium Skins" title="Preview add-ons as a guest" copy="You can browse skins, frames, themes, premium QR styles, ad-free viewing, and branded pages. Sign up to use or purchase them." />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                {guestEvents.map((event) => (
+                  <div key={event.id} className="card p-4">
+                    <Link to={`/event/${event.qrToken}`} className="block">
+                      <p className="font-serif text-2xl font-black">{event.title}</p>
+                      <p className="text-slatebody">{event.location || "Guest event"} • {event._count?.uploads || 0} uploads</p>
+                      <p className="mt-2 text-primary">Open event QR page</p>
+                    </Link>
+                    <div className="mt-3 flex gap-2">
+                      <button className="btn-ghost" onClick={() => { navigator.clipboard?.writeText(`${window.location.origin}/event/${event.qrToken}`); setGuestMessage("Event link copied to clipboard."); setShowGuestToast(true); }}>Copy link</button>
+                      <Link className="btn-ghost" to={`/event/${event.qrToken}`}>Open</Link>
+                      <button className="btn-ghost" onClick={async () => {
+                        try {
+                          const data = await api(`/api/public/guest/events/${event.id}/share-links`, { method: "POST" });
+                          navigator.clipboard?.writeText(data.url);
+                          setGuestMessage("Saved event link copied to clipboard.");
+                          setShowGuestToast(true);
+                        } catch (err) {
+                          setGuestMessage(err.message || "Could not create share link.");
+                          setShowGuestToast(true);
+                        }
+                      }}>Save link</button>
+                      <button className="btn-ghost text-reject" onClick={async () => {
+                        if (!confirm("Delete this temporary event? This cannot be undone.")) return;
+                        try {
+                          await api(`/api/public/guest/events/${event.id}`, { method: "DELETE" });
+                          setGuestEvents((list) => list.filter((e) => e.id !== event.id));
+                          setGuestMessage("Event deleted.");
+                          setShowGuestToast(true);
+                        } catch (err) {
+                          setGuestMessage(err.message || "Could not delete event.");
+                          setShowGuestToast(true);
+                        }
+                      }}>Delete</button>
+                    </div>
+                  </div>
+                ))}
+            <Link key={event.id} to={`/event/${event.qrToken}`} className="card p-5 transition hover:-translate-y-1">
+              {event.coverImageUrl && <img src={event.coverImageUrl} alt="" className="mb-4 h-36 w-full rounded-lg object-cover" />}
+              <p className="text-xs font-black uppercase text-primary">{event.category || "Public event"} • {event.status}</p>
+              <h2 className="font-serif text-2xl font-black">{event.title}</h2>
+              <p className="text-sm text-slatebody">{event.location || "Location TBD"}</p>
+              <p className="mt-3 text-sm font-bold text-primary">{event._count?.uploads || 0} memories • {event._count?.zones || 0} map zones</p>
+            </Link>
+          ))}
+          {events.length === 0 && <EmptyCard title="No public events yet" copy="Hosted public events will appear here for discovery." />}
+        </div>
       </main>
     </Shell>
   );
@@ -108,10 +488,7 @@ function AuthPage({ mode }) {
     event.preventDefault();
     setError("");
     try {
-      const data = await api(`/api/auth/${isSignup ? "signup" : "login"}`, {
-        method: "POST",
-        body: JSON.stringify(form)
-      });
+      const data = await api(`/api/auth/${isSignup ? "signup" : "login"}`, { method: "POST", body: JSON.stringify(form) });
       setSession(data);
       navigate("/dashboard");
     } catch (err) {
@@ -119,34 +496,61 @@ function AuthPage({ mode }) {
     }
   }
 
+  async function oauth(provider) {
+    window.location.href = `${API_URL}/api/auth/oauth/${provider}`;
+  }
+
   return (
     <Shell>
-      <main className="page-shell flex min-h-[70vh] items-center justify-center">
+      <main className="page-shell flex min-h-[75vh] items-center justify-center">
         <form onSubmit={submit} className="card w-full max-w-md space-y-4 p-5 sm:p-7">
-          <h1 className="text-2xl font-black">{isSignup ? "Create your Travel Share account" : "Welcome back"}</h1>
+          <h1 className="font-serif text-3xl font-black">{isSignup ? "Create your TravelShare account" : "Welcome back"}</h1>
           {isSignup && <input className="field" placeholder="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />}
           <input className="field" type="email" placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
           <div className="relative">
-            <input
-              className="field pr-14"
-              type={showPassword ? "text" : "password"}
-              placeholder="Password"
-              value={form.password}
-              onChange={(e) => setForm({ ...form, password: e.target.value })}
-            />
-            <button
-              type="button"
-              aria-label={showPassword ? "Hide password" : "Show password"}
-              className="absolute right-2 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full text-report hover:bg-skysoft"
-              onClick={() => setShowPassword((value) => !value)}
-            >
+            <input className="field pr-14" type={showPassword ? "text" : "password"} placeholder="Password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
+            <button type="button" aria-label={showPassword ? "Hide password" : "Show password"} className="absolute right-2 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full text-report hover:bg-skysoft" onClick={() => setShowPassword((value) => !value)}>
               {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
             </button>
           </div>
-          {error && <p className="break-words rounded-2xl bg-red-50 p-3 text-sm font-bold text-reject">{error}</p>}
+          {error && <p className="break-words rounded-lg bg-red-50 p-3 text-sm font-bold text-reject">{error}</p>}
           <button className="btn-primary w-full" type="submit">{isSignup ? "Sign up" : "Login"}</button>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <button type="button" className="btn-ghost" onClick={() => oauth("google")}>Google</button>
+            <button type="button" className="btn-ghost" onClick={() => oauth("microsoft")}>Microsoft</button>
+          </div>
           {!isSignup && <Link className="block text-center text-sm font-bold text-primary" to="/forgot-password">Forgot password?</Link>}
         </form>
+      </main>
+    </Shell>
+  );
+}
+
+function OAuthCallback() {
+  const navigate = useNavigate();
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const token = params.get("token");
+      const encodedUser = params.get("user");
+      if (!token || !encodedUser) throw new Error("OAuth callback is missing session data.");
+      const user = JSON.parse(atob(encodedUser.replace(/-/g, "+").replace(/_/g, "/")));
+      setSession({ token, user });
+      navigate("/dashboard", { replace: true });
+    } catch (err) {
+      setError(err.message);
+    }
+  }, [navigate]);
+
+  return (
+    <Shell>
+      <main className="page-shell flex min-h-[70vh] items-center justify-center">
+        <div className="card max-w-md p-6 text-center">
+          <h1 className="font-serif text-3xl font-black">{error ? "Sign-in failed" : "Signing you in..."}</h1>
+          {error && <p className="mt-3 text-sm text-reject">{error}</p>}
+        </div>
       </main>
     </Shell>
   );
@@ -162,10 +566,7 @@ function ForgotPassword() {
     setError("");
     setMessage("");
     try {
-      const data = await api("/api/auth/forgot-password", {
-        method: "POST",
-        body: JSON.stringify({ email })
-      });
+      const data = await api("/api/auth/forgot-password", { method: "POST", body: JSON.stringify({ email }) });
       setMessage(data.message);
     } catch (err) {
       setError(err.message);
@@ -176,13 +577,11 @@ function ForgotPassword() {
     <Shell>
       <main className="page-shell flex min-h-[70vh] items-center justify-center">
         <form onSubmit={submit} className="card w-full max-w-md space-y-4 p-5 sm:p-7">
-          <h1 className="text-2xl font-black">Reset your password</h1>
-          <p className="text-sm text-slatebody">Enter your account email. We’ll send a verification link before any password can be changed.</p>
+          <h1 className="font-serif text-3xl font-black">Reset your password</h1>
           <input className="field" type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
-          {message && <p className="break-words rounded-2xl bg-rose-50 p-3 text-sm font-bold text-trust">{message}</p>}
-          {error && <p className="break-words rounded-2xl bg-red-50 p-3 text-sm font-bold text-reject">{error}</p>}
-          <button className="btn-primary w-full" type="submit">Send reset link</button>
-          <Link className="block text-center text-sm font-bold text-primary" to="/login">Back to login</Link>
+          {message && <p className="rounded-lg bg-rose-50 p-3 text-sm font-bold text-trust">{message}</p>}
+          {error && <p className="rounded-lg bg-red-50 p-3 text-sm font-bold text-reject">{error}</p>}
+          <button className="btn-primary w-full">Send reset link</button>
         </form>
       </main>
     </Shell>
@@ -193,26 +592,18 @@ function ResetPassword() {
   const { token } = useParams();
   const navigate = useNavigate();
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
   const [valid, setValid] = useState(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
-    api(`/api/auth/reset-password/${token}`)
-      .then((data) => setValid(data.valid))
-      .catch(() => setValid(false));
+    api(`/api/auth/reset-password/${token}`).then((data) => setValid(data.valid)).catch(() => setValid(false));
   }, [token]);
 
   async function submit(event) {
     event.preventDefault();
-    setError("");
-    setMessage("");
     try {
-      const data = await api("/api/auth/reset-password", {
-        method: "POST",
-        body: JSON.stringify({ token, password })
-      });
+      const data = await api("/api/auth/reset-password", { method: "POST", body: JSON.stringify({ token, password }) });
       setMessage(data.message);
       window.setTimeout(() => navigate("/login"), 1200);
     } catch (err) {
@@ -223,35 +614,14 @@ function ResetPassword() {
   return (
     <Shell>
       <main className="page-shell flex min-h-[70vh] items-center justify-center">
-        <form onSubmit={submit} className="card w-full max-w-md space-y-4 p-5 sm:p-7">
-          <h1 className="text-2xl font-black">Choose a new password</h1>
-          {valid === null && <p className="text-sm text-slatebody">Checking reset link...</p>}
-          {valid === false && <p className="break-words rounded-2xl bg-red-50 p-3 text-sm font-bold text-reject">This reset link is invalid or expired.</p>}
-          {valid && (
-            <>
-              <div className="relative">
-                <input
-                  className="field pr-14"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="New password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-                <button
-                  type="button"
-                  aria-label={showPassword ? "Hide password" : "Show password"}
-                  className="absolute right-2 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full text-report hover:bg-skysoft"
-                  onClick={() => setShowPassword((value) => !value)}
-                >
-                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                </button>
-              </div>
-              {message && <p className="break-words rounded-2xl bg-rose-50 p-3 text-sm font-bold text-trust">{message}</p>}
-              {error && <p className="break-words rounded-2xl bg-red-50 p-3 text-sm font-bold text-reject">{error}</p>}
-              <button className="btn-primary w-full" type="submit">Change password</button>
-            </>
-          )}
-          <Link className="block text-center text-sm font-bold text-primary" to="/login">Back to login</Link>
+        <form onSubmit={submit} className="card w-full max-w-md space-y-4 p-5">
+          <h1 className="font-serif text-3xl font-black">Choose a new password</h1>
+          {valid === null && <p className="text-slatebody">Checking reset link...</p>}
+          {valid === false && <p className="rounded-lg bg-red-50 p-3 text-sm font-bold text-reject">This reset link is invalid or expired.</p>}
+          {valid && <input className="field" type="password" placeholder="New password" value={password} onChange={(e) => setPassword(e.target.value)} />}
+          {message && <p className="rounded-lg bg-rose-50 p-3 text-sm font-bold text-trust">{message}</p>}
+          {error && <p className="rounded-lg bg-red-50 p-3 text-sm font-bold text-reject">{error}</p>}
+          {valid && <button className="btn-primary w-full">Change password</button>}
         </form>
       </main>
     </Shell>
@@ -259,8 +629,64 @@ function ResetPassword() {
 }
 
 function Dashboard() {
+  const user = currentUser();
   const [trips, setTrips] = useState([]);
-  const [form, setForm] = useState({ title: "", destination: "", startDate: "", endDate: "" });
+
+  useEffect(() => {
+    api("/api/trips").then((data) => setTrips(data.trips || [])).catch(() => {});
+  }, []);
+
+  const chapterTarget = trips[0] ? `/trips/${trips[0].id}?tab=chapters` : "/tourist";
+  const memoryCount = trips.reduce((sum, trip) => sum + (trip._count?.uploads || 0), 0);
+
+  return (
+    <Shell>
+      <main className="page-shell journey-dashboard space-y-10">
+        <section className="max-w-3xl">
+          <p className="font-serif italic text-slatebody">{new Date().toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })}</p>
+          <h1 className="mt-3 max-w-3xl font-serif text-5xl font-black leading-tight">Your journey so far, {user?.name?.split(" ")[0]}</h1>
+        </section>
+        <section className="journey-stat-row">
+          <p className="journey-zero">{memoryCount}</p>
+          <div>
+            <h2 className="font-serif text-3xl font-black">Memories collected</h2>
+            <p className="mt-2 max-w-xl text-slatebody">Moments captured by you and the strangers who crossed your path.</p>
+          </div>
+        </section>
+        <section className="journey-section">
+          <div className="journey-heading"><h2 className="font-serif text-3xl font-black">Chapters</h2><span /></div>
+          <p className="journey-empty">No chapters yet. Start your first one below.</p>
+        </section>
+        <section className="journey-section">
+          <div className="journey-heading"><h2 className="font-serif text-3xl font-black">Recent Entries</h2><span /></div>
+          <p className="journey-empty journey-entry">No entries yet. Your story begins when you create an album.</p>
+        </section>
+        <section className="grid gap-4 lg:grid-cols-2">
+          <Link to="/tourist" className="card group p-6 transition hover:-translate-y-1">
+            <p className="text-sm font-black uppercase text-primary">Tourist Mode</p>
+            <h2 className="mt-2 font-serif text-3xl font-black">Memory maps and private albums</h2>
+            <p className="mt-3 text-slatebody">Create trips, collect QR uploads, approve memories, and replay journeys by place.</p>
+          </Link>
+          <Link to="/events" className="card group p-6 transition hover:-translate-y-1">
+            <p className="text-sm font-black uppercase text-primary">Events Mode</p>
+            <h2 className="mt-2 font-serif text-3xl font-black">Live event maps and zones</h2>
+            <p className="mt-3 text-slatebody">Host festivals, parties, tours, conferences, or pop-ups with QR-powered memory zones.</p>
+          </Link>
+        </section>
+        <Link className="floating-chapter-btn" to={chapterTarget}><Sparkles size={18} /> Start a new chapter</Link>
+      </main>
+    </Shell>
+  );
+}
+
+function TouristDashboard() {
+  const [trips, setTrips] = useState([]);
+  const [form, setForm] = useState({ title: "", destination: "", startDate: "", endDate: "", defaultLocationVisibility: "approximate" });
+  const privacyModes = [
+    ["exact", "Exact Location", "Use the true GPS point for precise memory pins."],
+    ["approximate", "Approximate Location", "Recommended. Shows the area without exposing the exact spot."],
+    ["hidden", "Hidden Region", "Stores privacy-first memories with only a general region shown."]
+  ];
 
   async function load() {
     const data = await api("/api/trips");
@@ -272,38 +698,51 @@ function Dashboard() {
   async function createTrip(event) {
     event.preventDefault();
     await api("/api/trips", { method: "POST", body: JSON.stringify(form) });
-    setForm({ title: "", destination: "", startDate: "", endDate: "" });
+    setForm({ title: "", destination: "", startDate: "", endDate: "", defaultLocationVisibility: "approximate" });
     load();
   }
 
   return (
     <Shell>
       <main className="page-shell space-y-6">
-        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-          <div className="min-w-0">
-            <h1 className="break-words text-3xl font-black">Tourist Dashboard</h1>
-            <p className="text-slatebody">New upload waiting! Review candid memories before they enter your album.</p>
-          </div>
-        </div>
-        <section className="grid gap-5 lg:grid-cols-[0.85fr_1.15fr]">
+        <HeaderBlock eyebrow="Tourist Mode" title="Trips, albums, memory maps" copy="Collect private memories through QR links and turn approved uploads into an interactive journey." />
+        <section className="grid gap-5 xl:grid-cols-[0.85fr_1.15fr]">
           <form onSubmit={createTrip} className="card min-w-0 space-y-3 p-5">
-            <h2 className="text-xl font-black">Create trip / album</h2>
+            <h2 className="font-serif text-2xl font-black">Create trip / album</h2>
             <input className="field" placeholder="Trip title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
             <input className="field" placeholder="Destination" value={form.destination} onChange={(e) => setForm({ ...form, destination: e.target.value })} />
             <div className="grid gap-3 sm:grid-cols-2">
               <input className="field" type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} />
               <input className="field" type="date" value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.target.value })} />
             </div>
+            <div className="space-y-2">
+              <p className="text-sm font-bold text-slatebody">Default location privacy</p>
+              {privacyModes.map(([value, title, copy]) => (
+                <button
+                  key={value}
+                  type="button"
+                  className={`privacy-card ${form.defaultLocationVisibility === value ? "privacy-card-active" : ""}`}
+                  onClick={() => setForm({ ...form, defaultLocationVisibility: value })}
+                >
+                  <span className="privacy-dot" />
+                  <span>
+                    <strong>{title}</strong>
+                    <small>{copy}</small>
+                  </span>
+                </button>
+              ))}
+            </div>
             <button className="btn-primary w-full"><Calendar size={18} /> Create Album</button>
           </form>
           <div className="grid min-w-0 gap-4 sm:grid-cols-2">
             {trips.map((trip) => (
               <Link key={trip.id} to={`/trips/${trip.id}`} className="card min-w-0 p-5 transition hover:-translate-y-1">
-                <p className="break-words text-xl font-black">{trip.title}</p>
+                <p className="break-words font-serif text-2xl font-black">{trip.title}</p>
                 <p className="break-words text-slatebody">{trip.destination}</p>
                 <p className="mt-4 text-sm font-bold text-primary">{trip._count?.uploads || 0} memories</p>
               </Link>
             ))}
+            {trips.length === 0 && <EmptyCard icon={MapPin} title="No trips yet" copy="Create your first album and QR memory link." />}
           </div>
         </section>
       </main>
@@ -313,31 +752,33 @@ function Dashboard() {
 
 function TripDetails() {
   const { tripId } = useParams();
+  const [searchParams] = useSearchParams();
   const [trip, setTrip] = useState(null);
-  const [tab, setTab] = useState("pending");
+  const [tab, setTab] = useState(searchParams.get("tab") || "pending");
   const [uploads, setUploads] = useState([]);
   const [selected, setSelected] = useState([]);
   const [qr, setQr] = useState(null);
+  const [mapData, setMapData] = useState(null);
+  const [chapterForm, setChapterForm] = useState({ title: "", note: "" });
   const pendingCount = uploads.filter((u) => u.status === "pending").length;
 
   async function load() {
-    const [tripData, uploadsData, qrData] = await Promise.all([
+    const [tripData, uploadsData, qrData, mapResponse] = await Promise.all([
       api(`/api/trips/${tripId}`),
       api(`/api/trips/${tripId}/uploads`),
-      api(`/api/trips/${tripId}/qr`)
+      api(`/api/trips/${tripId}/qr`),
+      api(`/api/trips/${tripId}/map`)
     ]);
     setTrip(tripData.trip);
     setUploads(uploadsData.uploads);
     setQr(qrData);
+    setMapData(mapResponse);
   }
 
   useEffect(() => { load(); }, [tripId]);
 
   async function action(id, name) {
-    await api(`/api/uploads/${id}/${name}`, {
-      method: "PATCH",
-      body: name === "report" ? JSON.stringify({ reportReason: "Reported by album owner", blockUploader: false }) : "{}"
-    });
+    await api(`/api/uploads/${id}/${name}`, { method: "PATCH", body: name === "report" ? JSON.stringify({ reportReason: "Reported by album owner", blockUploader: false }) : "{}" });
     load();
   }
 
@@ -358,22 +799,25 @@ function TripDetails() {
     alert("Private share link created and copied.");
   }
 
-  const visible = useMemo(() => uploads.filter((u) => tab === "pending" ? u.status === "pending" : u.status === "approved"), [uploads, tab]);
+  async function createChapter(event) {
+    event.preventDefault();
+    await api(`/api/trips/${tripId}/chapters`, { method: "POST", body: JSON.stringify(chapterForm) });
+    setChapterForm({ title: "", note: "" });
+    load();
+  }
 
+  const visible = uploads.filter((u) => tab === "pending" ? u.status === "pending" : u.status === "approved");
   if (!trip) return <Shell><main className="page-shell">Loading...</main></Shell>;
 
   return (
     <Shell>
       <main className="page-shell space-y-5">
         <div className="card min-w-0 p-5">
-          <h1 className="break-words text-3xl font-black">{tab === "pending" ? `Pending Memories (${pendingCount} new)` : trip.title}</h1>
+          <p className="text-sm font-black uppercase text-primary">Tourist Album</p>
+          <h1 className="break-words font-serif text-4xl font-black">{trip.title}</h1>
           <p className="break-words text-slatebody">{trip.destination}</p>
           <div className="mt-4 flex gap-2 overflow-x-auto">
-            {["pending", "approved", "qr", "stats"].map((item) => (
-              <button key={item} onClick={() => setTab(item)} className={tab === item ? "btn-primary shrink-0" : "btn-ghost shrink-0"}>
-                {item === "qr" ? "QR Settings" : item === "approved" ? "Approved Album" : item[0].toUpperCase() + item.slice(1)}
-              </button>
-            ))}
+            {["pending", "approved", "chapters", "map", "qr", "stats"].map((item) => <button key={item} onClick={() => setTab(item)} className={tab === item ? "btn-primary shrink-0" : "btn-ghost shrink-0"}>{item === "qr" ? "QR Settings" : item === "approved" ? "Approved Album" : item === "map" ? "Memory Map" : item[0].toUpperCase() + item.slice(1)}</button>)}
           </div>
         </div>
 
@@ -384,148 +828,428 @@ function TripDetails() {
               <button className="btn-green" disabled={!selected.length} onClick={() => bulk("approve")}><Check size={18} /> Approve Selected</button>
               <button className="btn-danger" disabled={!selected.length} onClick={() => bulk("reject")}>Reject Selected</button>
             </div>
-            {visible.length === 0 ? <EmptyPending /> : (
-              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                {visible.map((upload) => (
-                  <MediaCard
-                    key={upload.id}
-                    upload={upload}
-                    selected={selected.includes(upload.id)}
-                    onSelect={(id, checked) => setSelected((prev) => checked ? [...prev, id] : prev.filter((value) => value !== id))}
-                    onApprove={(id) => action(id, "approve")}
-                    onReject={(id) => action(id, "reject")}
-                    onReport={(id) => action(id, "report")}
-                  />
-                ))}
-              </div>
-            )}
+            {visible.length === 0 ? <EmptyCard title="No new uploads yet" copy="Share the QR at beaches, tours, and events to start collecting memories." /> : <MediaGrid uploads={visible} selected={selected} setSelected={setSelected} action={action} />}
           </section>
         )}
 
-        {tab === "approved" && (
-          visible.length === 0 ? <EmptyApproved /> : (
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {visible.map((upload) => <MediaCard key={upload.id} upload={upload} onDelete={(id) => api(`/api/uploads/${id}`, { method: "DELETE" }).then(load)} />)}
-            </div>
-          )
-        )}
-
-        {tab === "qr" && qr && (
-          <section className="grid gap-5 lg:grid-cols-[0.8fr_1.2fr]">
-            <div className="card p-5">
-              <img src={qr.dataUrl} alt="Trip QR code" className="mx-auto aspect-square w-full max-w-xs rounded-2xl bg-white object-contain" />
-              <a className="btn-primary mt-4 w-full" href={qr.scanUrl} target="_blank" rel="noreferrer"><QrCode size={18} /> Open QR landing page</a>
-            </div>
-            <div className="card min-w-0 space-y-3 p-5">
-              <h2 className="text-xl font-black">QR Settings</h2>
-              <p className="break-words text-sm text-slatebody">{qr.scanUrl}</p>
-              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-                <button className="btn-ghost" onClick={() => updateQr({ qrActive: !trip.qrActive })}>{trip.qrActive ? "Pause QR" : "Resume QR"}</button>
-                <button className="btn-ghost" onClick={() => updateQr({ regenerate: true })}><RefreshCw size={18} /> Regenerate</button>
-                <button className="btn-danger" onClick={() => updateQr({ qrActive: false, qrMode: "revoked" })}>Revoke</button>
-                <button className="btn-teal" onClick={createShareLink}><Copy size={18} /> Create private album link</button>
-              </div>
-            </div>
-          </section>
-        )}
-
-        {tab === "stats" && (
-          <div className="grid gap-4 sm:grid-cols-3">
-            <Stat label="Pending" value={pendingCount} />
-            <Stat label="Approved" value={uploads.filter((u) => u.status === "approved").length} />
-            <Stat label="Reported" value={uploads.filter((u) => u.status === "reported").length} />
-          </div>
-        )}
+        {tab === "approved" && (visible.length === 0 ? <EmptyCard title="No approved memories yet" copy="Approved uploads will appear in your album and memory map." /> : <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{visible.map((upload) => <MediaCard key={upload.id} upload={upload} onDelete={(id) => api(`/api/uploads/${id}`, { method: "DELETE" }).then(load)} />)}</div>)}
+        {tab === "chapters" && <ChaptersPanel chapters={trip.chapters || []} chapterForm={chapterForm} setChapterForm={setChapterForm} createChapter={createChapter} />}
+        {tab === "map" && <MemoryMap data={mapData} />}
+        {tab === "qr" && qr && <QrPanel qr={qr} trip={trip} updateQr={updateQr} createShareLink={createShareLink} />}
+        {tab === "stats" && <StatsGrid stats={{ Pending: pendingCount, Approved: uploads.filter((u) => u.status === "approved").length, Reported: uploads.filter((u) => u.status === "reported").length, "Map Pins": mapData?.pins?.length || 0 }} />}
+        <button className="floating-chapter-btn" onClick={() => setTab("chapters")}><Sparkles size={18} /> Start a new chapter</button>
       </main>
     </Shell>
   );
 }
 
-function Stat({ label, value }) {
-  return <div className="card p-5"><p className="text-sm font-bold text-slatebody">{label}</p><p className="text-4xl font-black text-primary">{value}</p></div>;
-}
-
-function EmptyPending() {
+function ChaptersPanel({ chapters, chapterForm, setChapterForm, createChapter }) {
   return (
-    <div className="card p-6 text-center">
-      <p className="text-2xl font-black">No new uploads yet... Keep exploring!</p>
-      <p className="mt-2 text-slatebody">Your QR is active — share it at the beach, on tours, or with new friends.</p>
-    </div>
+    <section className="grid gap-5 xl:grid-cols-[0.85fr_1.15fr]">
+      <form onSubmit={createChapter} className="card space-y-3 p-5">
+        <p className="text-sm font-black uppercase text-primary">Trip Journal</p>
+        <h2 className="font-serif text-2xl font-black">Start a new chapter</h2>
+        <input className="field" placeholder="Chapter title" value={chapterForm.title} onChange={(e) => setChapterForm({ ...chapterForm, title: e.target.value })} />
+        <textarea className="field min-h-28" placeholder="What happened in this part of the journey?" value={chapterForm.note} onChange={(e) => setChapterForm({ ...chapterForm, note: e.target.value })} />
+        <button className="btn-primary w-full"><Sparkles size={18} /> Save Chapter</button>
+      </form>
+      <div className="space-y-3">
+        {chapters.length === 0 && <EmptyCard icon={Sparkles} title="No chapters yet" copy="Start your first one to give the album a story, not just a gallery." />}
+        {chapters.map((chapter) => (
+          <article key={chapter.id} className="card p-5">
+            <p className="text-xs font-black uppercase text-primary">{new Date(chapter.createdAt).toLocaleDateString()}</p>
+            <h3 className="mt-1 font-serif text-2xl font-black">{chapter.title}</h3>
+            {chapter.note && <p className="mt-2 whitespace-pre-wrap text-slatebody">{chapter.note}</p>}
+          </article>
+        ))}
+      </div>
+    </section>
   );
 }
 
-function EmptyApproved() {
-  return (
-    <div className="card p-6 text-center">
-      <p className="text-2xl font-black">Your album is ready for magic!</p>
-      <p className="mt-2 text-slatebody">Approved shots appear here. Share the link with family or export later.</p>
-    </div>
-  );
-}
+function EventsDashboard() {
+  const [events, setEvents] = useState([]);
+  const [form, setForm] = useState({ title: "", description: "", category: "", location: "", startDate: "", endDate: "", visibility: "public", status: "live", coverImageUrl: "" });
 
-function QrLanding() {
-  const { qrToken } = useParams();
-  const [trip, setTrip] = useState(null);
+  async function load() {
+    const data = await api("/api/events");
+    setEvents(data.events);
+  }
+  useEffect(() => { load(); }, []);
 
-  useEffect(() => { api(`/api/public/qr/${qrToken}`).then((data) => setTrip(data.trip)); }, [qrToken]);
-  if (!trip) return <Shell><main className="page-shell">Loading...</main></Shell>;
+  async function createEvent(event) {
+    event.preventDefault();
+    await api("/api/events", { method: "POST", body: JSON.stringify({ ...form, coverImageUrl: form.coverImageUrl || null }) });
+    setForm({ title: "", description: "", category: "", location: "", startDate: "", endDate: "", visibility: "public", status: "live", coverImageUrl: "" });
+    load();
+  }
 
   return (
     <Shell>
-      <main className="page-shell flex min-h-[80vh] items-center justify-center">
-        <section className="card max-w-3xl space-y-5 p-5 sm:p-8">
-          <p className="text-sm font-black uppercase text-primary">Upload a Photo/Video to {trip.touristFirstName}’s Private Travel Album</p>
-          <h1 className="break-words text-3xl font-black">You’re about to upload to {trip.touristFirstName}’s private travel memories!</h1>
-          <div className="rounded-2xl bg-skysoft p-4">
-            <p className="font-black">This is a safe, one-way share:</p>
-            <ul className="mt-3 list-disc space-y-2 pl-5 text-slatebody">
-              <li>They review every upload before anything is saved.</li>
-              <li>You keep full ownership of your photo/video.</li>
-              <li>We never sell or use your content for AI training.</li>
-            </ul>
+      <main className="page-shell space-y-6">
+        <HeaderBlock eyebrow="Events Mode" title="Travel Events" copy="Discover meetups, photo walks, festivals, and host map-based memory spaces." />
+        <section className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
+          <form onSubmit={createEvent} className="card event-form-card min-w-0 space-y-4 p-5">
+            <div>
+              <p className="text-sm font-black uppercase text-primary">Event Details</p>
+              <h2 className="mt-1 font-serif text-3xl font-black">Host an Event</h2>
+              <p className="text-slatebody">Bring people together and collect memories in a shared album.</p>
+            </div>
+            <input className="field" placeholder="Event title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <input className="field" placeholder="Category" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} />
+              <input className="field" placeholder="Location" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <input className="field" type="datetime-local" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} />
+              <input className="field" type="datetime-local" value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.target.value })} />
+            </div>
+            <textarea className="field min-h-24" placeholder="Description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+            <input className="field" placeholder="Cover image URL (optional)" value={form.coverImageUrl} onChange={(e) => setForm({ ...form, coverImageUrl: e.target.value })} />
+            <button className="btn-primary w-full"><Calendar size={18} /> Create Event</button>
+          </form>
+          <div className="grid min-w-0 gap-4 sm:grid-cols-2">
+            {events.map((event) => <EventCard key={event.id} event={event} />)}
+            {events.length === 0 && <EmptyCard icon={Calendar} title="No hosted events" copy="Create a festival, party, tour, conference, wedding, or pop-up experience." />}
           </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {[
-              ["Private & Controlled", `Only ${trip.touristFirstName} sees pending uploads and decides what stays.`],
-              ["No Location Data Shared", "We automatically strip GPS, timestamps, and device info."],
-              ["Easy to Cancel", "Tap back if you change your mind."],
-              ["Why this exists", "Travelers love surprise candids from strangers. This makes it effortless and respectful."]
-            ].map(([title, copy]) => <div className="rounded-2xl border border-borderline bg-white p-4" key={title}><p className="font-black">{title}</p><p className="text-sm text-slatebody">{copy}</p></div>)}
-          </div>
-          <Link className="btn-primary w-full" to={`/qr/${qrToken}/upload`}><UploadCloud size={18} /> Continue to Upload</Link>
-          <p className="break-words text-center text-xs text-slatebody">Powered by Travel Share • Privacy-first travel sharing • Questions? {supportEmail}</p>
         </section>
       </main>
     </Shell>
   );
 }
 
-function UploadPage() {
+function EventCard({ event }) {
+  return (
+    <Link to={`/events/${event.id}`} className="card min-w-0 overflow-hidden p-5 transition hover:-translate-y-1">
+      {event.coverImageUrl && <img src={event.coverImageUrl} alt="" className="mb-4 h-32 w-full rounded-lg object-cover" />}
+      <p className="text-xs font-black uppercase text-primary">{event.category || "Event"} • {event.status}</p>
+      <p className="break-words font-serif text-2xl font-black">{event.title}</p>
+      <p className="break-words text-sm text-slatebody">{event.location || "Location TBD"}</p>
+      <p className="mt-4 text-sm font-bold text-primary">{event._count?.uploads || 0} memories • {event._count?.zones || 0} zones</p>
+    </Link>
+  );
+}
+
+function EventDetails() {
+  const { eventId } = useParams();
+  const [event, setEvent] = useState(null);
+  const [qr, setQr] = useState(null);
+  const [analytics, setAnalytics] = useState(null);
+  const [tab, setTab] = useState("map");
+  const [mapForm, setMapForm] = useState({ title: "Main Event Map", mapType: "image", imageUrl: "", mapboxStyle: "", centerLat: "", centerLng: "", zoom: "" });
+  const [zoneForm, setZoneForm] = useState({ name: "", type: "Photo Hotspot", description: "", x: "", y: "", latitude: "", longitude: "", crowdStatus: "low", displayOrder: 0 });
+
+  async function load() {
+    const [eventData, qrData, analyticsData] = await Promise.all([
+      api(`/api/events/${eventId}`),
+      api(`/api/events/${eventId}/qr`),
+      api(`/api/events/${eventId}/analytics`)
+    ]);
+    setEvent(eventData.event);
+    setQr(qrData);
+    setAnalytics(analyticsData.analytics);
+  }
+  useEffect(() => { load(); }, [eventId]);
+
+  async function saveMap(e) {
+    e.preventDefault();
+    await api(`/api/events/${eventId}/maps`, { method: "POST", body: JSON.stringify(cleanNumbers(mapForm)) });
+    setMapForm({ title: "Main Event Map", mapType: "image", imageUrl: "", mapboxStyle: "", centerLat: "", centerLng: "", zoom: "" });
+    load();
+  }
+
+  async function saveZone(e) {
+    e.preventDefault();
+    await api(`/api/events/${eventId}/zones`, { method: "POST", body: JSON.stringify(cleanNumbers(zoneForm)) });
+    setZoneForm({ name: "", type: "Photo Hotspot", description: "", x: "", y: "", latitude: "", longitude: "", crowdStatus: "low", displayOrder: 0 });
+    load();
+  }
+
+  async function crowd(zone, crowdStatus) {
+    await api(`/api/events/${eventId}/zones/${zone.id}`, { method: "PATCH", body: JSON.stringify({ crowdStatus }) });
+    load();
+  }
+
+  if (!event) return <Shell><main className="page-shell">Loading...</main></Shell>;
+
+  return (
+    <Shell>
+      <main className="page-shell space-y-5">
+        <div className="card p-5">
+          <p className="text-sm font-black uppercase text-primary">Event Experience Platform</p>
+          <h1 className="font-serif text-4xl font-black">{event.title}</h1>
+          <p className="text-slatebody">{event.location} • {event.status} • {event.visibility}</p>
+          <div className="mt-4 flex gap-2 overflow-x-auto">
+            {["map", "editor", "uploads", "qr", "analytics"].map((item) => <button key={item} onClick={() => setTab(item)} className={tab === item ? "btn-primary shrink-0" : "btn-ghost shrink-0"}>{item === "qr" ? "QR Codes" : item[0].toUpperCase() + item.slice(1)}</button>)}
+          </div>
+        </div>
+        {tab === "map" && <EventMap event={event} />}
+        {tab === "editor" && <EventEditor event={event} mapForm={mapForm} setMapForm={setMapForm} saveMap={saveMap} zoneForm={zoneForm} setZoneForm={setZoneForm} saveZone={saveZone} crowd={crowd} />}
+        {tab === "uploads" && <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{event.uploads.map((upload) => <MediaCard key={upload.id} upload={upload} onApprove={(id) => api(`/api/uploads/${id}/approve`, { method: "PATCH", body: "{}" }).then(load)} onReject={(id) => api(`/api/uploads/${id}/reject`, { method: "PATCH", body: "{}" }).then(load)} />)}</div>}
+        {tab === "qr" && <EventQr event={event} qr={qr} />}
+        {tab === "analytics" && <AnalyticsPanel analytics={analytics} />}
+      </main>
+    </Shell>
+  );
+}
+
+function Store() {
+  const [items, setItems] = useState([]);
+  const [message, setMessage] = useState("");
+  const [activeItem, setActiveItem] = useState(currentUser()?.activeStoreItem || null);
+  async function load() {
+    const [storeData, meData] = await Promise.all([api("/api/store"), api("/api/auth/me")]);
+    setItems(storeData.items);
+    updateStoredUser(meData.user);
+    setActiveItem(meData.user?.activeStoreItem || null);
+    applyActiveStoreItem(meData.user?.activeStoreItem || null);
+  }
+  useEffect(() => { load(); }, []);
+  async function buy(item) {
+    const data = await api(`/api/store/${item.id}/purchase`, { method: "POST", body: "{}" });
+    setMessage(data.message);
+    load();
+  }
+  async function checkout(item, provider) {
+    try {
+      const data = await api(`/api/store/${item.id}/checkout`, { method: "POST", body: JSON.stringify({ provider }) });
+      if (data.checkoutUrl) {
+        window.location.href = data.checkoutUrl;
+        return;
+      }
+      setMessage(`${provider} checkout created.`);
+    } catch (error) {
+      setMessage(error.message);
+    }
+  }
+  async function activate(item) {
+    const data = await api(`/api/store/${item.id}/activate`, { method: "POST", body: "{}" });
+    const user = { ...currentUser(), activeStoreItem: data.activeStoreItem };
+    updateStoredUser(user);
+    setActiveItem(data.activeStoreItem);
+    applyActiveStoreItem(data.activeStoreItem);
+    setMessage(`${item.name} is now active.`);
+  }
+  async function clearActive() {
+    await api("/api/store/activate", { method: "DELETE" });
+    const user = { ...currentUser(), activeStoreItem: null };
+    updateStoredUser(user);
+    setActiveItem(null);
+    applyActiveStoreItem(null);
+    setMessage("Active skin cleared.");
+  }
+  return (
+    <Shell>
+      <main className="page-shell space-y-6">
+        <HeaderBlock eyebrow="Premium Add-ons" title="Skins, frames, themes, QR styles" copy="Purchases are modeled now. Stripe checkout can plug into this store later." />
+        {message && <p className="rounded-lg border border-primary/30 bg-primary/10 p-3 font-bold text-primary">{message}</p>}
+        {activeItem && <div className="card flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"><p><span className="font-bold">Active:</span> {activeItem.name}</p><button className="btn-ghost" onClick={clearActive}>Clear active</button></div>}
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {items.map((item) => (
+            <article key={item.id} className="card overflow-hidden p-4">
+              <div className="h-36 rounded-lg bg-skysoft">{item.previewUrl && <img src={item.previewUrl} alt="" className="h-full w-full rounded-lg object-cover" />}</div>
+              <p className="mt-4 text-xs font-black uppercase text-primary">{item.type.replace("_", " ")}</p>
+              <h2 className="font-serif text-2xl font-black">{item.name}</h2>
+              <p className="text-sm text-slatebody">{item.description || "Premium TravelShare add-on."}</p>
+              {!item.owned && item.priceCents > 0 && <div className="mt-4 grid gap-2 sm:grid-cols-2"><button className="btn-primary" onClick={() => checkout(item, "stripe")}>Stripe</button><button className="btn-ghost" onClick={() => checkout(item, "paypal")}>PayPal</button></div>}
+              <button className={item.owned ? "btn-ghost mt-4 w-full" : "btn-primary mt-4 w-full"} disabled={item.owned || item.priceCents > 0} onClick={() => buy(item)}>
+                <ShoppingBag size={18} /> {item.owned ? "Owned" : item.priceCents ? `Checkout $${(item.priceCents / 100).toFixed(2)}` : "Unlock"}
+              </button>
+              {item.owned && <button className={activeItem?.id === item.id ? "btn-primary mt-2 w-full" : "btn-ghost mt-2 w-full"} disabled={activeItem?.id === item.id} onClick={() => activate(item)}>{activeItem?.id === item.id ? "Active" : "Activate"}</button>}
+            </article>
+          ))}
+          {items.length === 0 && <EmptyCard title="No add-ons yet" copy="Admin can add image skins, frames, themes, premium QR designs, and branded pages." />}
+        </div>
+      </main>
+    </Shell>
+  );
+}
+
+function Admin() {
+  const [tab, setTab] = useState("overview");
+  const [data, setData] = useState({});
+  const [adForm, setAdForm] = useState({ title: "", description: "", mediaUrl: "", mediaType: "image", linkUrl: "", active: true, priority: 0, displaySeconds: 12, placement: "global", startsAt: "", endsAt: "" });
+  const [itemForm, setItemForm] = useState({ name: "", description: "", type: "image_skin", priceCents: 0, previewUrl: "", active: true });
+
+  async function load() {
+    const [stats, users, events, guests, moderation, ads, store, analytics, settings] = await Promise.all([
+      api("/api/admin/stats"),
+      api("/api/admin/users"),
+      api("/api/admin/events"),
+      api("/api/admin/guests"),
+      api("/api/admin/moderation"),
+      api("/api/admin/ads"),
+      api("/api/admin/store"),
+      api("/api/admin/analytics"),
+      api("/api/admin/settings")
+    ]);
+    setData({ stats: stats.stats, users: users.users, events: events.events, guests: guests.guests, uploads: moderation.uploads, ads: ads.ads, store: store.items, analytics: analytics.analytics, settings: settings.settings });
+  }
+  useEffect(() => { load(); }, []);
+
+  async function role(user, nextRole) {
+    await api(`/api/admin/users/${user.id}`, { method: "PATCH", body: JSON.stringify({ role: nextRole }) });
+    load();
+  }
+
+  async function saveAd(e) {
+    e.preventDefault();
+    await api("/api/admin/ads", { method: "POST", body: JSON.stringify({ ...adForm, description: adForm.description || null, linkUrl: adForm.linkUrl || null, startsAt: adForm.startsAt ? new Date(adForm.startsAt).toISOString() : null, endsAt: adForm.endsAt ? new Date(adForm.endsAt).toISOString() : null }) });
+    setAdForm({ title: "", description: "", mediaUrl: "", mediaType: "image", linkUrl: "", active: true, priority: 0, displaySeconds: 12, placement: "global", startsAt: "", endsAt: "" });
+    load();
+  }
+
+  async function saveItem(e) {
+    e.preventDefault();
+    await api("/api/admin/store", { method: "POST", body: JSON.stringify({ ...itemForm, previewUrl: itemForm.previewUrl || null, priceCents: Number(itemForm.priceCents) }) });
+    setItemForm({ name: "", description: "", type: "image_skin", priceCents: 0, previewUrl: "", active: true });
+    load();
+  }
+
+  const downloadItems = useMemo(() => (data.store || []).filter((item) => item.type === "download_asset" && item.active), [data.store]);
+
+  async function assignDownloadItem(uploadId, itemId) {
+    await api(`/api/admin/uploads/${uploadId}/download-item`, { method: "PATCH", body: JSON.stringify({ itemId }) });
+    load();
+  }
+
+  return (
+    <Shell>
+      <main className="page-shell space-y-5">
+        <HeaderBlock eyebrow="Business Control Panel" title="Admin dashboard" copy="Manage users, organizers, events, maps, ads, store items, reports, analytics, and platform settings." />
+        <div className="flex gap-2 overflow-x-auto">
+          {["overview", "users", "organizers", "events", "maps", "memories", "ads", "store", "analytics", "settings"].map((item) => <button key={item} onClick={() => setTab(item)} className={tab === item ? "btn-primary shrink-0" : "btn-ghost shrink-0"}>{item}</button>)}
+        </div>
+        {tab === "overview" && <StatsGrid stats={data.stats || {}} />}
+        {tab === "users" && <UsersTable users={data.users || []} role={role} />}
+        {tab === "organizers" && <UsersTable users={(data.users || []).filter((u) => u.role === "organizer")} role={role} />}
+        {tab === "events" && <AdminEvents events={data.events || []} />}
+        {tab === "maps" && <AdminMaps events={data.events || []} />}
+        {tab === "memories" && <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{(data.uploads || []).map((upload) => <MediaCard key={upload.id} upload={upload} downloadOptions={downloadItems} currentDownloadItemId={upload.downloadPurchaseItemId} onChangeDownloadItem={assignDownloadItem} onReport={() => api(`/api/admin/moderation/${upload.id}/log`, { method: "POST", body: JSON.stringify({ action: "reviewed" }) })} />)}</div>}
+        {tab === "ads" && <AdsAdmin ads={data.ads || []} adForm={adForm} setAdForm={setAdForm} saveAd={saveAd} reload={load} />}
+        {tab === "store" && <StoreAdmin items={data.store || []} itemForm={itemForm} setItemForm={setItemForm} saveItem={saveItem} reload={load} />}
+        {tab === "analytics" && <AnalyticsPanel analytics={data.analytics} />}
+        {tab === "settings" && <SettingsAdmin settings={data.settings} />}
+      </main>
+    </Shell>
+  );
+}
+
+function PublicTripJoin() {
+  const { qrToken } = useParams();
+  const [trip, setTrip] = useState(null);
+  const [guest, setGuest] = useState(null);
+  useEffect(() => {
+    // fetch trip and persist guest token from server response so the guest can return if cookie wasn't set
+    api(`/api/public/qr/${qrToken}`).then((data) => {
+      setTrip(data.trip);
+      setGuest(data.guest);
+      if (data?.guest?.token) setGuestToken(data.guest.token);
+    }).catch(() => {});
+  }, [qrToken]);
+  if (!trip) return <Shell><main className="page-shell">Loading...</main></Shell>;
+  return <GuestJoin title={trip.title} subtitle={`${trip.touristFirstName}'s private travel album`} guest={guest} uploadTo={`/qr/${qrToken}/upload`} />;
+}
+
+function PublicEventJoin() {
+  const { qrToken } = useParams();
+  const [event, setEvent] = useState(null);
+  const [guest, setGuest] = useState(null);
+  useEffect(() => { api(`/api/public/event/${qrToken}`).then((data) => { setEvent(data.event); setGuest(data.guest); }); }, [qrToken]);
+  if (!event) return <Shell><main className="page-shell">Loading...</main></Shell>;
+  return <GuestJoin title={event.title} subtitle={event.location || "Event memory space"} guest={guest} uploadTo={`/event/${qrToken}/upload`} extra={<EventMap event={event} publicView />} />;
+}
+
+function PublicZoneJoin() {
+  const { qrToken } = useParams();
+  const [zone, setZone] = useState(null);
+  const [guest, setGuest] = useState(null);
+  useEffect(() => { api(`/api/public/zone/${qrToken}`).then((data) => { setZone(data.zone); setGuest(data.guest); }); }, [qrToken]);
+  if (!zone) return <Shell><main className="page-shell">Loading...</main></Shell>;
+  return <GuestJoin title={zone.name} subtitle={`${zone.event.title} memory zone`} guest={guest} uploadTo={`/zone/${qrToken}/upload`} />;
+}
+
+function GuestJoin({ title, subtitle, guest, uploadTo, extra }) {
+  const expired = guest?.expired || (guest?.expiresAt && new Date(guest.expiresAt) <= new Date());
+  return (
+    <Shell>
+      <main className="page-shell grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
+        <section className="card space-y-5 p-6">
+          <p className="text-sm font-black uppercase text-primary">Temporary guest access</p>
+          <h1 className="font-serif text-4xl font-black">{title}</h1>
+          <p className="text-slatebody">{subtitle}</p>
+          <div className="rounded-lg border border-primary/30 bg-primary/10 p-4">
+            <p className="font-bold">You can contribute without signing up for 3 days.</p>
+            <p className="mt-1 text-sm text-slatebody">Create an account later to keep memories, claim uploads, buy add-ons, or host your own albums/events.</p>
+            {guest?.expiresAt && <p className="mt-3 text-sm font-bold text-primary">Guest access expires: {new Date(guest.expiresAt).toLocaleString()}</p>}
+          </div>
+          {expired ? <Link className="btn-primary w-full" to="/signup">Create account to continue</Link> : <Link className="btn-primary w-full" to={uploadTo}><UploadCloud size={18} /> Upload memory</Link>}
+        </section>
+        <section className="space-y-4">{extra || <EmptyCard title="Privacy-first upload" copy="Uploads wait for approval unless the owner enables trusted auto-approval." />}</section>
+      </main>
+    </Shell>
+  );
+}
+
+function PublicUpload({ type }) {
   const { qrToken } = useParams();
   const navigate = useNavigate();
   const [file, setFile] = useState(null);
+  const [form, setForm] = useState({ caption: "", latitude: "", longitude: "", locationName: "", region: "", locationVisibility: "approximate" });
   const [error, setError] = useState("");
+  const [uploading, setUploading] = useState(false);
+
+  function useLocation() {
+    navigator.geolocation?.getCurrentPosition((pos) => setForm((prev) => ({ ...prev, latitude: String(pos.coords.latitude), longitude: String(pos.coords.longitude) })), () => setError("Location permission was not allowed. You can type the place instead."));
+  }
 
   async function submit(event) {
     event.preventDefault();
-    const form = new FormData();
-    form.append("file", file);
+    const body = new FormData();
+    body.append("file", file);
+    Object.entries(form).forEach(([key, value]) => { if (value !== undefined && value !== null) body.append(key, value); });
+    const path = type === "event" ? `/api/public/event/${qrToken}/uploads` : type === "zone" ? `/api/public/zone/${qrToken}/uploads` : `/api/public/qr/${qrToken}/uploads`;
     try {
-      await api(`/api/public/qr/${qrToken}/uploads`, { method: "POST", body: form });
-      navigate(`/qr/${qrToken}/success`);
+      setError("");
+      setUploading(true);
+      await api(path, { method: "POST", body, timeoutMs: 30000 });
+      navigate(type === "event" ? `/event/${qrToken}/success` : type === "zone" ? `/zone/${qrToken}/success` : `/qr/${qrToken}/success`);
     } catch (err) {
-      setError(err.message);
+      if (err?.name === "AbortError") setError("The upload took too long. Try a smaller file or check your connection.");
+      else setError(err.message || "Upload failed. Try again.");
+    } finally {
+      setUploading(false);
     }
   }
 
   return (
     <Shell>
       <main className="page-shell flex min-h-[75vh] items-center justify-center">
-        <form onSubmit={submit} className="card w-full max-w-lg space-y-4 p-5 sm:p-7">
-          <h1 className="text-2xl font-black">Upload a private memory</h1>
-          <input className="field" type="file" accept="image/*,video/*" onChange={(e) => setFile(e.target.files?.[0])} />
-          {error && <p className="rounded-2xl bg-red-50 p-3 text-sm font-bold text-reject">{error}</p>}
-          <button className="btn-primary w-full" disabled={!file}><UploadCloud size={18} /> Upload for review</button>
+        <form onSubmit={submit} className="card w-full max-w-xl space-y-4 p-5">
+          <h1 className="font-serif text-3xl font-black">Upload a memory</h1>
+          <input className="field" type="file" accept="image/*,video/*" onChange={(e) => setFile(e.target.files?.[0])} disabled={uploading} />
+          <input className="field" placeholder="Caption (optional)" value={form.caption} onChange={(e) => setForm({ ...form, caption: e.target.value })} />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <input className="field" placeholder="Location name" value={form.locationName} onChange={(e) => setForm({ ...form, locationName: e.target.value })} />
+            <input className="field" placeholder="Region" value={form.region} onChange={(e) => setForm({ ...form, region: e.target.value })} />
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <select className="field" value={form.locationVisibility} onChange={(e) => setForm({ ...form, locationVisibility: e.target.value })}>
+              <option value="exact">Exact</option>
+              <option value="approximate">Approximate</option>
+              <option value="hidden">Hidden</option>
+            </select>
+            <input className="field" placeholder="Latitude" value={form.latitude} onChange={(e) => setForm({ ...form, latitude: e.target.value })} />
+            <input className="field" placeholder="Longitude" value={form.longitude} onChange={(e) => setForm({ ...form, longitude: e.target.value })} />
+          </div>
+          <button type="button" className="btn-ghost w-full" onClick={useLocation}><MapPin size={18} /> Use device location</button>
+          {form.latitude && form.longitude && (
+            <a className="text-sm text-primary mt-2 inline-block" target="_blank" rel="noreferrer" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(form.latitude + ',' + form.longitude)}`}>
+              Open coordinates in Google Maps
+            </a>
+          )}
+          {error && <p className="rounded-lg bg-red-50 p-3 text-sm font-bold text-reject">{error}</p>}
+          <button className="btn-primary w-full" disabled={!file || uploading} aria-busy={uploading}><UploadCloud size={18} /> {uploading ? "Uploading..." : "Upload for review"}</button>
         </form>
       </main>
     </Shell>
@@ -533,7 +1257,22 @@ function UploadPage() {
 }
 
 function UploadSuccess() {
-  return <Shell><main className="page-shell flex min-h-[70vh] items-center justify-center"><div className="card max-w-lg p-7 text-center"><Check className="mx-auto text-trust" size={44} /><h1 className="mt-3 text-2xl font-black">Thanks! Your upload is waiting privately for approval.</h1><p className="mt-2 text-slatebody">Nothing appears in the album unless the tourist approves it.</p></div></main></Shell>;
+  const navigate = useNavigate();
+  return (
+    <Shell>
+      <main className="page-shell flex min-h-[70vh] items-center justify-center">
+        <div className="card max-w-lg p-7 text-center">
+          <Check className="mx-auto text-trust" size={44} />
+          <h1 className="mt-3 font-serif text-3xl font-black">Thanks! Your upload is waiting privately for approval.</h1>
+          <p className="mt-2 text-slatebody">Create an account to keep your memories after guest access expires.</p>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            <button className="btn-ghost" onClick={() => navigate(-1)}>Back to album</button>
+            <Link className="btn-primary" to="/signup">Create account</Link>
+          </div>
+        </div>
+      </main>
+    </Shell>
+  );
 }
 
 function ShareAlbum() {
@@ -541,7 +1280,6 @@ function ShareAlbum() {
   const [pin, setPin] = useState("");
   const [trip, setTrip] = useState(null);
   const [error, setError] = useState("");
-
   async function unlock(event) {
     event.preventDefault();
     try {
@@ -552,26 +1290,10 @@ function ShareAlbum() {
       setError(err.message);
     }
   }
-
   return (
     <Shell>
       <main className="page-shell space-y-5">
-        {!trip ? (
-          <form onSubmit={unlock} className="card mx-auto max-w-md space-y-4 p-5">
-            <Lock size={36} className="text-primary" />
-            <h1 className="text-2xl font-black">Private shared album</h1>
-            <input className="field" placeholder="PIN if required" value={pin} onChange={(e) => setPin(e.target.value)} />
-            {error && <p className="text-sm font-bold text-reject">{error}</p>}
-            <button className="btn-primary w-full">Open Album</button>
-          </form>
-        ) : (
-          <>
-            <div className="card p-5"><h1 className="break-words text-3xl font-black">{trip.title}</h1><p className="text-slatebody">{trip.destination}</p></div>
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {trip.uploads.map((upload) => <MediaCard key={upload.id} upload={upload} />)}
-            </div>
-          </>
-        )}
+        {!trip ? <form onSubmit={unlock} className="card mx-auto max-w-md space-y-4 p-5"><Lock size={36} className="text-primary" /><h1 className="font-serif text-3xl font-black">Private shared album</h1><input className="field" placeholder="PIN if required" value={pin} onChange={(e) => setPin(e.target.value)} />{error && <p className="text-sm font-bold text-reject">{error}</p>}<button className="btn-primary w-full">Open Album</button></form> : <><HeaderBlock eyebrow="Shared Album" title={trip.title} copy={trip.destination} /><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{trip.uploads.map((upload) => <MediaCard key={upload.id} upload={upload} />)}</div></>}
       </main>
     </Shell>
   );
@@ -582,9 +1304,9 @@ function Settings() {
     <Shell>
       <main className="page-shell">
         <section className="card max-w-3xl space-y-4 p-5">
-          <h1 className="text-3xl font-black">Settings</h1>
-          <p className="text-slatebody">Approved albums are private by default. QR links are separate from album share links, and upload links can be paused, revoked, regenerated, or expired from each trip.</p>
-          <p className="text-slatebody">Use HTTPS in production and keep Render, Netlify, PostgreSQL, and Cloudinary credentials out of source control.</p>
+          <h1 className="font-serif text-4xl font-black">Settings</h1>
+          <p className="text-slatebody">Guest access lasts 3 days. Uploads are approval-first by default. Location privacy can be exact, approximate, or hidden/general region.</p>
+          <p className="text-slatebody">Mapbox is the planned map provider. Add <code>VITE_MAPBOX_TOKEN</code> for production map rendering. Current map surfaces provide interactive TravelShare pins, routes, zones, and replay controls without adding a map SDK dependency.</p>
         </section>
       </main>
     </Shell>
@@ -596,9 +1318,9 @@ function Legal({ type }) {
     <Shell>
       <main className="page-shell">
         <article className="card max-w-4xl space-y-4 p-5 sm:p-8">
-          <h1 className="text-3xl font-black">{type === "privacy" ? "Privacy Policy" : "Terms"}</h1>
-          <p className="text-slatebody">Travel Share is designed for private, consent-forward travel memory sharing. Uploads remain pending until the album owner approves them.</p>
-          <p className="text-slatebody">We do not sell uploaded content or use it for AI training. Image metadata is stripped before storage when possible, and production media is stored in Cloudinary or S3.</p>
+          <h1 className="font-serif text-4xl font-black">{type === "privacy" ? "Privacy Policy" : "Terms"}</h1>
+          <p className="text-slatebody">TravelShare is designed for private, consent-forward travel and event memory sharing. Uploads remain pending until the album owner or organizer approves them.</p>
+          <p className="text-slatebody">We do not sell uploaded content or use it for AI training. Location sharing is optional and can be exact, approximate, or hidden.</p>
           <p className="text-slatebody">Report abuse to {supportEmail}.</p>
         </article>
       </main>
@@ -606,178 +1328,231 @@ function Legal({ type }) {
   );
 }
 
-function Admin() {
-  const [stats, setStats] = useState(null);
-  const [uploads, setUploads] = useState([]);
-  const [ads, setAds] = useState([]);
-  const [adForm, setAdForm] = useState({
-    title: "",
-    description: "",
-    mediaUrl: "",
-    mediaType: "image",
-    linkUrl: "",
-    active: true,
-    priority: 0,
-    displaySeconds: 12,
-    startsAt: "",
-    endsAt: ""
-  });
-  const [adFile, setAdFile] = useState(null);
-  const [editingAdId, setEditingAdId] = useState(null);
+function MemoryMap({ data }) {
+  const [selected, setSelected] = useState(null);
+  const [replayIndex, setReplayIndex] = useState(0);
+  const pins = data?.pins || [];
+  const route = data?.route || [];
+  const replay = data?.replay || [];
+  const activeReplay = replay[replayIndex];
+  return (
+    <section className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
+      <div className="map-surface">
+        <div className="absolute left-4 top-4 rounded-lg border border-borderline bg-panel/90 p-3">
+          <p className="text-xs font-black uppercase text-primary">Memory Map</p>
+          <p className="text-sm text-slatebody">{mapboxToken ? "Mapbox ready" : "Set VITE_MAPBOX_TOKEN for production maps"}</p>
+        </div>
+        {pins.map((pin, index) => <button key={pin.id} className="map-pin" style={{ left: `${15 + (index * 19) % 70}%`, top: `${24 + (index * 23) % 58}%` }} onClick={() => setSelected(pin)} title={pin.locationName}><MapPin size={18} /><span>{pin.count}</span></button>)}
+        {route.length > 1 && <div className="route-line" />}
+      </div>
+      <div className="space-y-4">
+        <div className="card p-5">
+          <h2 className="font-serif text-2xl font-black">Replay My Journey</h2>
+          <input className="mt-4 w-full" type="range" min="0" max={Math.max(0, replay.length - 1)} value={replayIndex} onChange={(e) => setReplayIndex(Number(e.target.value))} />
+          <p className="mt-3 text-sm text-slatebody">{activeReplay ? `${activeReplay.locationName} • ${new Date(activeReplay.createdAt).toLocaleString()}` : "Approve memories with locations to replay the trip."}</p>
+        </div>
+        <div className="card p-5">
+          <h2 className="font-serif text-2xl font-black">Most Memorable Places</h2>
+          <div className="mt-3 space-y-2">{pins.map((pin) => <button key={pin.id} className="flex w-full items-center justify-between rounded-lg bg-skysoft px-3 py-2 text-left" onClick={() => setSelected(pin)}><span>{pin.locationName}</span><span className="font-bold text-primary">{pin.count}</span></button>)}</div>
+        </div>
+        {selected && <div className="card p-5"><h2 className="font-serif text-2xl font-black">{selected.locationName}</h2><p className="text-slatebody">{selected.count} memories</p><div className="mt-3 grid grid-cols-3 gap-2">{selected.memories.map((memory) => <img key={memory.id} src={memory.fileUrl} alt="" className="aspect-square rounded-lg object-cover" />)}</div></div>}
+      </div>
+    </section>
+  );
+}
 
-  async function loadAdmin() {
-    api("/api/admin/stats").then((data) => setStats(data.stats));
-    api("/api/admin/moderation").then((data) => setUploads(data.uploads));
-    api("/api/admin/ads").then((data) => setAds(data.ads));
-  }
+function EventMap({ event }) {
+  const map = event.maps?.[0];
+  return (
+    <section className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
+      <div className="map-surface overflow-hidden">
+        {map?.imageUrl && <img src={map.imageUrl} alt="" className="absolute inset-0 h-full w-full object-cover opacity-60" />}
+        <div className="absolute left-4 top-4 rounded-lg border border-borderline bg-panel/90 p-3"><p className="text-xs font-black uppercase text-primary">Event Map</p><p className="text-sm text-slatebody">{map?.title || "Add a custom map in the editor"}</p></div>
+        {event.zones?.map((zone, index) => <Link key={zone.id} className={`zone-pin crowd-${zone.crowdStatus}`} to={`/zone/${zone.qrToken}`} style={{ left: `${zone.x || 18 + (index * 17) % 68}%`, top: `${zone.y || 22 + (index * 21) % 60}%` }}><MapPin size={16} />{zone.name}</Link>)}
+      </div>
+      <div className="space-y-3">
+        {event.zones?.map((zone) => <div key={zone.id} className="card p-4"><p className="font-bold">{zone.name}</p><p className="text-sm text-slatebody">{zone.type} • {zone.crowdStatus} traffic • {zone._count?.uploads || 0} memories</p><Link className="btn-ghost mt-3 w-full" to={`/zone/${zone.qrToken}`}><QrCode size={18} /> Open zone QR page</Link></div>)}
+        {(!event.zones || event.zones.length === 0) && <EmptyCard title="No zones yet" copy="Add entrances, stages, vendors, restrooms, VIP, first aid, bars, shuttles, merch, and photo hotspots." />}
+      </div>
+    </section>
+  );
+}
+
+function EventEditor({ event, mapForm, setMapForm, saveMap, zoneForm, setZoneForm, saveZone, crowd }) {
+  return (
+    <section className="grid gap-5 xl:grid-cols-2">
+      <form onSubmit={saveMap} className="card space-y-3 p-5">
+        <h2 className="font-serif text-2xl font-black">Event Map</h2>
+        <input className="field" placeholder="Map title" value={mapForm.title} onChange={(e) => setMapForm({ ...mapForm, title: e.target.value })} />
+        <input className="field" placeholder="Custom map image URL" value={mapForm.imageUrl} onChange={(e) => setMapForm({ ...mapForm, imageUrl: e.target.value })} />
+        <input className="field" placeholder="Mapbox style URL (optional)" value={mapForm.mapboxStyle} onChange={(e) => setMapForm({ ...mapForm, mapboxStyle: e.target.value })} />
+        <button className="btn-primary w-full"><Save size={18} /> Save Map</button>
+      </form>
+      <form onSubmit={saveZone} className="card space-y-3 p-5">
+        <h2 className="font-serif text-2xl font-black">Memory Zone</h2>
+        <input className="field" placeholder="Zone name" value={zoneForm.name} onChange={(e) => setZoneForm({ ...zoneForm, name: e.target.value })} />
+        <div className="grid gap-3 sm:grid-cols-2">
+          <input className="field" placeholder="Type" value={zoneForm.type} onChange={(e) => setZoneForm({ ...zoneForm, type: e.target.value })} />
+          <select className="field" value={zoneForm.crowdStatus} onChange={(e) => setZoneForm({ ...zoneForm, crowdStatus: e.target.value })}><option value="low">Low traffic</option><option value="moderate">Moderate traffic</option><option value="high">High traffic</option></select>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <input className="field" placeholder="Map X %" value={zoneForm.x} onChange={(e) => setZoneForm({ ...zoneForm, x: e.target.value })} />
+          <input className="field" placeholder="Map Y %" value={zoneForm.y} onChange={(e) => setZoneForm({ ...zoneForm, y: e.target.value })} />
+        </div>
+        <textarea className="field min-h-20" placeholder="Description" value={zoneForm.description} onChange={(e) => setZoneForm({ ...zoneForm, description: e.target.value })} />
+        <button className="btn-primary w-full"><QrCode size={18} /> Add Zone + QR</button>
+      </form>
+      <div className="xl:col-span-2 grid gap-3 md:grid-cols-3">
+        {event.zones.map((zone) => <div key={zone.id} className="card p-4"><p className="font-bold">{zone.name}</p><p className="text-sm text-slatebody">{zone.crowdStatus} traffic</p><div className="mt-3 flex gap-2"><button className="btn-ghost" onClick={() => crowd(zone, "low")}>Low</button><button className="btn-ghost" onClick={() => crowd(zone, "moderate")}>Med</button><button className="btn-ghost" onClick={() => crowd(zone, "high")}>High</button></div></div>)}
+      </div>
+    </section>
+  );
+}
+
+function EventQr({ event, qr }) {
+  return (
+    <section className="grid gap-5 lg:grid-cols-[0.8fr_1.2fr]">
+      <div className="card p-5">{qr?.dataUrl && <img src={qr.dataUrl} alt="Event QR code" className="mx-auto aspect-square w-full max-w-xs rounded-lg bg-qrwhite object-contain" />}<a className="btn-primary mt-4 w-full" href={qr?.scanUrl} target="_blank" rel="noreferrer"><QrCode size={18} /> Open event guest page</a></div>
+      <div className="grid gap-3 sm:grid-cols-2">{event.zones.map((zone) => <Link key={zone.id} className="card p-4" to={`/zone/${zone.qrToken}`}><p className="font-bold">{zone.name}</p><p className="text-sm text-slatebody">Zone-specific QR upload link</p></Link>)}</div>
+    </section>
+  );
+}
+
+function HeaderBlock({ eyebrow, title, copy }) {
+  return <section><p className="text-sm font-black uppercase text-primary">{eyebrow}</p><h1 className="mt-2 break-words font-serif text-4xl font-black">{title}</h1>{copy && <p className="mt-2 max-w-3xl text-slatebody">{copy}</p>}</section>;
+}
+
+function EmptyCard({ title, copy, icon: Icon = Sparkles }) {
+  return (
+    <div className="empty-card card p-8 text-center">
+      <div className="empty-icon mx-auto"><Icon size={34} /></div>
+      <p className="mt-5 font-serif text-2xl font-black">{title}</p>
+      <p className="mt-2 text-slatebody">{copy}</p>
+    </div>
+  );
+}
+
+function Stat({ label, value }) {
+  return <div className="card p-5"><p className="text-sm font-bold capitalize text-slatebody">{label}</p><p className="text-4xl font-black text-primary">{value ?? 0}</p></div>;
+}
+
+function StatsGrid({ stats }) {
+  return <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{Object.entries(stats || {}).map(([label, value]) => <Stat key={label} label={label} value={value} />)}</div>;
+}
+
+function MediaGrid({ uploads, selected, setSelected, action }) {
+  return <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{uploads.map((upload) => <MediaCard key={upload.id} upload={upload} selected={selected.includes(upload.id)} onSelect={(id, checked) => setSelected((prev) => checked ? [...prev, id] : prev.filter((value) => value !== id))} onApprove={(id) => action(id, "approve")} onReject={(id) => action(id, "reject")} onReport={(id) => action(id, "report")} />)}</div>;
+}
+
+function QrPanel({ qr, trip, updateQr, createShareLink }) {
+  return (
+    <section className="grid gap-5 lg:grid-cols-[0.8fr_1.2fr]">
+      <div className="card p-5"><img src={qr.dataUrl} alt="Trip QR code" className="mx-auto aspect-square w-full max-w-xs rounded-lg bg-qrwhite object-contain" /><a className="btn-primary mt-4 w-full" href={qr.scanUrl} target="_blank" rel="noreferrer"><QrCode size={18} /> Open guest page</a></div>
+      <div className="card min-w-0 space-y-3 p-5"><h2 className="font-serif text-2xl font-black">QR Settings</h2><p className="break-words text-sm text-slatebody">{qr.scanUrl}</p><div className="grid gap-2 sm:grid-cols-2"><button className="btn-ghost" onClick={() => updateQr({ qrActive: !trip.qrActive })}>{trip.qrActive ? "Pause QR" : "Resume QR"}</button><button className="btn-ghost" onClick={() => updateQr({ regenerate: true })}><RefreshCw size={18} /> Regenerate</button><button className="btn-danger" onClick={() => updateQr({ qrActive: false, qrMode: "revoked" })}>Revoke</button><button className="btn-teal" onClick={createShareLink}><Copy size={18} /> Private album link</button><button className="btn-ghost" onClick={() => updateQr({ qrMode: "approval_required" })}>Approval required</button><button className="btn-ghost" onClick={() => updateQr({ qrMode: "family_safe" })}>Family safe</button></div></div>
+    </section>
+  );
+}
+
+function UsersTable({ users, role }) {
+  return <div className="space-y-3">{users.map((user) => <div key={user.id} className="card flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-bold">{user.name}</p><p className="text-sm text-slatebody">{user.email} • {user.role}</p></div><select className="field sm:w-56" value={user.role} onChange={(e) => role(user, e.target.value)}><option value="tourist">tourist</option><option value="organizer">organizer</option><option value="platform_admin">platform admin</option><option value="guest">guest</option></select></div>)}</div>;
+}
+
+function AdminEvents({ events }) {
+  return <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{events.map((event) => <div key={event.id} className="card p-4"><p className="font-serif text-2xl font-black">{event.title}</p><p className="text-sm text-slatebody">{event.organizer?.email || "No organizer"} • {event.status}</p><p className="mt-3 text-primary">{event._count.uploads} uploads • {event._count.zones} zones</p></div>)}</div>;
+}
+
+function AdminMaps({ events }) {
+  return <div className="space-y-3">{events.map((event) => <div key={event.id} className="card p-4"><p className="font-bold">{event.title}</p><p className="text-sm text-slatebody">Manage maps and zones from the event detail page.</p><Link className="btn-primary mt-3" to={`/events/${event.id}`}><MapPin size={18} /> Open map tools</Link></div>)}</div>;
+}
+
+function AdsAdmin({ ads, adForm, setAdForm, saveAd, reload }) {
+  return (
+    <section className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
+      <form onSubmit={saveAd} className="card space-y-3 p-5"><h2 className="font-serif text-2xl font-black">Create Ad</h2><input className="field" placeholder="Title" value={adForm.title} onChange={(e) => setAdForm({ ...adForm, title: e.target.value })} /><textarea className="field min-h-20" placeholder="Description" value={adForm.description} onChange={(e) => setAdForm({ ...adForm, description: e.target.value })} /><input className="field" placeholder="Media URL" value={adForm.mediaUrl} onChange={(e) => setAdForm({ ...adForm, mediaUrl: e.target.value })} /><input className="field" placeholder="Click URL" value={adForm.linkUrl} onChange={(e) => setAdForm({ ...adForm, linkUrl: e.target.value })} /><div className="grid gap-3 sm:grid-cols-2"><select className="field" value={adForm.mediaType} onChange={(e) => setAdForm({ ...adForm, mediaType: e.target.value })}><option value="image">Image</option><option value="video">Video</option></select><select className="field" value={adForm.placement} onChange={(e) => setAdForm({ ...adForm, placement: e.target.value })}><option value="global">Global</option><option value="tourist">Tourist</option><option value="event">Event</option><option value="guest">Guest</option><option value="map">Map</option><option value="upload_success">Upload Success</option></select></div><button className="btn-primary w-full"><Save size={18} /> Save Ad</button></form>
+      <div className="space-y-3">{ads.map((ad) => <div key={ad.id} className="card p-4"><p className="font-bold">{ad.title}</p><p className="text-sm text-slatebody">{ad.placement} • {ad.active ? "active" : "paused"}</p><button className="btn-ghost mt-3" onClick={() => api(`/api/admin/ads/${ad.id}`, { method: "PATCH", body: JSON.stringify({ active: !ad.active }) }).then(reload)}>{ad.active ? "Pause" : "Activate"}</button></div>)}</div>
+    </section>
+  );
+}
+
+function StoreAdmin({ items, itemForm, setItemForm, saveItem, reload }) {
+  return (
+    <section className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
+      <form onSubmit={saveItem} className="card space-y-3 p-5"><h2 className="font-serif text-2xl font-black">Create Store Item</h2><input className="field" placeholder="Name" value={itemForm.name} onChange={(e) => setItemForm({ ...itemForm, name: e.target.value })} /><textarea className="field min-h-20" placeholder="Description" value={itemForm.description} onChange={(e) => setItemForm({ ...itemForm, description: e.target.value })} /><select className="field" value={itemForm.type} onChange={(e) => setItemForm({ ...itemForm, type: e.target.value })}><option value="image_skin">Image skin</option><option value="photo_frame">Photo frame</option><option value="album_theme">Album theme</option><option value="event_theme">Event theme</option><option value="download_asset">Download asset</option><option value="premium_qr">Premium QR</option><option value="branded_page">Branded page</option><option value="ad_free">Ad-free viewing</option></select><input className="field" type="number" placeholder="Price cents" value={itemForm.priceCents} onChange={(e) => setItemForm({ ...itemForm, priceCents: e.target.value })} /><input className="field" placeholder="Preview URL" value={itemForm.previewUrl} onChange={(e) => setItemForm({ ...itemForm, previewUrl: e.target.value })} /><button className="btn-primary w-full"><CircleDollarSign size={18} /> Save Add-on</button></form>
+      <div className="space-y-3">{items.map((item) => <div key={item.id} className="card p-4"><p className="font-bold">{item.name}</p><p className="text-sm text-slatebody">{item.type} • ${(item.priceCents / 100).toFixed(2)} • {item.active ? "active" : "paused"}</p><button className="btn-ghost mt-3" onClick={() => api(`/api/admin/store/${item.id}`, { method: "PATCH", body: JSON.stringify({ active: !item.active }) }).then(reload)}>{item.active ? "Pause" : "Activate"}</button></div>)}</div>
+    </section>
+  );
+}
+
+function AnalyticsPanel({ analytics }) {
+  return <section className="grid gap-5 lg:grid-cols-2"><div className="card p-5"><h2 className="font-serif text-2xl font-black"><Flame className="inline text-primary" /> Popular Zones</h2><div className="mt-3 space-y-2">{(analytics?.popularZones || []).map((zone, index) => <p key={`${zone.zone}-${index}`} className="rounded-lg bg-skysoft p-3">{zone.event ? `${zone.event} • ` : ""}{zone.zone || zone.name}: <span className="text-primary">{zone.count}</span> memories</p>)}</div></div><div className="card p-5"><h2 className="font-serif text-2xl font-black"><BarChart3 className="inline text-primary" /> Map Hotspots</h2><div className="mt-3 space-y-2">{(analytics?.mapHotspots || []).map((spot) => <p key={spot.locationName} className="rounded-lg bg-skysoft p-3">{spot.locationName}: <span className="text-primary">{spot.count}</span></p>)}</div></div></section>;
+}
+
+function SettingsAdmin({ settings }) {
+  const [videoUrl, setVideoUrl] = useState(settings?.backgroundVideoUrl || "/videos/come-to-barbados.mp4");
+  const [message, setMessage] = useState("");
 
   useEffect(() => {
-    loadAdmin();
-  }, []);
+    setVideoUrl(settings?.backgroundVideoUrl || "/videos/come-to-barbados.mp4");
+  }, [settings?.backgroundVideoUrl]);
 
-  function resetAdForm() {
-    setEditingAdId(null);
-    setAdFile(null);
-    setAdForm({ title: "", description: "", mediaUrl: "", mediaType: "image", linkUrl: "", active: true, priority: 0, displaySeconds: 12, startsAt: "", endsAt: "" });
-  }
-
-  function editAd(ad) {
-    setEditingAdId(ad.id);
-    setAdFile(null);
-    setAdForm({
-      title: ad.title || "",
-      description: ad.description || "",
-      mediaUrl: ad.mediaUrl || "",
-      mediaType: ad.mediaType || "image",
-      linkUrl: ad.linkUrl || "",
-      active: ad.active,
-      priority: ad.priority || 0,
-      displaySeconds: ad.displaySeconds || 12,
-      startsAt: ad.startsAt ? ad.startsAt.slice(0, 16) : "",
-      endsAt: ad.endsAt ? ad.endsAt.slice(0, 16) : ""
-    });
-  }
-
-  async function saveAd(event) {
+  async function save(event) {
     event.preventDefault();
-    let mediaUrl = adForm.mediaUrl;
-    let mediaType = adForm.mediaType;
-
-    if (adFile) {
-      const form = new FormData();
-      form.append("file", adFile);
-      const uploaded = await api("/api/admin/ads/media", { method: "POST", body: form });
-      mediaUrl = uploaded.media.fileUrl;
-      mediaType = uploaded.media.fileType;
-    }
-
-    const body = {
-      ...adForm,
-      mediaUrl,
-      mediaType,
-      priority: Number(adForm.priority),
-      displaySeconds: Number(adForm.displaySeconds),
-      startsAt: adForm.startsAt ? new Date(adForm.startsAt).toISOString() : null,
-      endsAt: adForm.endsAt ? new Date(adForm.endsAt).toISOString() : null,
-      description: adForm.description || null,
-      linkUrl: adForm.linkUrl || null
-    };
-    await api(editingAdId ? `/api/admin/ads/${editingAdId}` : "/api/admin/ads", {
-      method: editingAdId ? "PATCH" : "POST",
-      body: JSON.stringify(body)
-    });
-    resetAdForm();
-    loadAdmin();
+    await api("/api/admin/settings", { method: "PATCH", body: JSON.stringify({ backgroundVideoUrl: videoUrl }) });
+    setMessage("Background video updated.");
   }
 
   return (
-    <Shell>
-      <main className="page-shell space-y-5">
-        <h1 className="text-3xl font-black">Admin Dashboard</h1>
-        {stats && <div className="grid gap-4 sm:grid-cols-4">{Object.entries(stats).map(([label, value]) => <Stat key={label} label={label} value={value} />)}</div>}
-        <section className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
-          <form onSubmit={saveAd} className="card min-w-0 space-y-3 p-5">
-            <h2 className="text-2xl font-black">{editingAdId ? "Edit Ad" : "Add Internal Ad"}</h2>
-            <input className="field" placeholder="Ad title" value={adForm.title} onChange={(e) => setAdForm({ ...adForm, title: e.target.value })} />
-            <textarea className="field min-h-24" placeholder="Short description" value={adForm.description} onChange={(e) => setAdForm({ ...adForm, description: e.target.value })} />
-            <input className="field" type="file" accept="image/*,video/*" onChange={(e) => setAdFile(e.target.files?.[0] || null)} />
-            <input className="field" placeholder="Image or video URL, or upload a file above" value={adForm.mediaUrl} onChange={(e) => setAdForm({ ...adForm, mediaUrl: e.target.value })} />
-            <input className="field" placeholder="Click-through URL, optional" value={adForm.linkUrl} onChange={(e) => setAdForm({ ...adForm, linkUrl: e.target.value })} />
-            <div className="grid gap-3 sm:grid-cols-2">
-              <select className="field" value={adForm.mediaType} onChange={(e) => setAdForm({ ...adForm, mediaType: e.target.value })}>
-                <option value="image">Image ad</option>
-                <option value="video">Video ad</option>
-              </select>
-              <label className="flex min-w-0 items-center gap-3 rounded-2xl border border-borderline bg-white px-4 py-3 font-bold">
-                <input type="checkbox" checked={adForm.active} onChange={(e) => setAdForm({ ...adForm, active: e.target.checked })} />
-                Active
-              </label>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="min-w-0 text-sm font-bold text-slatebody">Priority<input className="field mt-1" type="number" min="0" max="1000" value={adForm.priority} onChange={(e) => setAdForm({ ...adForm, priority: e.target.value })} /></label>
-              <label className="min-w-0 text-sm font-bold text-slatebody">Display seconds<input className="field mt-1" type="number" min="5" max="60" value={adForm.displaySeconds} onChange={(e) => setAdForm({ ...adForm, displaySeconds: e.target.value })} /></label>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="min-w-0 text-sm font-bold text-slatebody">Starts at<input className="field mt-1" type="datetime-local" value={adForm.startsAt} onChange={(e) => setAdForm({ ...adForm, startsAt: e.target.value })} /></label>
-              <label className="min-w-0 text-sm font-bold text-slatebody">Ends at<input className="field mt-1" type="datetime-local" value={adForm.endsAt} onChange={(e) => setAdForm({ ...adForm, endsAt: e.target.value })} /></label>
-            </div>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <button className="btn-primary flex-1"><Save size={18} /> {editingAdId ? "Save Ad" : "Add Ad"}</button>
-              {editingAdId && <button type="button" className="btn-ghost" onClick={resetAdForm}>Cancel</button>}
-            </div>
-          </form>
-          <div className="space-y-3">
-            <h2 className="text-2xl font-black">Internal Ads</h2>
-            {ads.length === 0 ? <div className="card p-5 text-slatebody">No ads yet.</div> : ads.map((ad) => (
-              <article key={ad.id} className="card min-w-0 overflow-hidden p-4">
-                <div className="flex min-w-0 flex-col gap-3 sm:flex-row">
-                  <div className="h-32 w-full shrink-0 overflow-hidden rounded-xl bg-skysoft sm:w-44">
-                    {ad.mediaType === "video" ? <video src={ad.mediaUrl} controls className="h-full w-full object-cover" /> : <img src={ad.mediaUrl} alt="" className="h-full w-full object-cover" />}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="break-words text-lg font-black">{ad.title}</p>
-                    <p className="break-words text-sm text-slatebody">{ad.description || "No description"}</p>
-                    <p className="mt-2 text-xs font-bold uppercase text-report">{ad.active ? "Active" : "Paused"} • {ad.mediaType} • priority {ad.priority} • {ad.displaySeconds}s</p>
-                    <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-                      <button className="btn-ghost" onClick={() => editAd(ad)}>Edit</button>
-                      <button className="btn-ghost" onClick={() => api(`/api/admin/ads/${ad.id}`, { method: "PATCH", body: JSON.stringify({ active: !ad.active }) }).then(loadAdmin)}>
-                        {ad.active ? "Pause" : "Activate"}
-                      </button>
-                      <button className="btn-danger" onClick={() => api(`/api/admin/ads/${ad.id}`, { method: "DELETE" }).then(loadAdmin)}><Trash2 size={17} /> Delete</button>
-                    </div>
-                  </div>
-                </div>
-              </article>
-            ))}
-          </div>
-        </section>
-        <section>
-          <h2 className="mb-3 text-2xl font-black">Admin Moderation</h2>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {uploads.map((upload) => <MediaCard key={upload.id} upload={upload} onReport={() => api(`/api/admin/moderation/${upload.id}/log`, { method: "POST", body: JSON.stringify({ action: "reviewed" }) })} />)}
-          </div>
-        </section>
-      </main>
-    </Shell>
+    <div className="space-y-5">
+      <form onSubmit={save} className="card space-y-3 p-5">
+        <h2 className="font-serif text-2xl font-black">App Background Video</h2>
+        <p className="text-sm text-slatebody">Use a public app path like <code>/videos/come-to-barbados.mp4</code> or a hosted video URL.</p>
+        <input className="field" value={videoUrl} onChange={(e) => setVideoUrl(e.target.value)} />
+        {message && <p className="text-sm font-bold text-primary">{message}</p>}
+        <button className="btn-primary"><Save size={18} /> Update Video</button>
+      </form>
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {Object.entries(settings || {}).map(([key, value]) => <div key={key} className="card p-5"><p className="text-sm font-bold text-slatebody">{key}</p><p className="mt-2 break-words text-2xl font-black text-primary">{String(value)}</p></div>)}
+      </div>
+    </div>
   );
+}
+
+function cleanNumbers(obj) {
+  return Object.fromEntries(Object.entries(obj).map(([key, value]) => [key, value === "" ? null : value]));
 }
 
 export default function App() {
   return (
     <>
+      <SessionSync />
+      <ScreenshotGuard />
+      <AppBackground />
       <Routes>
         <Route path="/" element={<Landing />} />
         <Route path="/signup" element={<AuthPage mode="signup" />} />
         <Route path="/login" element={<AuthPage mode="login" />} />
+        <Route path="/guest" element={<GuestMode />} />
+        <Route path="/discover" element={<DiscoverEvents />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password/:token" element={<ResetPassword />} />
+        <Route path="/oauth/callback" element={<OAuthCallback />} />
         <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+        <Route path="/tourist" element={<PrivateRoute><TouristDashboard /></PrivateRoute>} />
         <Route path="/trips/:tripId" element={<PrivateRoute><TripDetails /></PrivateRoute>} />
+        <Route path="/events" element={<PrivateRoute roles={["organizer", "platform_admin"]}><EventsDashboard /></PrivateRoute>} />
+        <Route path="/events/:eventId" element={<PrivateRoute roles={["organizer", "platform_admin"]}><EventDetails /></PrivateRoute>} />
+        <Route path="/store" element={<PrivateRoute><Store /></PrivateRoute>} />
         <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
-        <Route path="/admin" element={<PrivateRoute><Admin /></PrivateRoute>} />
-        <Route path="/qr/:qrToken" element={<QrLanding />} />
-        <Route path="/qr/:qrToken/upload" element={<UploadPage />} />
+        <Route path="/admin" element={<PrivateRoute roles={["platform_admin"]}><Admin /></PrivateRoute>} />
+        <Route path="/qr/:qrToken" element={<PublicTripJoin />} />
+        <Route path="/qr/:qrToken/upload" element={<PublicUpload type="trip" />} />
         <Route path="/qr/:qrToken/success" element={<UploadSuccess />} />
+        <Route path="/event/:qrToken" element={<PublicEventJoin />} />
+        <Route path="/event/:qrToken/upload" element={<PublicUpload type="event" />} />
+        <Route path="/event/:qrToken/success" element={<UploadSuccess />} />
+        <Route path="/zone/:qrToken" element={<PublicZoneJoin />} />
+        <Route path="/zone/:qrToken/upload" element={<PublicUpload type="zone" />} />
+        <Route path="/zone/:qrToken/success" element={<UploadSuccess />} />
         <Route path="/share/:token" element={<ShareAlbum />} />
         <Route path="/privacy" element={<Legal type="privacy" />} />
         <Route path="/terms" element={<Legal type="terms" />} />

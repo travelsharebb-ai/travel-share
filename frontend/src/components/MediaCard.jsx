@@ -1,9 +1,10 @@
 import { Check, Eye, Flag, Trash2, X } from "lucide-react";
+import { API_URL } from "../lib/api";
 
-export default function MediaCard({ upload, selected, onSelect, onApprove, onReject, onReport, onDelete }) {
+export default function MediaCard({ upload, selected, onSelect, onApprove, onReject, onReport, onDelete, downloadOptions, currentDownloadItemId, onChangeDownloadItem }) {
   return (
     <article className="card min-w-0 overflow-hidden">
-      <div className="aspect-[4/3] w-full overflow-hidden bg-skysoft">
+      <div className="watermarked-media aspect-[4/3] w-full overflow-hidden bg-skysoft" data-watermark="TravelShare">
         {upload.fileType === "video" ? (
           <video src={upload.fileUrl} controls className="h-full w-full object-cover" />
         ) : (
@@ -13,6 +14,11 @@ export default function MediaCard({ upload, selected, onSelect, onApprove, onRej
       <div className="space-y-3 p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
+            {onChangeDownloadItem && (
+              <div className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${currentDownloadItemId ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"}`}>
+                {currentDownloadItemId ? "Download gated" : "No download asset"}
+              </div>
+            )}
             <p className="break-words text-sm font-black">{upload.uploaderAnonId}</p>
             <p className="text-xs text-slatebody">{new Date(upload.createdAt).toLocaleString()}</p>
             <p className="text-xs font-bold uppercase tracking-wide text-report">{upload.fileType} • AI check: {upload.aiFlagged ? "Flagged" : "Clear"}</p>
@@ -28,7 +34,7 @@ export default function MediaCard({ upload, selected, onSelect, onApprove, onRej
           )}
         </div>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <a className="btn-ghost" href={upload.fileUrl} target="_blank" rel="noreferrer">
+          <a className="btn-ghost" href={upload.id ? `${API_URL}/api/downloads/${upload.id}` : upload.fileUrl} target="_blank" rel="noreferrer">
             <Eye size={17} /> View full
           </a>
           {onApprove && <button className="btn-green" onClick={() => onApprove(upload.id)}><Check size={17} /> Approve & Save</button>}
@@ -36,6 +42,18 @@ export default function MediaCard({ upload, selected, onSelect, onApprove, onRej
           {onReport && <button className="btn-ghost" onClick={() => onReport(upload.id)}><Flag size={17} /> Report</button>}
           {onDelete && <button className="btn-ghost" onClick={() => onDelete(upload.id)}><Trash2 size={17} /> Delete</button>}
         </div>
+        {onChangeDownloadItem ? (
+          <div className="rounded-lg border border-borderline bg-slate-50 p-3 text-sm">
+            <label className="mb-2 block font-semibold">Download access</label>
+            <select className="field" value={currentDownloadItemId || ""} onChange={(event) => onChangeDownloadItem(upload.id, event.target.value || null)}>
+              <option value="">No download asset assigned</option>
+              {downloadOptions?.map((item) => (
+                <option key={item.id} value={item.id}>{item.name} - ${((item.priceCents || 0) / 100).toFixed(2)}</option>
+              ))}
+            </select>
+            <p className="mt-2 text-xs text-slatebody">Assigned download assets gate the full view to buyers and the uploader.</p>
+          </div>
+        ) : null}
       </div>
     </article>
   );

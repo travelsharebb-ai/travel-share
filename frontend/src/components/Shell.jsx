@@ -1,69 +1,106 @@
 import { Link, NavLink, useNavigate } from "react-router-dom";
-import { Camera, LayoutDashboard, LogOut, Menu, ShieldCheck } from "lucide-react";
+import { ArrowLeft, CalendarDays, Camera, Compass, LayoutDashboard, LogOut, Map, Menu, ShieldCheck, ShoppingBag, Sparkles, UserCircle } from "lucide-react";
 import { clearSession, currentUser } from "../lib/api";
 
 export default function Shell({ children }) {
   const user = currentUser();
   const navigate = useNavigate();
+  const isAdmin = ["admin", "platform_admin"].includes(user?.role);
+  const isOrganizer = ["organizer", "admin", "platform_admin"].includes(user?.role);
   const links = user
     ? [
         ["Dashboard", "/dashboard", LayoutDashboard],
+        ["Tourist", "/tourist", Compass],
+        ...(isOrganizer ? [["Events", "/events", CalendarDays]] : []),
+        ["Store", "/store", ShoppingBag],
         ["Settings", "/settings", ShieldCheck],
-        ...(user.role === "admin" ? [["Admin", "/admin", ShieldCheck]] : [])
+        ...(isAdmin ? [["Admin", "/admin", ShieldCheck]] : [])
       ]
     : [];
 
   return (
     <div className="min-h-screen bg-sand text-navy">
-      <header className="sticky top-0 z-40 border-b border-borderline bg-white/95 backdrop-blur">
-        <div className="page-shell flex items-center justify-between gap-3 py-3">
-          <Link to="/" className="flex min-w-0 items-center gap-2 font-black text-primary">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-skysoft">
-              <Camera size={22} />
-            </span>
-            <span className="truncate text-lg">Travel Share</span>
-          </Link>
-          <nav className="hidden min-w-0 items-center gap-2 md:flex">
-            {links.map(([label, href, Icon]) => (
-              <NavLink key={href} to={href} className="btn-ghost">
-                <Icon size={18} />
-                {label}
-              </NavLink>
-            ))}
-          </nav>
-          <div className="flex items-center gap-2">
-            {user ? (
+      {user ? (
+        <div className="grid min-h-screen lg:grid-cols-[284px_1fr]">
+          <aside className="hidden border-r border-borderline bg-panel/80 lg:flex lg:flex-col">
+            <Link to="/dashboard" className="flex items-center gap-3 px-6 py-7 text-primary">
+              <span className="flex h-10 w-10 items-center justify-center rounded-full border border-primary/40 bg-primary/10">
+                <Compass size={22} />
+              </span>
+              <span className="font-serif text-2xl font-black">TravelShare</span>
+            </Link>
+            <nav className="flex flex-1 flex-col gap-2 px-4">
+              {links.map(([label, href, Icon]) => (
+                <NavLink key={href} to={href} className={({ isActive }) => isActive ? "side-link side-link-active" : "side-link"}>
+                  <Icon size={19} />
+                  {label}
+                </NavLink>
+              ))}
+            </nav>
+            <div className="m-4 rounded-lg border border-borderline bg-skysoft p-3">
+              <div className="flex items-center gap-3">
+                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/20 text-primary"><UserCircle size={20} /></span>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-bold">{user.name}</p>
+                  <p className="truncate text-xs capitalize text-slatebody">{user.role.replace("_", " ")}</p>
+                </div>
+              </div>
               <button
-                className="btn-ghost"
+                className="btn-ghost mt-3 w-full"
                 onClick={() => {
                   clearSession();
                   navigate("/");
                 }}
               >
-                <LogOut size={18} />
-                <span className="hidden sm:inline">Log out</span>
+                <LogOut size={18} /> Sign out
               </button>
-            ) : (
-              <>
-                <Link className="btn-ghost" to="/login">Login</Link>
-                <Link className="btn-primary" to="/signup">Sign up</Link>
-              </>
-            )}
-            <Menu className="md:hidden" size={22} />
+            </div>
+          </aside>
+          <div className="min-w-0">
+            <div className="hidden px-6 pt-4 lg:block">
+              <button className="btn-ghost" onClick={() => navigate(-1)}><ArrowLeft size={18} /> Back</button>
+            </div>
+            <header className="sticky top-0 z-40 border-b border-borderline bg-sand/95 backdrop-blur lg:hidden">
+              <div className="flex items-center justify-between gap-3 px-4 py-3">
+                <Link to="/dashboard" className="flex min-w-0 items-center gap-2 font-serif text-xl font-black text-primary">
+                  <Compass size={22} />
+                  <span className="truncate">TravelShare</span>
+                </Link>
+                <Menu size={22} />
+              </div>
+              <nav className="flex gap-2 overflow-x-auto px-4 pb-3">
+                <button className="btn-ghost shrink-0" onClick={() => navigate(-1)}><ArrowLeft size={17} /> Back</button>
+                {links.map(([label, href, Icon]) => (
+                  <NavLink key={href} to={href} className="btn-ghost shrink-0">
+                    <Icon size={17} />
+                    {label}
+                  </NavLink>
+                ))}
+              </nav>
+            </header>
+            {children}
           </div>
         </div>
-        {user && (
-          <div className="page-shell flex gap-2 overflow-x-auto py-2 md:hidden">
-            {links.map(([label, href, Icon]) => (
-              <NavLink key={href} to={href} className="btn-ghost shrink-0">
-                <Icon size={17} />
-                {label}
-              </NavLink>
-            ))}
-          </div>
-        )}
-      </header>
-      {children}
+      ) : (
+        <>
+          <header className="sticky top-0 z-40 border-b border-borderline bg-sand/95 backdrop-blur">
+            <div className="page-shell flex items-center justify-between gap-3 py-3">
+              <div className="flex min-w-0 items-center gap-2">
+                <button className="btn-ghost shrink-0" onClick={() => navigate(-1)}><ArrowLeft size={17} /> Back</button>
+                <Link to="/" className="flex min-w-0 items-center gap-2 font-serif text-xl font-black text-primary">
+                  <Camera size={22} />
+                  <span className="truncate">TravelShare</span>
+                </Link>
+              </div>
+              <div className="flex items-center gap-2">
+                <Link className="btn-ghost" to="/login">Login</Link>
+                <Link className="btn-primary" to="/signup"><Sparkles size={18} /> Sign up</Link>
+              </div>
+            </div>
+          </header>
+          {children}
+        </>
+      )}
     </div>
   );
 }

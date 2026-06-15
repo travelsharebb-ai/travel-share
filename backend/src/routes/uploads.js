@@ -2,14 +2,22 @@ import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../utils/prisma.js";
 import { notifyReportedUpload } from "../utils/email.js";
+import { isPlatformAdmin } from "../middleware/auth.js";
 
 const router = Router();
 
 async function ownedUpload(userId, uploadId) {
   return prisma.upload.findFirst({
-    where: { id: uploadId, trip: { userId } },
-    include: { trip: true }
+    where: { id: uploadId, OR: [{ trip: { userId } }, { event: { organizerId: userId } }] },
+    include: { trip: true, event: true }
   });
+}
+
+async function manageableUpload(req, uploadId) {
+  if (isPlatformAdmin(req.user)) {
+    return prisma.upload.findUnique({ where: { id: uploadId }, include: { trip: true, event: true } });
+  }
+  return ownedUpload(req.user.id, uploadId);
 }
 
 router.get("/trips/:tripId/uploads", async (req, res) => {
@@ -25,7 +33,7 @@ router.get("/trips/:tripId/uploads", async (req, res) => {
 });
 
 router.patch("/uploads/:uploadId/approve", async (req, res) => {
-  const upload = await ownedUpload(req.user.id, req.params.uploadId);
+  const upload = await manageableUpload(req, req.params.uploadId);
   if (!upload) return res.status(404).json({ error: "Upload not found." });
 
   const updated = await prisma.upload.update({
@@ -36,7 +44,7 @@ router.patch("/uploads/:uploadId/approve", async (req, res) => {
 });
 
 router.patch("/uploads/:uploadId/reject", async (req, res) => {
-  const upload = await ownedUpload(req.user.id, req.params.uploadId);
+  const upload = await manageableUpload(req, req.params.uploadId);
   if (!upload) return res.status(404).json({ error: "Upload not found." });
 
   const updated = await prisma.upload.update({
@@ -53,7 +61,7 @@ router.patch("/uploads/:uploadId/report", async (req, res, next) => {
       blockUploader: z.boolean().optional()
     });
     const data = schema.parse(req.body);
-    const upload = await ownedUpload(req.user.id, req.params.uploadId);
+    const upload = await manageableUpload(req, req.params.uploadId);
     if (!upload) return res.status(404).json({ error: "Upload not found." });
 
     const updated = await prisma.upload.update({
@@ -62,7 +70,7 @@ router.patch("/uploads/:uploadId/report", async (req, res, next) => {
       include: { trip: true }
     });
 
-    if (data.blockUploader) {
+    if (data.blockUploader && upload.tripId) {
       await prisma.blockedUploader.upsert({
         where: {
           tripId_uploaderFingerprint: {
@@ -90,7 +98,7 @@ router.patch("/uploads/:uploadId/report", async (req, res, next) => {
 });
 
 router.delete("/uploads/:uploadId", async (req, res) => {
-  const upload = await ownedUpload(req.user.id, req.params.uploadId);
+  const upload = await manageableUpload(req, req.params.uploadId);
   if (!upload) return res.status(404).json({ error: "Upload not found." });
   await prisma.upload.delete({ where: { id: upload.id } });
   res.status(204).end();

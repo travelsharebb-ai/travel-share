@@ -12,7 +12,8 @@ const tripSchema = z.object({
   destination: z.string().min(2).max(120),
   startDate: z.string().optional().nullable(),
   endDate: z.string().optional().nullable(),
-  qrExpiresAt: z.string().optional().nullable()
+  qrExpiresAt: z.string().optional().nullable(),
+  defaultLocationVisibility: z.enum(["exact", "approximate", "hidden"]).optional()
 });
 
 router.get("/", async (req, res) => {
@@ -35,6 +36,7 @@ router.post("/", async (req, res, next) => {
         startDate: data.startDate ? new Date(data.startDate) : null,
         endDate: data.endDate ? new Date(data.endDate) : null,
         qrExpiresAt: data.qrExpiresAt ? new Date(data.qrExpiresAt) : null,
+        defaultLocationVisibility: data.defaultLocationVisibility || "approximate",
         qrToken: secureToken(24)
       }
     });
@@ -44,17 +46,96 @@ router.post("/", async (req, res, next) => {
   }
 });
 
+router.get("/:tripId/map", async (req, res) => {
+  const trip = await prisma.trip.findFirst({
+    where: { id: req.params.tripId, userId: req.user.id },
+    include: {
+      uploads: {
+        where: { status: "approved" },
+        orderBy: { createdAt: "asc" }
+      }
+    }
+  });
+  if (!trip) return res.status(404).json({ error: "Trip not found." });
+
+  const visibleUploads = trip.uploads.map((upload) => {
+    const lat = upload.locationVisibility === "exact" ? upload.latitude : upload.approximateLatitude;
+    const lng = upload.locationVisibility === "exact" ? upload.longitude : upload.approximateLongitude;
+    return {
+      id: upload.id,
+      fileUrl: upload.fileUrl,
+      fileType: upload.fileType,
+      caption: upload.caption,
+      locationName: upload.locationName || upload.region || "Travel memory",
+      region: upload.region,
+      latitude: upload.locationVisibility === "hidden" ? null : lat,
+      longitude: upload.locationVisibility === "hidden" ? null : lng,
+      createdAt: upload.createdAt,
+      locationVisibility: upload.locationVisibility
+    };
+  });
+
+  const groups = new Map();
+  for (const memory of visibleUploads) {
+    const key = memory.latitude === null || memory.longitude === null
+      ? `hidden:${memory.region || "Hidden"}`
+      : `${memory.locationName}:${memory.latitude}:${memory.longitude}`;
+    const existing = groups.get(key) || {
+      id: key,
+      locationName: memory.locationName,
+      latitude: memory.latitude,
+      longitude: memory.longitude,
+      count: 0,
+      memories: []
+    };
+    existing.count += 1;
+    existing.memories.push(memory);
+    groups.set(key, existing);
+  }
+
+  res.json({
+    trip: { id: trip.id, title: trip.title, destination: trip.destination },
+    pins: Array.from(groups.values()),
+    route: visibleUploads.filter((memory) => memory.latitude !== null && memory.longitude !== null),
+    heatmap: Array.from(groups.values()).map((pin) => ({ latitude: pin.latitude, longitude: pin.longitude, weight: pin.count, locationName: pin.locationName })),
+    replay: visibleUploads
+  });
+});
+
 router.get("/:tripId", async (req, res) => {
   const trip = await prisma.trip.findFirst({
     where: { id: req.params.tripId, userId: req.user.id },
     include: {
       uploads: { orderBy: { createdAt: "desc" } },
       shareLinks: { orderBy: { createdAt: "desc" } },
+      chapters: { orderBy: { createdAt: "desc" } },
       _count: { select: { uploads: true } }
     }
   });
   if (!trip) return res.status(404).json({ error: "Trip not found." });
   res.json({ trip });
+});
+
+router.post("/:tripId/chapters", async (req, res, next) => {
+  try {
+    const schema = z.object({
+      title: z.string().min(2).max(120),
+      note: z.string().max(800).optional().nullable()
+    });
+    const data = schema.parse(req.body);
+    const trip = await prisma.trip.findFirst({ where: { id: req.params.tripId, userId: req.user.id } });
+    if (!trip) return res.status(404).json({ error: "Trip not found." });
+    const chapter = await prisma.tripChapter.create({
+      data: {
+        tripId: trip.id,
+        title: data.title,
+        note: data.note || null
+      }
+    });
+    res.status(201).json({ chapter });
+  } catch (error) {
+    next(error);
+  }
 });
 
 router.get("/:tripId/qr", async (req, res) => {
@@ -70,7 +151,7 @@ router.patch("/:tripId/qr-settings", async (req, res, next) => {
   try {
     const schema = z.object({
       qrActive: z.boolean().optional(),
-      qrMode: z.enum(["open", "paused", "expired", "revoked"]).optional(),
+      qrMode: z.enum(["open", "approval_required", "trusted", "time_limited", "family_safe", "paused", "expired", "revoked"]).optional(),
       qrExpiresAt: z.string().nullable().optional(),
       regenerate: z.boolean().optional()
     });

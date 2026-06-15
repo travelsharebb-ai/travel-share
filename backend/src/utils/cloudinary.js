@@ -49,3 +49,36 @@ export async function uploadMedia(file) {
     fileType: isVideo ? "video" : "image"
   };
 }
+
+export function signedMediaUrl({ filePublicId, fileType, expiresInSeconds = 300 }, options = {}) {
+  if (!filePublicId || filePublicId.startsWith("mock/")) return null;
+  if (!process.env.CLOUDINARY_URL && !(process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET)) {
+    return null;
+  }
+  const watermarkText = options.watermarkText?.trim();
+  const transformation = watermarkText ? [{
+    overlay: {
+      font_family: "Arial",
+      font_size: 40,
+      font_weight: "bold",
+      text: watermarkText
+    },
+    color: "white",
+    opacity: 60,
+    gravity: "south_east",
+    x: 24,
+    y: 24,
+    effect: "shadow"
+  }] : undefined;
+
+  const opts = {
+    resource_type: fileType === "video" ? "video" : "image",
+    type: "upload",
+    sign_url: true,
+    secure: true,
+    expires_at: Math.floor(Date.now() / 1000) + expiresInSeconds,
+  };
+  if (transformation) opts.transformation = transformation;
+
+  return cloudinary.url(filePublicId, opts);
+}

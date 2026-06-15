@@ -178,7 +178,7 @@ npm run prisma:generate --workspace backend
 Production deploy:
 
 ```bash
-npm run prisma:deploy --workspace backend
+npm run start --workspace backend
 ```
 
 E2E test database setup:
@@ -202,6 +202,12 @@ TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/travel_share_tes
 - Prisma migrations must be additive and reviewed before production deployment.
 - Render restarts and deploys can wipe local files, so production uploads must live in Cloudinary/S3 and all records must live in PostgreSQL.
 - Run e2e tests only against a disposable PostgreSQL database using `TEST_DATABASE_URL`.
+- User JSON export is available at `GET /api/auth/export?format=json`.
+- User dry-run/import metadata is available at `POST /api/auth/import`.
+- Platform admin site export is available at `POST /api/admin/export/site`.
+- Platform admin import validation is available at `POST /api/admin/import?dryRun=true`.
+- Controlled media downloads are available at `GET /api/downloads/:uploadId`.
+- Paid add-ons use checkout endpoints for Stripe or PayPal: `POST /api/store/:itemId/checkout` with `{ "provider": "stripe" }` or `{ "provider": "paypal" }`.
 
 ## Render Deployment Steps
 
@@ -218,10 +224,10 @@ npm install && npm run prisma:generate && npm run build
 6. Start command:
 
 ```bash
-npm run prisma:deploy && npm start
+prisma generate && prisma migrate deploy && node src/index.js
 ```
 
-7. Add all backend env vars in Render.
+7. Add all backend env vars in Render. See `backend/ENVIRONMENT.md`.
 8. Set health check path to `/health`.
 9. Set `CORS_ORIGIN` and `FRONTEND_URL` to the Netlify URL.
 10. Set SendGrid, Sightengine, and `FINGERPRINT_SECRET` env vars before accepting production uploads.
@@ -277,6 +283,8 @@ dist
 5. Redeploy Render and Netlify.
 6. Log back in and confirm the trip, QR code, approval status, share link, and media still exist.
 7. Confirm no files are required from the Render server filesystem.
+8. Purchase and activate a store item, then confirm `GET /api/auth/me` still returns `activeStoreItem` after redeploy.
+9. Run scheduled backups with `scripts/db-backup.sh` and test restore with `scripts/db-restore.sh` against a disposable database.
 
 - Add payment plans if monetization is needed.
 - Add browser-level Playwright tests once a staging Netlify/Render environment exists.

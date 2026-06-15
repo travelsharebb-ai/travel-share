@@ -51,6 +51,15 @@ export function getOrSetUploaderSession(req, res) {
   return created;
 }
 
+export function readCookie(req, name) {
+  return parseCookies(req.get("cookie"))[name];
+}
+
+export function setGuestSessionCookie(res, token) {
+  const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
+  res.setHeader("Set-Cookie", `ts_guest=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${60 * 60 * 24 * 3}${secure}`);
+}
+
 export function fingerprintFromRequest(req) {
   const secret = process.env.FINGERPRINT_SECRET || process.env.JWT_SECRET || "local-dev-fingerprint-secret";
   const sessionToken = parseCookies(req.get("cookie")).ts_uploader || "no-session";

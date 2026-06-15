@@ -2,7 +2,8 @@ import { Router } from "express";
 import { z } from "zod";
 import multer from "multer";
 import { prisma } from "../utils/prisma.js";
-import { uploadMedia } from "../utils/cloudinary.js";
+import { uploadMedia } from "../utils/storage.js";
+import { cleanUpload, cleanUser } from "../utils/exportImport.js";
 
 const router = Router();
 const maxMb = Number(process.env.MAX_UPLOAD_SIZE_MB || 50);
@@ -20,18 +21,190 @@ const adSchema = z.object({
   active: z.boolean().optional(),
   priority: z.coerce.number().int().min(0).max(1000).optional(),
   displaySeconds: z.coerce.number().int().min(5).max(60).optional(),
+  placement: z.enum(["global", "tourist", "event", "guest", "map", "upload_success"]).optional(),
   startsAt: z.string().datetime().optional().nullable(),
   endsAt: z.string().datetime().optional().nullable()
 });
 
+const storeItemSchema = z.object({
+  name: z.string().min(2).max(120),
+  description: z.string().max(500).optional().nullable(),
+  type: z.enum(["image_skin", "photo_frame", "album_theme", "event_theme", "download_asset", "premium_qr", "branded_page", "ad_free"]),
+  priceCents: z.coerce.number().int().min(0).optional(),
+  previewUrl: z.string().url().optional().nullable(),
+  active: z.boolean().optional(),
+  metadata: z.any().optional().nullable()
+});
+
+async function settingValue(key, fallback) {
+  const setting = await prisma.platformSetting.findUnique({ where: { key } }).catch(() => null);
+  return setting?.value || fallback;
+}
+
 router.get("/stats", async (_req, res) => {
-  const [users, trips, uploads, reported] = await Promise.all([
+  const [users, organizers, guests, trips, events, uploads, reported, ads, storeItems] = await Promise.all([
     prisma.user.count(),
+    prisma.user.count({ where: { role: "organizer" } }),
+    prisma.guestSession.count(),
     prisma.trip.count(),
+    prisma.event.count(),
     prisma.upload.count(),
-    prisma.upload.count({ where: { status: "reported" } })
+    prisma.upload.count({ where: { status: "reported" } }),
+    prisma.internalAd.count(),
+    prisma.purchaseItem.count()
   ]);
-  res.json({ stats: { users, trips, uploads, reported } });
+  res.json({ stats: { users, organizers, guests, trips, events, uploads, reported, ads, storeItems } });
+});
+
+router.post("/export/site", async (req, res, next) => {
+  try {
+    const [users, trips, events, uploads, settings, ads, storeItems, purchases, guests] = await Promise.all([
+      prisma.user.findMany({ include: { activeStoreItem: true } }),
+      prisma.trip.findMany({ include: { chapters: true, shareLinks: true } }),
+      prisma.event.findMany({ include: { maps: true, zones: true } }),
+      prisma.upload.findMany(),
+      prisma.platformSetting.findMany(),
+      prisma.internalAd.findMany(),
+      prisma.purchaseItem.findMany(),
+      prisma.userPurchase.findMany(),
+      prisma.guestSession.findMany()
+    ]);
+    res.json({
+      exportedAt: new Date().toISOString(),
+      formatVersion: 1,
+      users: users.map(cleanUser),
+      trips,
+      events,
+      uploads: uploads.map(cleanUpload),
+      settings,
+      ads,
+      storeItems,
+      purchases,
+      guests
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post("/import", async (req, res) => {
+  const dryRun = req.query.dryRun !== "false";
+  res.json({
+    dryRun,
+    valid: true,
+    counts: {
+      users: Array.isArray(req.body?.users) ? req.body.users.length : 0,
+      trips: Array.isArray(req.body?.trips) ? req.body.trips.length : 0,
+      events: Array.isArray(req.body?.events) ? req.body.events.length : 0,
+      uploads: Array.isArray(req.body?.uploads) ? req.body.uploads.length : 0,
+      storeItems: Array.isArray(req.body?.storeItems) ? req.body.storeItems.length : 0
+    },
+    message: "Dry-run validation complete. Full admin restore should use database backup/restore for now."
+  });
+});
+
+router.get("/users", async (req, res) => {
+  const q = req.query.q?.toString() || "";
+  const users = await prisma.user.findMany({
+    where: q ? { OR: [{ name: { contains: q, mode: "insensitive" } }, { email: { contains: q, mode: "insensitive" } }] } : {},
+    select: { id: true, name: true, email: true, role: true, createdAt: true, _count: { select: { trips: true, organizedEvents: true, purchases: true } } },
+    orderBy: { createdAt: "desc" },
+    take: 100
+  });
+  res.json({ users });
+});
+
+router.patch("/users/:userId", async (req, res, next) => {
+  try {
+    const schema = z.object({
+      role: z.enum(["tourist", "admin", "platform_admin", "organizer", "guest"]).optional(),
+      name: z.string().min(2).max(80).optional()
+    });
+    const data = schema.parse(req.body);
+    const user = await prisma.user.update({
+      where: { id: req.params.userId },
+      data,
+      select: { id: true, name: true, email: true, role: true }
+    });
+    res.json({ user });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get("/events", async (_req, res) => {
+  const events = await prisma.event.findMany({
+    include: { organizer: { select: { name: true, email: true } }, _count: { select: { uploads: true, zones: true } } },
+    orderBy: { startDate: "desc" }
+  });
+  res.json({ events });
+});
+
+router.get("/guests", async (_req, res) => {
+  const guests = await prisma.guestSession.findMany({
+    include: { claimedBy: { select: { name: true, email: true } }, _count: { select: { uploads: true } } },
+    orderBy: { createdAt: "desc" },
+    take: 100
+  });
+  res.json({ guests });
+});
+
+router.get("/analytics", async (_req, res) => {
+  const zones = await prisma.mapZone.findMany({
+    include: { event: { select: { title: true } }, _count: { select: { uploads: true } } },
+    orderBy: { updatedAt: "desc" },
+    take: 50
+  });
+  const mapHotspots = await prisma.upload.groupBy({
+    by: ["locationName"],
+    where: { locationName: { not: null } },
+    _count: { id: true },
+    orderBy: { _count: { id: "desc" } },
+    take: 20
+  });
+  res.json({
+    analytics: {
+      popularZones: zones.map((zone) => ({ event: zone.event.title, zone: zone.name, count: zone._count.uploads, crowdStatus: zone.crowdStatus })),
+      mapHotspots: mapHotspots.map((item) => ({ locationName: item.locationName, count: item._count.id }))
+    }
+  });
+});
+
+router.get("/settings", async (_req, res) => {
+  res.json({
+    settings: {
+      guestAccessDays: Number(process.env.GUEST_ACCESS_DAYS || 3),
+      maxUploadSizeMb: Number(process.env.MAX_UPLOAD_SIZE_MB || 50),
+      defaultPrivacy: process.env.DEFAULT_LOCATION_VISIBILITY || "approximate",
+      moderationProvider: process.env.MODERATION_PROVIDER || "disabled",
+      mapProvider: "mapbox",
+      paymentProvider: process.env.PAYMENT_PROVIDER || "planned_stripe",
+      backgroundVideoUrl: await settingValue("backgroundVideoUrl", process.env.BACKGROUND_VIDEO_URL || "/videos/come-to-barbados.mp4")
+    }
+  });
+});
+
+router.patch("/settings", async (req, res, next) => {
+  try {
+    const schema = z.object({
+      backgroundVideoUrl: z.string().min(1).max(500).optional()
+    });
+    const data = schema.parse(req.body);
+    if (data.backgroundVideoUrl !== undefined) {
+      await prisma.platformSetting.upsert({
+        where: { key: "backgroundVideoUrl" },
+        update: { value: data.backgroundVideoUrl },
+        create: { key: "backgroundVideoUrl", value: data.backgroundVideoUrl }
+      });
+    }
+    res.json({
+      settings: {
+        backgroundVideoUrl: await settingValue("backgroundVideoUrl", process.env.BACKGROUND_VIDEO_URL || "/videos/come-to-barbados.mp4")
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
 });
 
 router.get("/moderation", async (_req, res) => {
@@ -43,6 +216,19 @@ router.get("/moderation", async (_req, res) => {
     orderBy: { createdAt: "desc" }
   });
   res.json({ uploads });
+});
+
+router.patch("/uploads/:uploadId/download-item", async (req, res, next) => {
+  try {
+    const data = z.object({ itemId: z.string().optional().nullable() }).parse(req.body);
+    const upload = await prisma.upload.update({
+      where: { id: req.params.uploadId },
+      data: { downloadPurchaseItemId: data.itemId }
+    });
+    res.json({ upload });
+  } catch (error) {
+    next(error);
+  }
 });
 
 router.post("/moderation/:uploadId/log", async (req, res, next) => {
@@ -71,6 +257,46 @@ router.get("/ads", async (_req, res) => {
     orderBy: [{ active: "desc" }, { priority: "desc" }, { updatedAt: "desc" }]
   });
   res.json({ ads });
+});
+
+router.get("/store", async (_req, res) => {
+  const items = await prisma.purchaseItem.findMany({
+    include: { _count: { select: { purchases: true } } },
+    orderBy: [{ active: "desc" }, { updatedAt: "desc" }]
+  });
+  res.json({ items });
+});
+
+router.post("/store", async (req, res, next) => {
+  try {
+    const data = storeItemSchema.parse(req.body);
+    const item = await prisma.purchaseItem.create({
+      data: {
+        ...data,
+        description: data.description || null,
+        previewUrl: data.previewUrl || null,
+        priceCents: data.priceCents || 0,
+        active: data.active ?? true,
+        metadata: data.metadata || undefined
+      }
+    });
+    res.status(201).json({ item });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.patch("/store/:itemId", async (req, res, next) => {
+  try {
+    const data = storeItemSchema.partial().parse(req.body);
+    const item = await prisma.purchaseItem.update({
+      where: { id: req.params.itemId },
+      data
+    });
+    res.json({ item });
+  } catch (error) {
+    next(error);
+  }
 });
 
 router.post("/ads/media", upload.single("file"), async (req, res, next) => {

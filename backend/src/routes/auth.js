@@ -5,8 +5,9 @@ import { z } from "zod";
 import { prisma } from "../utils/prisma.js";
 import { authLimiter } from "../middleware/rateLimits.js";
 import { requireAuth } from "../middleware/auth.js";
-import { hashToken, secureToken } from "../utils/tokens.js";
+import { hashToken, readCookie, secureToken } from "../utils/tokens.js";
 import { sendPasswordResetEmail } from "../utils/email.js";
+import { cleanUpload, cleanUser } from "../utils/exportImport.js";
 
 const router = Router();
 
@@ -16,7 +17,8 @@ const credentialsSchema = z.object({
 });
 
 const signupSchema = credentialsSchema.extend({
-  name: z.string().min(2).max(80)
+  name: z.string().min(2).max(80),
+  guestToken: z.string().optional().nullable()
 });
 
 const resetRequestSchema = z.object({
@@ -32,6 +34,51 @@ function sign(user) {
   return jwt.sign({ sub: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: "7d" });
 }
 
+function defaultRoleForEmail(email) {
+  return process.env.ADMIN_EMAIL === email ? "platform_admin" : "tourist";
+}
+
+function providerConfig(provider) {
+  if (provider === "google") {
+    return {
+      name: "Google",
+      authUrl: "https://accounts.google.com/o/oauth2/v2/auth",
+      tokenUrl: "https://oauth2.googleapis.com/token",
+      userInfoUrl: "https://openidconnect.googleapis.com/v1/userinfo",
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      redirectUri: process.env.GOOGLE_REDIRECT_URI || `${process.env.BACKEND_URL || process.env.API_URL || "http://localhost:10000"}/api/auth/oauth/google/callback`,
+      scope: "openid email profile"
+    };
+  }
+
+  if (provider === "microsoft") {
+    return {
+      name: "Microsoft",
+      authUrl: "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+      tokenUrl: "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+      userInfoUrl: "https://graph.microsoft.com/oidc/userinfo",
+      clientId: process.env.MICROSOFT_CLIENT_ID,
+      clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
+      redirectUri: process.env.MICROSOFT_REDIRECT_URI || `${process.env.BACKEND_URL || process.env.API_URL || "http://localhost:10000"}/api/auth/oauth/microsoft/callback`,
+      scope: "openid email profile"
+    };
+  }
+
+  return null;
+}
+
+function oauthConfigured(config) {
+  return Boolean(config?.clientId && config?.clientSecret);
+}
+
+function frontendOAuthUrl(payload) {
+  const url = new URL("/oauth/callback", process.env.FRONTEND_URL || "http://localhost:5173");
+  url.searchParams.set("token", payload.token);
+  url.searchParams.set("user", Buffer.from(JSON.stringify(payload.user)).toString("base64url"));
+  return url.toString();
+}
+
 router.post("/signup", authLimiter, async (req, res, next) => {
   try {
     const data = signupSchema.parse(req.body);
@@ -41,14 +88,101 @@ router.post("/signup", authLimiter, async (req, res, next) => {
         name: data.name,
         email: data.email.toLowerCase(),
         passwordHash,
-        role: process.env.ADMIN_EMAIL === data.email.toLowerCase() ? "admin" : "tourist"
+        role: defaultRoleForEmail(data.email.toLowerCase())
       },
       select: { id: true, name: true, email: true, role: true }
     });
 
+    const guestToken = data.guestToken || readCookie(req, "ts_guest");
+    if (guestToken) {
+      const guest = await prisma.guestSession.findFirst({
+        where: { token: guestToken, claimedById: null, expiresAt: { gt: new Date() } }
+      });
+      if (guest) {
+        await prisma.$transaction([
+          prisma.guestSession.update({ where: { id: guest.id }, data: { claimedById: user.id } }),
+          prisma.trip.updateMany({ where: { guestSessionId: guest.id, userId: null }, data: { userId: user.id } }),
+          prisma.event.updateMany({ where: { guestSessionId: guest.id, organizerId: null }, data: { organizerId: user.id } })
+        ]);
+      }
+    }
+
     res.status(201).json({ user, token: sign(user) });
   } catch (error) {
     if (error.code === "P2002") return res.status(409).json({ error: "Email already exists." });
+    next(error);
+  }
+});
+
+router.get("/oauth/:provider", authLimiter, (req, res) => {
+  const provider = req.params.provider;
+  const config = providerConfig(provider);
+  if (!config) {
+    return res.status(404).json({ error: "OAuth provider not supported." });
+  }
+
+  if (!oauthConfigured(config)) {
+    return res.status(501).json({
+      error: `${config.name} sign-in is ready in code, but provider credentials are missing. Add ${provider.toUpperCase()}_CLIENT_ID and ${provider.toUpperCase()}_CLIENT_SECRET.`
+    });
+  }
+
+  const state = jwt.sign({ provider }, process.env.JWT_SECRET, { expiresIn: "10m" });
+  const url = new URL(config.authUrl);
+  url.searchParams.set("client_id", config.clientId);
+  url.searchParams.set("redirect_uri", config.redirectUri);
+  url.searchParams.set("response_type", "code");
+  url.searchParams.set("scope", config.scope);
+  url.searchParams.set("state", state);
+  url.searchParams.set("prompt", "select_account");
+  res.redirect(url.toString());
+});
+
+router.get("/oauth/:provider/callback", authLimiter, async (req, res, next) => {
+  try {
+    const provider = req.params.provider;
+    const config = providerConfig(provider);
+    if (!config || !oauthConfigured(config)) return res.status(404).send("OAuth provider not configured.");
+
+    const payload = jwt.verify(req.query.state, process.env.JWT_SECRET);
+    if (payload.provider !== provider) return res.status(400).send("Invalid OAuth state.");
+    if (!req.query.code) return res.status(400).send("Missing OAuth code.");
+
+    const tokenResponse = await fetch(config.tokenUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        client_id: config.clientId,
+        client_secret: config.clientSecret,
+        code: req.query.code.toString(),
+        grant_type: "authorization_code",
+        redirect_uri: config.redirectUri
+      })
+    });
+    const tokenData = await tokenResponse.json();
+    if (!tokenResponse.ok) return res.status(400).send(tokenData.error_description || tokenData.error || "OAuth token exchange failed.");
+
+    const profileResponse = await fetch(config.userInfoUrl, {
+      headers: { Authorization: `Bearer ${tokenData.access_token}` }
+    });
+    const profile = await profileResponse.json();
+    if (!profileResponse.ok || !profile.email) return res.status(400).send("Could not read OAuth profile email.");
+
+    const email = profile.email.toLowerCase();
+    const user = await prisma.user.upsert({
+      where: { email },
+      update: { name: profile.name || profile.given_name || email },
+      create: {
+        name: profile.name || profile.given_name || email.split("@")[0],
+        email,
+        passwordHash: await bcrypt.hash(secureToken(24), 12),
+        role: defaultRoleForEmail(email)
+      },
+      select: { id: true, name: true, email: true, role: true }
+    });
+
+    res.redirect(frontendOAuthUrl({ user, token: sign(user) }));
+  } catch (error) {
     next(error);
   }
 });
@@ -141,8 +275,101 @@ router.post("/reset-password", authLimiter, async (req, res, next) => {
   }
 });
 
-router.get("/me", requireAuth, (req, res) => {
-  res.json({ user: req.user });
+router.get("/me", requireAuth, async (req, res, next) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        purchases: { include: { item: true }, orderBy: { createdAt: "desc" } },
+        activeStoreItem: true
+      }
+    });
+    res.json({ user });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get("/export", requireAuth, async (req, res, next) => {
+  try {
+    const format = req.query.format?.toString() || "json";
+    if (format !== "json") return res.status(400).json({ error: "Only JSON export is available in this build." });
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      include: {
+        purchases: { include: { item: true } },
+        activeStoreItem: true,
+        trips: { include: { chapters: true, shareLinks: true, uploads: true } },
+        organizedEvents: { include: { maps: true, zones: true, uploads: true } }
+      }
+    });
+    res.setHeader("Content-Disposition", `attachment; filename="travelshare-user-${req.user.id}.json"`);
+    res.json({
+      exportedAt: new Date().toISOString(),
+      formatVersion: 1,
+      user: cleanUser(user),
+      activeStoreItem: user.activeStoreItem,
+      purchases: user.purchases,
+      trips: user.trips.map((trip) => ({ ...trip, uploads: trip.uploads.map(cleanUpload) })),
+      events: user.organizedEvents.map((event) => ({ ...event, uploads: event.uploads.map(cleanUpload) }))
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post("/import", requireAuth, async (req, res, next) => {
+  try {
+    const dryRun = req.query.dryRun === "true";
+    const trips = Array.isArray(req.body?.trips) ? req.body.trips : [];
+    const events = Array.isArray(req.body?.events) ? req.body.events : [];
+    if (dryRun) {
+      return res.json({ dryRun: true, wouldImport: { trips: trips.length, events: events.length } });
+    }
+
+    const mapping = { trips: {}, events: {} };
+    for (const trip of trips) {
+      const created = await prisma.trip.create({
+        data: {
+          userId: req.user.id,
+          title: trip.title || "Imported Trip",
+          destination: trip.destination || "Imported",
+          startDate: trip.startDate ? new Date(trip.startDate) : null,
+          endDate: trip.endDate ? new Date(trip.endDate) : null,
+          qrToken: secureToken(24),
+          qrMode: trip.qrMode || "approval_required",
+          defaultLocationVisibility: trip.defaultLocationVisibility || "approximate"
+        }
+      });
+      mapping.trips[trip.id] = created.id;
+    }
+
+    for (const event of events) {
+      const created = await prisma.event.create({
+        data: {
+          organizerId: req.user.id,
+          title: event.title || "Imported Event",
+          description: event.description || null,
+          category: event.category || null,
+          location: event.location || null,
+          startDate: event.startDate ? new Date(event.startDate) : new Date(),
+          endDate: event.endDate ? new Date(event.endDate) : null,
+          visibility: event.visibility || "private",
+          status: "draft",
+          qrToken: secureToken(24)
+        }
+      });
+      mapping.events[event.id] = created.id;
+    }
+
+    res.status(201).json({ imported: { trips: Object.keys(mapping.trips).length, events: Object.keys(mapping.events).length }, mapping });
+  } catch (error) {
+    next(error);
+  }
 });
 
 export default router;
