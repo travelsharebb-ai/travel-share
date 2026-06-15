@@ -10,3 +10,27 @@ uploads/
 tmp/
 *.log
 backend/prisma/dev.db
+
+# Editor/IDE
+.vscode/
+.idea/
+
+# OS
+Thumbs.db
+
+# Media and documents
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.mp4
+*.mov
+*.avi
+*.pdf
+
+# Frontend build / public media
+frontend/public/videos/
+
+# Local env
+.env.local
+.env.*.local
