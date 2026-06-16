@@ -408,52 +408,21 @@ function GuestMode() {
             <HeaderBlock eyebrow="Premium Skins" title="Preview add-ons as a guest" copy="You can browse skins, frames, themes, premium QR styles, ad-free viewing, and branded pages. Sign up to use or purchase them." />
           </div>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                {guestEvents.map((event) => (
-                  <div key={event.id} className="card p-4">
-                    <Link to={`/event/${event.qrToken}`} className="block">
-                      <p className="font-serif text-2xl font-black">{event.title}</p>
-                      <p className="text-slatebody">{event.location || "Guest event"} • {event._count?.uploads || 0} uploads</p>
-                      <p className="mt-2 text-primary">Open event QR page</p>
-                    </Link>
-                    <div className="mt-3 flex gap-2">
-                      <button className="btn-ghost" onClick={() => { navigator.clipboard?.writeText(`${window.location.origin}/event/${event.qrToken}`); setGuestMessage("Event link copied to clipboard."); setShowGuestToast(true); }}>Copy link</button>
-                      <Link className="btn-ghost" to={`/event/${event.qrToken}`}>Open</Link>
-                      <button className="btn-ghost" onClick={async () => {
-                        try {
-                          const data = await api(`/api/public/guest/events/${event.id}/share-links`, { method: "POST" });
-                          navigator.clipboard?.writeText(data.url);
-                          setGuestMessage("Saved event link copied to clipboard.");
-                          setShowGuestToast(true);
-                        } catch (err) {
-                          setGuestMessage(err.message || "Could not create share link.");
-                          setShowGuestToast(true);
-                        }
-                      }}>Save link</button>
-                      <button className="btn-ghost text-reject" onClick={async () => {
-                        if (!confirm("Delete this temporary event? This cannot be undone.")) return;
-                        try {
-                          await api(`/api/public/guest/events/${event.id}`, { method: "DELETE" });
-                          setGuestEvents((list) => list.filter((e) => e.id !== event.id));
-                          setGuestMessage("Event deleted.");
-                          setShowGuestToast(true);
-                        } catch (err) {
-                          setGuestMessage(err.message || "Could not delete event.");
-                          setShowGuestToast(true);
-                        }
-                      }}>Delete</button>
-                    </div>
-                  </div>
-                ))}
-            <Link key={event.id} to={`/event/${event.qrToken}`} className="card p-5 transition hover:-translate-y-1">
-              {event.coverImageUrl && <img src={event.coverImageUrl} alt="" className="mb-4 h-36 w-full rounded-lg object-cover" />}
-              <p className="text-xs font-black uppercase text-primary">{event.category || "Public event"} • {event.status}</p>
-              <h2 className="font-serif text-2xl font-black">{event.title}</h2>
-              <p className="text-sm text-slatebody">{event.location || "Location TBD"}</p>
-              <p className="mt-3 text-sm font-bold text-primary">{event._count?.uploads || 0} memories • {event._count?.zones || 0} map zones</p>
-            </Link>
-          ))}
-          {events.length === 0 && <EmptyCard title="No public events yet" copy="Hosted public events will appear here for discovery." />}
-        </div>
+            {items.length === 0 ? (
+              <EmptyCard title="No store items" copy="Preview items will appear here." />
+            ) : (
+              items.map((item) => (
+                <Link key={item.id} to="/store" className="card p-5 transition hover:-translate-y-1">
+                  {item.previewUrl && <img src={item.previewUrl} alt="" className="mb-4 h-36 w-full rounded-lg object-cover" />}
+                  <p className="text-xs font-black uppercase text-primary">{item.type || "Store item"}</p>
+                  <h2 className="font-serif text-2xl font-black">{item.name}</h2>
+                  <p className="text-sm text-slatebody">{item.description || ""}</p>
+                  <p className="mt-3 text-sm font-bold text-primary">{(item.priceCents || 0) > 0 ? `$${((item.priceCents || 0) / 100).toFixed(2)}` : "Free"}</p>
+                </Link>
+              ))
+            )}
+          </div>
+        </section>
       </main>
     </Shell>
   );
