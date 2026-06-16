@@ -9,23 +9,35 @@ export async function createStripeCheckout({ item, user }) {
     throw error;
   }
 
+  const body = new URLSearchParams({
+    mode: "payment",
+    success_url: appUrl("/store?payment=success"),
+    cancel_url: appUrl("/store?payment=cancel"),
+    customer_email: user.email,
+    client_reference_id: `${user.id}:${item.id}`,
+    "line_items[0][quantity]": "1",
+    "metadata[userId]": user.id,
+    "metadata[itemId]": item.id
+  });
+
+  if (item.metadata?.stripePriceId) {
+    body.set("line_items[0][price]", item.metadata.stripePriceId);
+  } else {
+    body.set("line_items[0][price_data][currency]", "usd");
+    body.set("line_items[0][price_data][unit_amount]", String(item.priceCents));
+    body.set("line_items[0][price_data][product_data][name]", item.name);
+    if (item.description) {
+      body.set("line_items[0][price_data][product_data][description]", item.description);
+    }
+  }
+
   const response = await fetch("https://api.stripe.com/v1/checkout/sessions", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${process.env.STRIPE_SECRET_KEY}`,
       "Content-Type": "application/x-www-form-urlencoded"
     },
-    body: new URLSearchParams({
-      mode: "payment",
-      success_url: appUrl("/store?payment=success"),
-      cancel_url: appUrl("/store?payment=cancel"),
-      customer_email: user.email,
-      client_reference_id: `${user.id}:${item.id}`,
-      "line_items[0][quantity]": "1",
-      "line_items[0][price_data][currency]": "usd",
-      "line_items[0][price_data][unit_amount]": String(item.priceCents),
-      "line_items[0][price_data][product_data][name]": item.name
-    })
+    body
   });
   const data = await response.json();
   if (!response.ok) {

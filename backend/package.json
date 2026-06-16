@@ -10,6 +10,7 @@
     "postinstall": "node ../scripts/postinstall-sharp.cjs || true",
     "test:e2e": "vitest run tests/e2e",
     "db:seed:e2e": "node prisma/seed-e2e.js",
+    "stripe:sync-products": "node scripts/sync-stripe-products.mjs",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy"

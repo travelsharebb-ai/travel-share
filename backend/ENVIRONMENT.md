@@ -20,6 +20,7 @@
 - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`: Required to enable Google sign-in.
 - `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET`, `MICROSOFT_REDIRECT_URI`: Required to enable Microsoft/Hotmail sign-in.
 - `STRIPE_SECRET_KEY`: Required for Stripe Checkout.
+- `STRIPE_CURRENCY`: Optional product sync currency. Defaults to `usd`.
 - `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`: Required for PayPal checkout.
 - `PAYPAL_API_BASE`: Optional. Defaults to PayPal sandbox: `https://api-m.sandbox.paypal.com`
 - `ALLOW_DEV_PURCHASES`: Set `true` only in local/dev if you want paid store items to unlock without checkout.
@@ -50,6 +51,16 @@ For Netlify, set:
 - `VITE_API_URL`: Render backend URL, for example `https://travelshare-api.onrender.com`
 - `VITE_SUPPORT_EMAIL`
 - `VITE_MAPBOX_TOKEN` if Mapbox production maps are enabled
+
+## Stripe Product Sync
+
+After setting `DATABASE_URL` and `STRIPE_SECRET_KEY`, sync the default TravelShare store catalog into Stripe and the app database with:
+
+```bash
+npm --workspace travel-share-backend run stripe:sync-products
+```
+
+The sync creates or updates Stripe Products, creates reusable one-time Prices, and stores `stripeProductId`, `stripePriceId`, and `stripeLookupKey` in each `PurchaseItem.metadata`. Checkout will use those Stripe Prices when present.
 
 ## Backups
 
