@@ -87,3 +87,34 @@ DATABASE_URL=... AWS_ACCESS_KEY_ID=... AWS_SECRET_ACCESS_KEY=... AWS_REGION=... 
 7. Reload the app and confirm `GET /api/auth/me` returns `activeStoreItem`.
 8. Restart or redeploy backend.
 9. Confirm user, purchases, active item, trips/events, QR links, and uploaded media remain available.
+
+## Production Environment Variables (examples)
+
+Set these in your hosting provider's environment config (Render, Railway, Heroku, Vercel, etc.). Replace placeholders with real credentials and never commit secrets.
+
+- `DATABASE_URL`: `postgresql://USER:PASSWORD@HOST:5432/DBNAME?schema=public`
+- `JWT_SECRET`: long random string (do not rotate unless you want to sign users out)
+- `FRONTEND_URL`: public frontend URL (e.g. `https://app.example.com`)
+- `CORS_ORIGIN`: comma-separated allowed frontends (e.g. `https://app.example.com`)
+
+- Storage (choose one):
+	- Cloudinary: set `MEDIA_STORAGE_DRIVER=cloudinary` and either `CLOUDINARY_URL` (preferred) or `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`.
+	- S3: set `MEDIA_STORAGE_DRIVER=s3` (or `STORAGE_PROVIDER=s3`) and set `S3_BUCKET`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, and optional `S3_ENDPOINT` / `S3_PUBLIC_BASE_URL` for non-AWS providers.
+
+- `REDIS_URL` (recommended): connection string for a managed Redis instance (e.g. `rediss://:PASSWORD@host:6380/0`). When set, the app uses Redis-backed rate limiting for resilience.
+
+- Email: `SENDGRID_API_KEY` and `EMAIL_FROM` (or configure another email provider integration)
+
+- Payments (if used): `STRIPE_SECRET_KEY`, `STRIPE_CURRENCY`, `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET` as required.
+
+## Deployment checklist
+
+1. Provision a managed Postgres instance and set `DATABASE_URL`.
+2. Provision object storage (Cloudinary or S3) and set storage-related env vars.
+3. Provision managed Redis and set `REDIS_URL` (use TLS/`rediss://` if provided).
+4. Configure email credentials for SendGrid or another provider.
+5. Set `JWT_SECRET` and other secrets in your hosting platform (never in repo).
+6. Run migrations on deploy target: `prisma migrate deploy` (the backend `start` script already runs this).
+7. Schedule daily DB backups (see `scripts/db-backup.sh`) and test restores periodically.
+
+If you want, use this file as the source of truth and paste these variables into your provider's environment settings when creating the service.
