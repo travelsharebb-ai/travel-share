@@ -1263,13 +1263,23 @@ function ShareAlbum() {
 }
 
 function Settings() {
+  const user = currentUser();
+  const hasMapboxToken = Boolean(import.meta.env.VITE_MAPBOX_TOKEN);
+
   return (
     <Shell>
       <main className="page-shell">
         <section className="card max-w-3xl space-y-4 p-5">
           <h1 className="font-serif text-4xl font-black">Settings</h1>
-          <p className="text-slatebody">Guest access lasts 3 days. Uploads are approval-first by default. Location privacy can be exact, approximate, or hidden/general region.</p>
-          <p className="text-slatebody">Mapbox is the planned map provider. Add <code>VITE_MAPBOX_TOKEN</code> for production map rendering. Current map surfaces provide interactive TravelShare pins, routes, zones, and replay controls without adding a map SDK dependency.</p>
+          {/* Only show guest-specific guidance to guest users (registered members aren't guests) */}
+          {user?.role === "guest" && (
+            <p className="text-slatebody">Guest access lasts 3 days. Uploads are approval-first by default. Location privacy can be exact, approximate, or hidden/general region.</p>
+          )}
+
+          {/* Only prompt for a Mapbox token when none is provided at build time */}
+          {!hasMapboxToken && (
+            <p className="text-slatebody">Mapbox is the planned map provider. Add <code>VITE_MAPBOX_TOKEN</code> for production map rendering. Current map surfaces provide interactive TravelShare pins, routes, zones, and replay controls without adding a map SDK dependency.</p>
+          )}
         </section>
       </main>
     </Shell>
