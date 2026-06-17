@@ -64,11 +64,40 @@ router.get("/stats", async (_req, res) => {
 
 router.post("/export/site", async (req, res, next) => {
   try {
+    // Select upload fields explicitly to avoid referencing optional columns
+    // that may not yet exist in older databases (eg. skinId).
+    const uploadSelect = {
+      id: true,
+      tripId: true,
+      eventId: true,
+      zoneId: true,
+      guestSessionId: true,
+      uploaderAnonId: true,
+      uploaderFingerprint: true,
+      caption: true,
+      fileUrl: true,
+      filePublicId: true,
+      fileType: true,
+      status: true,
+      latitude: true,
+      longitude: true,
+      approximateLatitude: true,
+      approximateLongitude: true,
+      locationName: true,
+      region: true,
+      locationVisibility: true,
+      moderationStatus: true,
+      createdAt: true,
+      approvedAt: true,
+      rejectedAt: true,
+      downloadPurchaseItemId: true
+    };
+
     const [users, trips, events, uploads, settings, ads, storeItems, purchases, guests] = await Promise.all([
       prisma.user.findMany({ include: { activeStoreItem: true } }),
       prisma.trip.findMany({ include: { chapters: true, shareLinks: true } }),
       prisma.event.findMany({ include: { maps: true, zones: true } }),
-      prisma.upload.findMany(),
+      prisma.upload.findMany({ select: uploadSelect }),
       prisma.platformSetting.findMany(),
       prisma.internalAd.findMany(),
       prisma.purchaseItem.findMany(),
@@ -313,22 +342,72 @@ router.post("/users/:userId/safe-delete", async (req, res, next) => {
 });
 
 router.get("/moderation", async (_req, res) => {
-  const uploads = await prisma.upload.findMany({
-    where: { status: "reported" },
-    include: {
-      trip: { select: { title: true, destination: true, user: { select: { name: true, email: true } } } }
-    },
-    orderBy: { createdAt: "desc" }
-  });
-  res.json({ uploads });
+  try {
+    const uploads = await prisma.upload.findMany({
+      where: { status: "reported" },
+      select: {
+        id: true,
+        tripId: true,
+        eventId: true,
+        guestSessionId: true,
+        uploaderAnonId: true,
+        uploaderFingerprint: true,
+        caption: true,
+        fileUrl: true,
+        filePublicId: true,
+        fileType: true,
+        status: true,
+        locationName: true,
+        moderationStatus: true,
+        createdAt: true,
+        approvedAt: true,
+        rejectedAt: true,
+        trip: { select: { title: true, destination: true, user: { select: { name: true, email: true } } } }
+      },
+      orderBy: { createdAt: "desc" }
+    });
+    res.json({ uploads });
+  } catch (error) {
+    // If the database is missing optional columns (eg. skinId) this query
+    // may fail with a Prisma P2022 error. Surface a helpful message rather
+    // than allowing the process to crash.
+    console.error("Moderation listing failed", error);
+    res.status(500).json({ error: "Moderation listing failed. Database schema may be out of date." });
+  }
 });
+ 
 
 router.patch("/uploads/:uploadId/download-item", async (req, res, next) => {
   try {
     const data = z.object({ itemId: z.string().optional().nullable() }).parse(req.body);
     const upload = await prisma.upload.update({
       where: { id: req.params.uploadId },
-      data: { downloadPurchaseItemId: data.itemId }
+      data: { downloadPurchaseItemId: data.itemId },
+      select: {
+        id: true,
+        tripId: true,
+        eventId: true,
+        zoneId: true,
+        guestSessionId: true,
+        uploaderAnonId: true,
+        uploaderFingerprint: true,
+        caption: true,
+        fileUrl: true,
+        filePublicId: true,
+        fileType: true,
+        status: true,
+        latitude: true,
+        longitude: true,
+        approximateLatitude: true,
+        approximateLongitude: true,
+        locationName: true,
+        region: true,
+        locationVisibility: true,
+        moderationStatus: true,
+        createdAt: true,
+        approvedAt: true,
+        rejectedAt: true
+      }
     });
     res.json({ upload });
   } catch (error) {

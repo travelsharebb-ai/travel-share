@@ -10,13 +10,68 @@ const router = Router();
 async function ownedUpload(userId, uploadId) {
   return prisma.upload.findFirst({
     where: { id: uploadId, OR: [{ trip: { userId } }, { event: { organizerId: userId } }] },
-    include: { trip: true, event: true }
+    select: {
+      id: true,
+      tripId: true,
+      eventId: true,
+      zoneId: true,
+      guestSessionId: true,
+      uploaderAnonId: true,
+      uploaderFingerprint: true,
+      caption: true,
+      fileUrl: true,
+      filePublicId: true,
+      fileType: true,
+      status: true,
+      latitude: true,
+      longitude: true,
+      approximateLatitude: true,
+      approximateLongitude: true,
+      locationName: true,
+      region: true,
+      locationVisibility: true,
+      moderationStatus: true,
+      createdAt: true,
+      approvedAt: true,
+      rejectedAt: true,
+      trip: true,
+      event: true
+    }
   });
 }
 
 async function manageableUpload(req, uploadId) {
   if (isPlatformAdmin(req.user)) {
-    return prisma.upload.findUnique({ where: { id: uploadId }, include: { trip: true, event: true } });
+    return prisma.upload.findUnique({
+      where: { id: uploadId },
+      select: {
+        id: true,
+        tripId: true,
+        eventId: true,
+        zoneId: true,
+        guestSessionId: true,
+        uploaderAnonId: true,
+        uploaderFingerprint: true,
+        caption: true,
+        fileUrl: true,
+        filePublicId: true,
+        fileType: true,
+        status: true,
+        latitude: true,
+        longitude: true,
+        approximateLatitude: true,
+        approximateLongitude: true,
+        locationName: true,
+        region: true,
+        locationVisibility: true,
+        moderationStatus: true,
+        createdAt: true,
+        approvedAt: true,
+        rejectedAt: true,
+        trip: true,
+        event: true
+      }
+    });
   }
   return ownedUpload(req.user.id, uploadId);
 }
@@ -33,6 +88,31 @@ router.get("/trips/:tripId/uploads", async (req, res) => {
   const status = req.query.status;
   const uploads = await prisma.upload.findMany({
     where: { tripId: trip.id, status: status || undefined },
+    select: {
+      id: true,
+      tripId: true,
+      eventId: true,
+      zoneId: true,
+      guestSessionId: true,
+      uploaderAnonId: true,
+      uploaderFingerprint: true,
+      caption: true,
+      fileUrl: true,
+      filePublicId: true,
+      fileType: true,
+      status: true,
+      latitude: true,
+      longitude: true,
+      approximateLatitude: true,
+      approximateLongitude: true,
+      locationName: true,
+      region: true,
+      locationVisibility: true,
+      moderationStatus: true,
+      createdAt: true,
+      approvedAt: true,
+      rejectedAt: true
+    },
     orderBy: { createdAt: "desc" }
   });
   const hydrated = await hydrateUploads(uploads);
@@ -45,7 +125,32 @@ router.patch("/uploads/:uploadId/approve", async (req, res) => {
 
   const updated = await prisma.upload.update({
     where: { id: upload.id },
-    data: { status: "approved", approvedAt: new Date(), rejectedAt: null }
+    data: { status: "approved", approvedAt: new Date(), rejectedAt: null },
+    select: {
+      id: true,
+      tripId: true,
+      eventId: true,
+      zoneId: true,
+      guestSessionId: true,
+      uploaderAnonId: true,
+      uploaderFingerprint: true,
+      caption: true,
+      fileUrl: true,
+      filePublicId: true,
+      fileType: true,
+      status: true,
+      latitude: true,
+      longitude: true,
+      approximateLatitude: true,
+      approximateLongitude: true,
+      locationName: true,
+      region: true,
+      locationVisibility: true,
+      moderationStatus: true,
+      createdAt: true,
+      approvedAt: true,
+      rejectedAt: true
+    }
   });
   const hydrated = (await hydrateUploads([updated]))[0];
   res.json({ upload: hydrated });
@@ -57,7 +162,32 @@ router.patch("/uploads/:uploadId/reject", async (req, res) => {
 
   const updated = await prisma.upload.update({
     where: { id: upload.id },
-    data: { status: "rejected", rejectedAt: new Date(), approvedAt: null }
+    data: { status: "rejected", rejectedAt: new Date(), approvedAt: null },
+    select: {
+      id: true,
+      tripId: true,
+      eventId: true,
+      zoneId: true,
+      guestSessionId: true,
+      uploaderAnonId: true,
+      uploaderFingerprint: true,
+      caption: true,
+      fileUrl: true,
+      filePublicId: true,
+      fileType: true,
+      status: true,
+      latitude: true,
+      longitude: true,
+      approximateLatitude: true,
+      approximateLongitude: true,
+      locationName: true,
+      region: true,
+      locationVisibility: true,
+      moderationStatus: true,
+      createdAt: true,
+      approvedAt: true,
+      rejectedAt: true
+    }
   });
   const hydrated = (await hydrateUploads([updated]))[0];
   res.json({ upload: hydrated });
@@ -76,7 +206,25 @@ router.patch("/uploads/:uploadId/report", async (req, res, next) => {
     const updated = await prisma.upload.update({
       where: { id: upload.id },
       data: { status: "reported", reportReason: data.reportReason || "Reported by album owner" },
-      include: { trip: true }
+      select: {
+        id: true,
+        tripId: true,
+        eventId: true,
+        guestSessionId: true,
+        uploaderAnonId: true,
+        uploaderFingerprint: true,
+        caption: true,
+        fileUrl: true,
+        filePublicId: true,
+        fileType: true,
+        status: true,
+        locationName: true,
+        moderationStatus: true,
+        createdAt: true,
+        approvedAt: true,
+        rejectedAt: true,
+        trip: true
+      }
     });
 
     if (data.blockUploader && upload.tripId) {
@@ -138,9 +286,42 @@ router.patch("/uploads/:uploadId/skin", async (req, res) => {
     }
   }
 
-  const updated = await prisma.upload.update({ where: { id: upload.id }, data: { skinId: skinId || null } });
-  const hydrated = (await hydrateUploads([updated]))[0];
-  res.json({ upload: hydrated });
+  try {
+    const updated = await prisma.upload.update({
+      where: { id: upload.id },
+      data: { skinId: skinId || null },
+      select: {
+        id: true,
+        tripId: true,
+        eventId: true,
+        zoneId: true,
+        guestSessionId: true,
+        uploaderAnonId: true,
+        uploaderFingerprint: true,
+        caption: true,
+        fileUrl: true,
+        filePublicId: true,
+        fileType: true,
+        status: true,
+        latitude: true,
+        longitude: true,
+        approximateLatitude: true,
+        approximateLongitude: true,
+        locationName: true,
+        region: true,
+        locationVisibility: true,
+        moderationStatus: true,
+        createdAt: true,
+        approvedAt: true,
+        rejectedAt: true
+      }
+    });
+    const hydrated = (await hydrateUploads([updated]))[0];
+    res.json({ upload: hydrated });
+  } catch (error) {
+    console.error("Failed to update upload skin", error);
+    res.status(500).json({ error: "Failed to update upload skin. Database schema may be out of date." });
+  }
 });
 
 router.post("/trips/:tripId/uploads/bulk", async (req, res, next) => {
