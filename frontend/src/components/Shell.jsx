@@ -74,7 +74,8 @@ export default function Shell({ children }) {
           </aside>
           <div className="min-w-0">
             <div className="hidden px-6 pt-4 lg:block">
-              <button className="btn-ghost" onClick={() => navigate(-1)}><ArrowLeft size={18} /> Back</button>
+              {/* Desktop-only back button (hidden on landing and mobile) */}
+              {location.pathname !== "/" && <button className="btn-ghost" onClick={() => navigate(-1)}><ArrowLeft size={18} /> Back</button>}
             </div>
             <header className="sticky top-0 z-40 border-b border-borderline bg-sand/95 backdrop-blur lg:hidden">
               <div className="flex items-center justify-between gap-3 px-4 py-3">

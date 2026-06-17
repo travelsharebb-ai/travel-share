@@ -107,12 +107,9 @@ function AppBackground() {
       .catch(() => {});
   }, []);
 
+  // Do not play the background video once a user is signed in — only show on public pages
   if (user || !videoUrl || !videoPaths.has(location.pathname)) return null;
-  return (
-    <>
-      <video className="app-bg-video" src={videoUrl} autoPlay muted loop playsInline aria-hidden="true" />
-    </>
-  );
+  return <video className="app-bg-video" src={videoUrl} autoPlay muted loop playsInline aria-hidden="true" />;
 }
 
 function applyActiveStoreItem(item) {
@@ -783,8 +780,12 @@ function TripDetails() {
           <p className="text-sm font-black uppercase text-primary">Tourist Album</p>
           <h1 className="break-words font-serif text-4xl font-black">{trip.title}</h1>
           <p className="break-words text-slatebody">{trip.destination}</p>
-          <div className="mt-4 flex gap-2 overflow-x-auto">
-            {["pending", "approved", "chapters", "map", "qr", "stats"].map((item) => <button key={item} onClick={() => setTab(item)} className={tab === item ? "btn-primary shrink-0" : "btn-ghost shrink-0"}>{item === "qr" ? "QR Settings" : item === "approved" ? "Approved Album" : item === "map" ? "Memory Map" : item[0].toUpperCase() + item.slice(1)}</button>)}
+          <div className="mt-4 hidden lg:flex gap-2 overflow-x-auto">
+            {["pending", "approved", "chapters", "map", "qr", "stats"].map((item) => (
+              <button key={item} onClick={() => setTab(item)} className={tab === item ? "btn-primary shrink-0" : "btn-ghost shrink-0"}>
+                {item === "qr" ? "QR Settings" : item === "approved" ? "Approved Album" : item === "map" ? "Memory Map" : item[0].toUpperCase() + item.slice(1)}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -1101,8 +1102,10 @@ function Admin() {
     <Shell>
       <main className="page-shell space-y-5">
         <HeaderBlock eyebrow="Business Control Panel" title="Admin dashboard" copy="Manage users, organizers, events, maps, ads, store items, reports, analytics, and platform settings." />
-        <div className="flex gap-2 overflow-x-auto">
-          {["overview", "users", "organizers", "events", "maps", "memories", "ads", "store", "analytics", "settings"].map((item) => <button key={item} onClick={() => setTab(item)} className={tab === item ? "btn-primary shrink-0" : "btn-ghost shrink-0"}>{item}</button>)}
+        <div className="hidden lg:flex gap-2 overflow-x-auto">
+          {["overview", "users", "organizers", "events", "maps", "memories", "ads", "store", "analytics", "settings"].map((item) => (
+            <button key={item} onClick={() => setTab(item)} className={tab === item ? "btn-primary shrink-0" : "btn-ghost shrink-0"}>{item}</button>
+          ))}
         </div>
         {tab === "overview" && <StatsGrid stats={data.stats || {}} />}
         {tab === "users" && <UsersTable users={data.users || []} role={role} />}
