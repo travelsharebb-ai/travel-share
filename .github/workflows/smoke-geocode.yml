@@ -1,0 +1,37 @@
+name: Smoke Geocode
+
+on:
+  push:
+    branches: [ main, feature/* ]
+
+jobs:
+  smoke-geocode:
+    runs-on: ubuntu-latest
+    env:
+      NODE_OPTIONS: "--no-warnings"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      - name: Install backend deps
+        working-directory: backend
+        run: npm ci
+      - name: Start backend
+        working-directory: backend
+        env:
+          MAPBOX_TOKEN: ${{ secrets.MAPBOX_TOKEN }}
+        run: |
+          npm run dev &
+          # Wait for server to be ready
+          for i in {1..30}; do
+            if curl -sSf http://localhost:10000/health >/dev/null 2>&1; then
+              echo "server ready"; break; fi
+            sleep 1
+          done
+      - name: Run smoke probe
+        run: |
+          node frontend/scripts/smoke-geocode.mjs
+        env:
+          FRONTEND_URL: http://localhost:10000
