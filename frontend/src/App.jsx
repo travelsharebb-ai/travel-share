@@ -1057,6 +1057,18 @@ function Admin() {
     load();
   }
 
+  async function updateStoreItem(itemId, changes) {
+    const payload = { ...changes };
+    if ("description" in payload) payload.description = payload.description || null;
+    if ("previewUrl" in payload) payload.previewUrl = payload.previewUrl || null;
+    if ("priceCents" in payload) payload.priceCents = Number(payload.priceCents || 0);
+    await api(`/api/admin/store/${itemId}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload)
+    });
+    load();
+  }
+
   const downloadItems = useMemo(() => (data.store || []).filter((item) => item.type === "download_asset" && item.active), [data.store]);
 
   async function assignDownloadItem(uploadId, itemId) {
@@ -1078,7 +1090,7 @@ function Admin() {
         {tab === "maps" && <AdminMaps events={data.events || []} />}
         {tab === "memories" && <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{(data.uploads || []).map((upload) => <MediaCard key={upload.id} upload={upload} downloadOptions={downloadItems} currentDownloadItemId={upload.downloadPurchaseItemId} onChangeDownloadItem={assignDownloadItem} onReport={() => api(`/api/admin/moderation/${upload.id}/log`, { method: "POST", body: JSON.stringify({ action: "reviewed" }) })} />)}</div>}
         {tab === "ads" && <AdsAdmin ads={data.ads || []} adForm={adForm} setAdForm={setAdForm} saveAd={saveAd} reload={load} />}
-        {tab === "store" && <StoreAdmin items={data.store || []} itemForm={itemForm} setItemForm={setItemForm} saveItem={saveItem} reload={load} />}
+        {tab === "store" && <StoreAdmin items={data.store || []} itemForm={itemForm} setItemForm={setItemForm} saveItem={saveItem} updateItem={updateStoreItem} reload={load} />}
         {tab === "analytics" && <AnalyticsPanel analytics={data.analytics} />}
         {tab === "settings" && <SettingsAdmin settings={data.settings} />}
       </main>
@@ -1425,11 +1437,82 @@ function AdsAdmin({ ads, adForm, setAdForm, saveAd, reload }) {
   );
 }
 
-function StoreAdmin({ items, itemForm, setItemForm, saveItem, reload }) {
+function StoreAdmin({ items, itemForm, setItemForm, saveItem, updateItem, reload }) {
+  const [editingId, setEditingId] = useState(null);
+  const [draft, setDraft] = useState(null);
+  const storeTypes = [
+    ["image_skin", "Image skin"],
+    ["photo_frame", "Photo frame"],
+    ["album_theme", "Album theme"],
+    ["event_theme", "Event theme"],
+    ["download_asset", "Download asset"],
+    ["premium_qr", "Premium QR"],
+    ["branded_page", "Branded page"],
+    ["ad_free", "Ad-free viewing"]
+  ];
+
+  function edit(item) {
+    setEditingId(item.id);
+    setDraft({
+      name: item.name,
+      description: item.description || "",
+      type: item.type,
+      priceCents: item.priceCents || 0,
+      previewUrl: item.previewUrl || "",
+      active: item.active
+    });
+  }
+
+  async function saveEdit(event) {
+    event.preventDefault();
+    await updateItem(editingId, draft);
+    setEditingId(null);
+    setDraft(null);
+  }
+
   return (
     <section className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
-      <form onSubmit={saveItem} className="card space-y-3 p-5"><h2 className="font-serif text-2xl font-black">Create Store Item</h2><input className="field" placeholder="Name" value={itemForm.name} onChange={(e) => setItemForm({ ...itemForm, name: e.target.value })} /><textarea className="field min-h-20" placeholder="Description" value={itemForm.description} onChange={(e) => setItemForm({ ...itemForm, description: e.target.value })} /><select className="field" value={itemForm.type} onChange={(e) => setItemForm({ ...itemForm, type: e.target.value })}><option value="image_skin">Image skin</option><option value="photo_frame">Photo frame</option><option value="album_theme">Album theme</option><option value="event_theme">Event theme</option><option value="download_asset">Download asset</option><option value="premium_qr">Premium QR</option><option value="branded_page">Branded page</option><option value="ad_free">Ad-free viewing</option></select><input className="field" type="number" placeholder="Price cents" value={itemForm.priceCents} onChange={(e) => setItemForm({ ...itemForm, priceCents: e.target.value })} /><input className="field" placeholder="Preview URL" value={itemForm.previewUrl} onChange={(e) => setItemForm({ ...itemForm, previewUrl: e.target.value })} /><button className="btn-primary w-full"><CircleDollarSign size={18} /> Save Add-on</button></form>
-      <div className="space-y-3">{items.map((item) => <div key={item.id} className="card p-4"><p className="font-bold">{item.name}</p><p className="text-sm text-slatebody">{item.type} • ${(item.priceCents / 100).toFixed(2)} • {item.active ? "active" : "paused"}</p><button className="btn-ghost mt-3" onClick={() => api(`/api/admin/store/${item.id}`, { method: "PATCH", body: JSON.stringify({ active: !item.active }) }).then(reload)}>{item.active ? "Pause" : "Activate"}</button></div>)}</div>
+      <form onSubmit={saveItem} className="card space-y-3 p-5">
+        <h2 className="font-serif text-2xl font-black">Create Store Item</h2>
+        <input className="field" placeholder="Name" value={itemForm.name} onChange={(e) => setItemForm({ ...itemForm, name: e.target.value })} />
+        <textarea className="field min-h-20" placeholder="Description" value={itemForm.description} onChange={(e) => setItemForm({ ...itemForm, description: e.target.value })} />
+        <select className="field" value={itemForm.type} onChange={(e) => setItemForm({ ...itemForm, type: e.target.value })}>
+          {storeTypes.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+        </select>
+        <input className="field" type="number" min="0" placeholder="Price cents" value={itemForm.priceCents} onChange={(e) => setItemForm({ ...itemForm, priceCents: e.target.value })} />
+        <input className="field" placeholder="Preview URL" value={itemForm.previewUrl} onChange={(e) => setItemForm({ ...itemForm, previewUrl: e.target.value })} />
+        <button className="btn-primary w-full"><CircleDollarSign size={18} /> Save Add-on</button>
+      </form>
+      <div className="space-y-3">
+        {items.map((item) => (
+          <div key={item.id} className="card p-4">
+            {editingId === item.id && draft ? (
+              <form onSubmit={saveEdit} className="space-y-3">
+                <input className="field" placeholder="Name" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
+                <textarea className="field min-h-20" placeholder="Description" value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} />
+                <select className="field" value={draft.type} onChange={(e) => setDraft({ ...draft, type: e.target.value })}>
+                  {storeTypes.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                </select>
+                <input className="field" type="number" min="0" placeholder="Price cents" value={draft.priceCents} onChange={(e) => setDraft({ ...draft, priceCents: e.target.value })} />
+                <input className="field" placeholder="Preview URL" value={draft.previewUrl} onChange={(e) => setDraft({ ...draft, previewUrl: e.target.value })} />
+                <div className="flex flex-wrap gap-2">
+                  <button className="btn-primary" type="submit"><Save size={18} /> Save</button>
+                  <button className="btn-ghost" type="button" onClick={() => { setEditingId(null); setDraft(null); }}>Cancel</button>
+                </div>
+              </form>
+            ) : (
+              <>
+                <p className="font-bold">{item.name}</p>
+                <p className="text-sm text-slatebody">{item.type} • ${(item.priceCents / 100).toFixed(2)} • {item.active ? "active" : "paused"}</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button className="btn-ghost" onClick={() => edit(item)}>Edit</button>
+                  <button className="btn-ghost" onClick={() => updateItem(item.id, { active: !item.active })}>{item.active ? "Pause" : "Activate"}</button>
+                </div>
+              </>
+            )}
+          </div>
+        ))}
+      </div>
     </section>
   );
 }

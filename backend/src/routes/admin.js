@@ -289,9 +289,23 @@ router.post("/store", async (req, res, next) => {
 router.patch("/store/:itemId", async (req, res, next) => {
   try {
     const data = storeItemSchema.partial().parse(req.body);
+    const existing = await prisma.purchaseItem.findUnique({ where: { id: req.params.itemId } });
+    if (!existing) return res.status(404).json({ error: "Store item not found." });
+
+    const stripeSensitiveFields = ["name", "description", "type", "priceCents"];
+    const shouldClearStripePrice = stripeSensitiveFields.some((field) => Object.prototype.hasOwnProperty.call(data, field));
+    let metadata = data.metadata;
+    if (shouldClearStripePrice && existing.metadata && !data.metadata && !Array.isArray(existing.metadata)) {
+      const { stripePriceId, stripeLookupKey, stripeCurrency, ...rest } = existing.metadata;
+      metadata = rest;
+    }
+
     const item = await prisma.purchaseItem.update({
       where: { id: req.params.itemId },
-      data
+      data: {
+        ...data,
+        ...(metadata !== undefined ? { metadata } : {})
+      }
     });
     res.json({ item });
   } catch (error) {
