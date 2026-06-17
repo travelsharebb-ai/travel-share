@@ -649,6 +649,8 @@ function Dashboard() {
 function TouristDashboard() {
   const [trips, setTrips] = useState([]);
   const [form, setForm] = useState({ title: "", destination: "", startDate: "", endDate: "", defaultLocationVisibility: "approximate" });
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState("");
   const privacyModes = [
     ["exact", "Exact Location", "Use the true GPS point for precise memory pins."],
     ["approximate", "Approximate Location", "Recommended. Shows the area without exposing the exact spot."],
@@ -664,9 +666,17 @@ function TouristDashboard() {
 
   async function createTrip(event) {
     event.preventDefault();
-    await api("/api/trips", { method: "POST", body: JSON.stringify(form) });
-    setForm({ title: "", destination: "", startDate: "", endDate: "", defaultLocationVisibility: "approximate" });
-    load();
+    setCreating(true);
+    setCreateError("");
+    try {
+      await api("/api/trips", { method: "POST", body: JSON.stringify(form) });
+      setForm({ title: "", destination: "", startDate: "", endDate: "", defaultLocationVisibility: "approximate" });
+      await load();
+    } catch (err) {
+      setCreateError(err.message || "Could not create album. Try again.");
+    } finally {
+      setCreating(false);
+    }
   }
 
   return (
@@ -699,7 +709,8 @@ function TouristDashboard() {
                 </button>
               ))}
             </div>
-            <button className="btn-primary w-full"><Calendar size={18} /> Create Album</button>
+            {createError && <p className="text-sm font-bold text-reject">{createError}</p>}
+            <button className="btn-primary w-full" disabled={creating} aria-busy={creating}><Calendar size={18} /> {creating ? "Creating…" : "Create Album"}</button>
           </form>
           <div className="grid min-w-0 gap-4 sm:grid-cols-2">
             {trips.map((trip) => (
@@ -1209,10 +1220,12 @@ function PublicUpload({ type }) {
   const [file, setFile] = useState(null);
   const [form, setForm] = useState({ caption: "", latitude: "", longitude: "", locationName: "", region: "", locationVisibility: "approximate" });
   const [error, setError] = useState("");
+  const [isLocating, setIsLocating] = useState(false);
   const [uploading, setUploading] = useState(false);
-
   function useLocation() {
-    navigator.geolocation?.getCurrentPosition(async (pos) => {
+    if (!navigator.geolocation) return setError("Geolocation is not available in this browser.");
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(async (pos) => {
       const lat = String(pos.coords.latitude);
       const lng = String(pos.coords.longitude);
       setForm((prev) => ({ ...prev, latitude: lat, longitude: lng }));
@@ -1223,8 +1236,13 @@ function PublicUpload({ type }) {
         if (place) setForm((prev) => ({ ...prev, locationName: place }));
       } catch (e) {
         // ignore reverse geocode failures — coords are still set
+      } finally {
+        setIsLocating(false);
       }
-    }, () => setError("Location permission was not allowed. You can type the place instead."));
+    }, (err) => {
+      setIsLocating(false);
+      setError("Location permission was not allowed. You can type the place instead.");
+    }, { timeout: 10000 });
   }
 
   async function submit(event) {
@@ -1283,6 +1301,7 @@ function PublicUpload({ type }) {
               <input className="field" placeholder="Longitude" value={form.longitude} onChange={(e) => setForm({ ...form, longitude: e.target.value })} />
             </div>
             <button type="button" className="btn-ghost w-full" onClick={useLocation}><MapPin size={18} /> Use device location</button>
+            {isLocating && <p className="text-sm text-slatebody mt-2">Detecting device location…</p>}
             {form.latitude && form.longitude && (
               <a className="text-sm text-primary mt-2 inline-block" target="_blank" rel="noreferrer" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(form.latitude + ',' + form.longitude)}`}>
                 Open coordinates in Google Maps
@@ -1331,8 +1350,11 @@ function TripUpload() {
   const [error, setError] = useState("");
   const [uploading, setUploading] = useState(false);
 
+  const [isLocating, setIsLocating] = useState(false);
   async function useLocation() {
-    navigator.geolocation?.getCurrentPosition(async (pos) => {
+    if (!navigator.geolocation) return setError("Geolocation is not available in this browser.");
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(async (pos) => {
       const lat = String(pos.coords.latitude);
       const lng = String(pos.coords.longitude);
       setForm((prev) => ({ ...prev, latitude: lat, longitude: lng }));
@@ -1342,8 +1364,13 @@ function TripUpload() {
         if (place) setForm((prev) => ({ ...prev, locationName: place }));
       } catch (e) {
         // ignore
+      } finally {
+        setIsLocating(false);
       }
-    }, () => setError("Location permission was not allowed. You can type the place instead."));
+    }, (err) => {
+      setIsLocating(false);
+      setError("Location permission was not allowed. You can type the place instead.");
+    }, { timeout: 10000 });
   }
 
   async function submit(e) {
@@ -1386,6 +1413,7 @@ function TripUpload() {
             <input className="field" placeholder="Longitude" value={form.longitude} onChange={(e) => setForm({ ...form, longitude: e.target.value })} />
           </div>
           <button type="button" className="btn-ghost w-full" onClick={useLocation}><MapPin size={18} /> Use device location</button>
+          {isLocating && <p className="text-sm text-slatebody mt-2">Detecting device location…</p>}
           {form.latitude && form.longitude && (
             <a className="text-sm text-primary mt-2 inline-block" target="_blank" rel="noreferrer" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(form.latitude + ',' + form.longitude)}`}>
               Open coordinates in Google Maps
@@ -1611,6 +1639,8 @@ function Legal({ type }) {
 function MemoryMap({ data }) {
   const [selected, setSelected] = useState(null);
   const [replayIndex, setReplayIndex] = useState(0);
+  const [isMapLoading, setIsMapLoading] = useState(false);
+  const [mapLoadError, setMapLoadError] = useState(false);
   const pins = data?.pins || [];
   const route = data?.route || [];
   const replay = data?.replay || [];
@@ -1627,6 +1657,8 @@ function MemoryMap({ data }) {
     let cancelled = false;
 
     async function loadMapbox() {
+      setIsMapLoading(true);
+      setMapLoadError(false);
       // Load CSS
       if (!document.getElementById("mapbox-gl-css")) {
         const link = document.createElement("link");
@@ -1651,7 +1683,11 @@ function MemoryMap({ data }) {
       }
 
       if (cancelled) return;
-      if (!window.mapboxgl) return;
+      if (!window.mapboxgl) {
+        setMapLoadError(true);
+        setIsMapLoading(false);
+        return;
+      }
 
       const mapboxgl = window.mapboxgl;
       mapboxgl.accessToken = mapboxToken;
@@ -1725,6 +1761,8 @@ function MemoryMap({ data }) {
           });
         });
       });
+      // map loaded successfully
+      setIsMapLoading(false);
     }
 
     loadMapbox();
@@ -1746,7 +1784,11 @@ function MemoryMap({ data }) {
           <p className="text-sm text-slatebody">{mapboxToken ? "Mapbox ready" : "Set VITE_MAPBOX_TOKEN for production maps"}</p>
         </div>
         {mapboxToken && hasGeoPins ? (
-          <div ref={mapRef} style={{ position: "absolute", inset: 0 }} />
+          <>
+            <div ref={mapRef} style={{ position: "absolute", inset: 0 }} />
+            {isMapLoading && <div className="absolute inset-0 flex items-center justify-center z-20"><div className="rounded-lg bg-panel/95 p-4">Loading map…</div></div>}
+            {mapLoadError && <div className="absolute inset-0 flex items-center justify-center z-20"><div className="rounded-lg bg-red-50 p-4 text-sm font-bold text-reject">Map failed to load — using a simple preview. Set <code>VITE_MAPBOX_TOKEN</code> for full maps.</div></div>}
+          </>
         ) : (
           <>
             {pins.map((pin, index) => <button key={pin.id} className="map-pin" style={{ left: `${15 + (index * 19) % 70}%`, top: `${24 + (index * 23) % 58}%` }} onClick={() => setSelected(pin)} title={pin.locationName}><MapPin size={18} /><span>{pin.count}</span></button>)}
