@@ -31,6 +31,19 @@ const resetPasswordSchema = z.object({
   password: z.string().min(8)
 });
 
+const profileSettingsSchema = z.object({
+  name: z.string().min(2).max(80).optional(),
+  email: z.string().email().optional(),
+  currentPassword: z.string().min(8).optional(),
+  newPassword: z.string().min(8).optional(),
+  preferences: z.object({
+    defaultLocationVisibility: z.enum(["exact", "approximate", "hidden"]).optional(),
+    emailNotifications: z.boolean().optional(),
+    uploadAlerts: z.boolean().optional(),
+    promotionalEmails: z.boolean().optional()
+  }).optional()
+});
+
 function sign(user) {
   return jwt.sign({ sub: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: "7d" });
 }
@@ -78,6 +91,14 @@ function frontendOAuthUrl(payload) {
   url.searchParams.set("token", payload.token);
   url.searchParams.set("user", Buffer.from(JSON.stringify(payload.user)).toString("base64url"));
   return url.toString();
+}
+
+async function ensureUserPreferences(userId) {
+  return prisma.userPreference.upsert({
+    where: { userId },
+    update: {},
+    create: { userId }
+  });
 }
 
 router.post("/signup", authLimiter, async (req, res, next) => {
@@ -287,6 +308,7 @@ router.post("/reset-password", authLimiter, async (req, res, next) => {
 
 router.get("/me", requireAuth, async (req, res, next) => {
   try {
+    await ensureUserPreferences(req.user.id);
     const user = await prisma.user.findUnique({
       where: { id: req.user.id },
       select: {
@@ -294,12 +316,63 @@ router.get("/me", requireAuth, async (req, res, next) => {
         name: true,
         email: true,
         role: true,
+        preferences: true,
         purchases: { include: { item: true }, orderBy: { createdAt: "desc" } },
         activeStoreItem: true
       }
     });
     await ensureBasicSkinUnlocks(req.user.id).catch((error) => {
       console.error("Failed to grant basic skins while loading profile", error);
+    });
+    res.json({ user });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.patch("/me", requireAuth, async (req, res, next) => {
+  try {
+    const data = profileSettingsSchema.parse(req.body);
+    const update = {};
+    if (data.name !== undefined) update.name = data.name;
+    if (data.email !== undefined) {
+      const email = data.email.toLowerCase();
+      const existing = await prisma.user.findFirst({ where: { email, id: { not: req.user.id } } });
+      if (existing) return res.status(409).json({ error: "Email already exists." });
+      update.email = email;
+    }
+    if (data.newPassword) {
+      if (!data.currentPassword) return res.status(400).json({ error: "Current password is required to change password." });
+      const current = await prisma.user.findUnique({ where: { id: req.user.id }, select: { passwordHash: true } });
+      const valid = current ? await bcrypt.compare(data.currentPassword, current.passwordHash) : false;
+      if (!valid) return res.status(403).json({ error: "Current password is incorrect." });
+      update.passwordHash = await bcrypt.hash(data.newPassword, 12);
+    }
+
+    if (Object.keys(update).length) {
+      await prisma.user.update({ where: { id: req.user.id }, data: update });
+    }
+    if (data.preferences) {
+      await prisma.userPreference.upsert({
+        where: { userId: req.user.id },
+        update: data.preferences,
+        create: { userId: req.user.id, ...data.preferences }
+      });
+    } else {
+      await ensureUserPreferences(req.user.id);
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        preferences: true,
+        purchases: { include: { item: true }, orderBy: { createdAt: "desc" } },
+        activeStoreItem: true
+      }
     });
     res.json({ user });
   } catch (error) {

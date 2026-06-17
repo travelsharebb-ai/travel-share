@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, Route, Routes, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   BarChart3,
+  Bell,
   Calendar,
   Check,
   CircleDollarSign,
@@ -11,6 +12,7 @@ import {
   ExternalLink,
   Flame,
   Lock,
+  Mail,
   MapPin,
   Megaphone,
   MousePointer2,
@@ -1327,30 +1329,145 @@ function Settings() {
   const user = currentUser();
   const hasMapboxToken = Boolean(import.meta.env.VITE_MAPBOX_TOKEN);
   const [platformSettings, setPlatformSettings] = useState(null);
+  const [profileForm, setProfileForm] = useState({ name: user?.name || "", email: user?.email || "", currentPassword: "", newPassword: "" });
+  const [preferences, setPreferences] = useState({ defaultLocationVisibility: "approximate", emailNotifications: true, uploadAlerts: true, promotionalEmails: false });
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    api("/api/public/settings")
-      .then((d) => setPlatformSettings(d.settings))
-      .catch(() => {});
+    Promise.all([api("/api/public/settings"), api("/api/auth/me")])
+      .then(([settingsData, meData]) => {
+        setPlatformSettings(settingsData.settings);
+        updateStoredUser(meData.user);
+        setProfileForm((prev) => ({ ...prev, name: meData.user?.name || "", email: meData.user?.email || "" }));
+        setPreferences({
+          defaultLocationVisibility: meData.user?.preferences?.defaultLocationVisibility || settingsData.settings?.defaultPrivacy || "approximate",
+          emailNotifications: meData.user?.preferences?.emailNotifications ?? true,
+          uploadAlerts: meData.user?.preferences?.uploadAlerts ?? true,
+          promotionalEmails: meData.user?.preferences?.promotionalEmails ?? false
+        });
+      })
+      .catch((err) => setError(err.message || "Settings could not be loaded."));
   }, []);
+
+  async function saveSettings(event) {
+    event.preventDefault();
+    setSaving(true);
+    setError("");
+    setMessage("");
+    try {
+      const body = {
+        name: profileForm.name,
+        email: profileForm.email,
+        preferences
+      };
+      if (profileForm.newPassword) {
+        body.currentPassword = profileForm.currentPassword;
+        body.newPassword = profileForm.newPassword;
+      }
+      const data = await api("/api/auth/me", { method: "PATCH", body: JSON.stringify(body) });
+      updateStoredUser(data.user);
+      setProfileForm((prev) => ({ ...prev, currentPassword: "", newPassword: "" }));
+      setMessage("Settings saved.");
+    } catch (err) {
+      setError(err.message || "Settings could not be saved.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const privacyOptions = [
+    ["exact", "Exact location", "Use precise coordinates when you add memories."],
+    ["approximate", "Approximate location", "Recommended. Show the area without exposing the exact spot."],
+    ["hidden", "Hidden location", "Hide coordinates by default and keep only broad context."]
+  ];
 
   return (
     <Shell>
-      <main className="page-shell">
-        <section className="card max-w-3xl space-y-4 p-5">
-          <h1 className="font-serif text-4xl font-black">Settings</h1>
-          {/* Only show guest-specific guidance to guest users (registered members aren't guests) */}
-          {user?.role === "guest" && (
-            <p className="text-slatebody">{
-              `Guest access lasts ${platformSettings?.guestAccessDays ?? "3"} days. Uploads are approval-first by default.`
-            } {platformSettings?.guestDeletionDays ? `Guest data is scheduled for removal ${platformSettings.guestDeletionDays} days after expiry.` : ""}</p>
-          )}
+      <main className="page-shell space-y-6">
+        <HeaderBlock eyebrow="Account" title="Settings" copy="Manage your profile, default privacy, and TravelShare notifications." />
+        {message && <p className="rounded-lg border border-primary/30 bg-primary/10 p-3 font-bold text-primary">{message}</p>}
+        {error && <p className="rounded-lg bg-red-50 p-3 text-sm font-bold text-reject">{error}</p>}
 
-          {/* Only prompt for a Mapbox token when none is provided at build time */}
-          {!hasMapboxToken && (
-            <p className="text-slatebody">Mapbox is the planned map provider. Add <code>VITE_MAPBOX_TOKEN</code> for production map rendering. Current map surfaces provide interactive TravelShare pins, routes, zones, and replay controls without adding a map SDK dependency.</p>
-          )}
-        </section>
+        <form onSubmit={saveSettings} className="grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
+          <section className="card space-y-4 p-5">
+            <div>
+              <p className="text-sm font-black uppercase text-primary">Profile</p>
+              <h2 className="font-serif text-2xl font-black">Personal details</h2>
+            </div>
+            <input className="field" placeholder="Name" value={profileForm.name} onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })} />
+            <input className="field" type="email" placeholder="Email" value={profileForm.email} onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })} />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <input className="field" type="password" placeholder="Current password" value={profileForm.currentPassword} onChange={(e) => setProfileForm({ ...profileForm, currentPassword: e.target.value })} />
+              <input className="field" type="password" placeholder="New password" value={profileForm.newPassword} onChange={(e) => setProfileForm({ ...profileForm, newPassword: e.target.value })} />
+            </div>
+            <p className="text-xs text-slatebody">Leave password fields blank to keep your current password.</p>
+          </section>
+
+          <section className="card space-y-4 p-5">
+            <div>
+              <p className="text-sm font-black uppercase text-primary">Privacy</p>
+              <h2 className="font-serif text-2xl font-black">Default location accuracy</h2>
+            </div>
+            <div className="grid gap-3">
+              {privacyOptions.map(([value, title, copy]) => (
+                <button
+                  key={value}
+                  type="button"
+                  className={`privacy-card ${preferences.defaultLocationVisibility === value ? "privacy-card-active" : ""}`}
+                  onClick={() => setPreferences({ ...preferences, defaultLocationVisibility: value })}
+                  aria-label={`Use ${title}`}
+                >
+                  <span className="privacy-dot" />
+                  <span>
+                    <strong>{title}</strong>
+                    <small>{copy}</small>
+                  </span>
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <section className="card space-y-4 p-5 xl:col-span-2">
+            <div>
+              <p className="text-sm font-black uppercase text-primary">Notifications</p>
+              <h2 className="font-serif text-2xl font-black">Email preferences</h2>
+            </div>
+            <div className="grid gap-3 md:grid-cols-3">
+              {[
+                ["emailNotifications", "Email notifications", "Account and platform updates.", Mail],
+                ["uploadAlerts", "Upload alerts", "New memory and moderation activity.", Bell],
+                ["promotionalEmails", "Promotional emails", "Product news, offers, and launches.", Megaphone]
+              ].map(([key, title, copy, Icon]) => (
+                <label key={key} className="flex cursor-pointer items-start gap-3 rounded-lg border border-borderline bg-skysoft p-4">
+                  <input
+                    className="mt-1 h-5 w-5 shrink-0"
+                    type="checkbox"
+                    checked={Boolean(preferences[key])}
+                    onChange={(e) => setPreferences({ ...preferences, [key]: e.target.checked })}
+                    aria-label={title}
+                  />
+                  <span className="min-w-0">
+                    <span className="flex items-center gap-2 font-bold"><Icon size={17} /> {title}</span>
+                    <span className="mt-1 block text-sm text-slatebody">{copy}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+          </section>
+
+          <section className="card space-y-3 p-5 xl:col-span-2">
+            <h2 className="font-serif text-2xl font-black">Platform defaults</h2>
+            {user?.role === "guest" && (
+              <p className="text-slatebody">Guest access lasts {platformSettings?.guestAccessDays ?? "3"} days. Guest data is scheduled for removal {platformSettings?.guestDeletionDays ?? "14"} days after expiry.</p>
+            )}
+            {!hasMapboxToken && (
+              <p className="text-slatebody">Mapbox is the planned map provider. Add <code>VITE_MAPBOX_TOKEN</code> for production map rendering. Current map surfaces provide interactive TravelShare pins, routes, zones, and replay controls without adding a map SDK dependency.</p>
+            )}
+            <button className="btn-primary" disabled={saving} aria-busy={saving}><Save size={18} /> {saving ? "Saving..." : "Save settings"}</button>
+          </section>
+        </form>
       </main>
     </Shell>
   );
@@ -1736,30 +1853,99 @@ function AnalyticsPanel({ analytics }) {
 }
 
 function SettingsAdmin({ settings }) {
-  const [videoUrl, setVideoUrl] = useState(settings?.backgroundVideoUrl || "/videos/come-to-barbados.mp4");
+  const [form, setForm] = useState({
+    guestAccessDays: settings?.guestAccessDays ?? 3,
+    guestDeletionDays: settings?.guestDeletionDays ?? 14,
+    maxUploadSizeMb: settings?.maxUploadSizeMb ?? 50,
+    defaultPrivacy: settings?.defaultPrivacy || "approximate",
+    moderationProvider: settings?.moderationProvider || "disabled",
+    mapProvider: settings?.mapProvider || "mapbox",
+    paymentProvider: settings?.paymentProvider || "planned_stripe",
+    backgroundVideoUrl: settings?.backgroundVideoUrl || "/videos/come-to-barbados.mp4"
+  });
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    setVideoUrl(settings?.backgroundVideoUrl || "/videos/come-to-barbados.mp4");
-  }, [settings?.backgroundVideoUrl]);
+    setForm({
+      guestAccessDays: settings?.guestAccessDays ?? 3,
+      guestDeletionDays: settings?.guestDeletionDays ?? 14,
+      maxUploadSizeMb: settings?.maxUploadSizeMb ?? 50,
+      defaultPrivacy: settings?.defaultPrivacy || "approximate",
+      moderationProvider: settings?.moderationProvider || "disabled",
+      mapProvider: settings?.mapProvider || "mapbox",
+      paymentProvider: settings?.paymentProvider || "planned_stripe",
+      backgroundVideoUrl: settings?.backgroundVideoUrl || "/videos/come-to-barbados.mp4"
+    });
+  }, [settings]);
 
   async function save(event) {
     event.preventDefault();
-    await api("/api/admin/settings", { method: "PATCH", body: JSON.stringify({ backgroundVideoUrl: videoUrl }) });
-    setMessage("Background video updated.");
+    const payload = {
+      ...form,
+      guestAccessDays: Number(form.guestAccessDays || 3),
+      guestDeletionDays: Number(form.guestDeletionDays || 14),
+      maxUploadSizeMb: Number(form.maxUploadSizeMb || 50)
+    };
+    await api("/api/admin/settings", { method: "PATCH", body: JSON.stringify(payload) });
+    setMessage("Platform settings updated.");
   }
 
   return (
     <div className="space-y-5">
-      <form onSubmit={save} className="card space-y-3 p-5">
-        <h2 className="font-serif text-2xl font-black">App Background Video</h2>
-        <p className="text-sm text-slatebody">Use a public app path like <code>/videos/come-to-barbados.mp4</code> or a hosted video URL.</p>
-        <input className="field" value={videoUrl} onChange={(e) => setVideoUrl(e.target.value)} />
+      <form onSubmit={save} className="card space-y-5 p-5">
+        <div>
+          <p className="text-sm font-black uppercase text-primary">Platform Settings</p>
+          <h2 className="font-serif text-2xl font-black">Defaults and providers</h2>
+          <p className="text-sm text-slatebody">These values are stored in platform settings and fall back to environment variables when unset.</p>
+        </div>
+        <div className="grid gap-3 md:grid-cols-3">
+          <label className="space-y-2">
+            <span className="text-sm font-bold">Guest access days</span>
+            <input className="field" type="number" min="1" value={form.guestAccessDays} onChange={(e) => setForm({ ...form, guestAccessDays: e.target.value })} />
+          </label>
+          <label className="space-y-2">
+            <span className="text-sm font-bold">Guest deletion days</span>
+            <input className="field" type="number" min="1" value={form.guestDeletionDays} onChange={(e) => setForm({ ...form, guestDeletionDays: e.target.value })} />
+          </label>
+          <label className="space-y-2">
+            <span className="text-sm font-bold">Max upload size MB</span>
+            <input className="field" type="number" min="1" value={form.maxUploadSizeMb} onChange={(e) => setForm({ ...form, maxUploadSizeMb: e.target.value })} />
+          </label>
+        </div>
+        <div className="grid gap-3 md:grid-cols-2">
+          <label className="space-y-2">
+            <span className="text-sm font-bold">Default privacy</span>
+            <select className="field" value={form.defaultPrivacy} onChange={(e) => setForm({ ...form, defaultPrivacy: e.target.value })}>
+              <option value="exact">Exact</option>
+              <option value="approximate">Approximate</option>
+              <option value="hidden">Hidden</option>
+            </select>
+          </label>
+          <label className="space-y-2">
+            <span className="text-sm font-bold">Map provider</span>
+            <select className="field" value={form.mapProvider} onChange={(e) => setForm({ ...form, mapProvider: e.target.value })}>
+              <option value="mapbox">Mapbox</option>
+              <option value="dom_fallback">DOM fallback</option>
+            </select>
+          </label>
+          <label className="space-y-2">
+            <span className="text-sm font-bold">Moderation provider</span>
+            <input className="field" value={form.moderationProvider} onChange={(e) => setForm({ ...form, moderationProvider: e.target.value })} />
+          </label>
+          <label className="space-y-2">
+            <span className="text-sm font-bold">Payment provider</span>
+            <input className="field" value={form.paymentProvider} onChange={(e) => setForm({ ...form, paymentProvider: e.target.value })} />
+          </label>
+        </div>
+        <label className="space-y-2 block">
+          <span className="text-sm font-bold">Public background video URL</span>
+          <input className="field" value={form.backgroundVideoUrl} onChange={(e) => setForm({ ...form, backgroundVideoUrl: e.target.value })} />
+        </label>
         {message && <p className="text-sm font-bold text-primary">{message}</p>}
-        <button className="btn-primary"><Save size={18} /> Update Video</button>
+        <button className="btn-primary"><Save size={18} /> Save Platform Settings</button>
       </form>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {Object.entries(settings || {}).map(([key, value]) => <div key={key} className="card p-5"><p className="text-sm font-bold text-slatebody">{key}</p><p className="mt-2 break-words text-2xl font-black text-primary">{String(value)}</p></div>)}
+        {Object.entries(form || {}).map(([key, value]) => <div key={key} className="card p-5"><p className="text-sm font-bold text-slatebody">{key}</p><p className="mt-2 break-words text-2xl font-black text-primary">{String(value)}</p></div>)}
       </div>
     </div>
   );

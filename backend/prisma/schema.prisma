@@ -116,12 +116,27 @@ model User {
   guestSessions       GuestSession[]         @relation("ClaimedGuestSessions")
   purchases           UserPurchase[]
   paymentTransactions PaymentTransaction[]
+  preferences         UserPreference?
   activeStoreItemId   String?
   activeStoreItem     PurchaseItem?          @relation("ActiveStoreItem", fields: [activeStoreItemId], references: [id], onDelete: SetNull)
   createdAt           DateTime               @default(now())
   updatedAt           DateTime               @updatedAt
 
   @@index([activeStoreItemId])
+}
+
+model UserPreference {
+  id                        String             @id @default(cuid())
+  userId                    String             @unique
+  user                      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  defaultLocationVisibility LocationVisibility @default(approximate)
+  emailNotifications        Boolean            @default(true)
+  uploadAlerts              Boolean            @default(true)
+  promotionalEmails         Boolean            @default(false)
+  createdAt                 DateTime           @default(now())
+  updatedAt                 DateTime           @updatedAt
+
+  @@index([userId])
 }
 
 model Trip {
