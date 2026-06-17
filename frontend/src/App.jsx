@@ -787,6 +787,19 @@ function TripDetails() {
               </button>
             ))}
           </div>
+
+          {/* Mobile: compact tab selector so map remains reachable on small screens */}
+          <div className="mt-4 lg:hidden">
+            <label className="sr-only">Select view</label>
+            <select className="field w-full" value={tab} onChange={(e) => setTab(e.target.value)} aria-label="Select album view">
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="chapters">Chapters</option>
+              <option value="map">Map</option>
+              <option value="qr">QR Settings</option>
+              <option value="stats">Stats</option>
+            </select>
+          </div>
         </div>
 
         {tab === "pending" && (
@@ -1187,7 +1200,25 @@ function PublicUpload({ type }) {
   const [uploading, setUploading] = useState(false);
 
   function useLocation() {
-    navigator.geolocation?.getCurrentPosition((pos) => setForm((prev) => ({ ...prev, latitude: String(pos.coords.latitude), longitude: String(pos.coords.longitude) })), () => setError("Location permission was not allowed. You can type the place instead."));
+    navigator.geolocation?.getCurrentPosition(async (pos) => {
+      const lat = String(pos.coords.latitude);
+      const lng = String(pos.coords.longitude);
+      setForm((prev) => ({ ...prev, latitude: lat, longitude: lng }));
+      // If we have a Mapbox token, reverse-geocode to fill the location name automatically
+      const token = import.meta.env.VITE_MAPBOX_TOKEN || "";
+      if (token) {
+        try {
+          const resp = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(lng)},${encodeURIComponent(lat)}.json?access_token=${token}&limit=1`);
+          if (resp.ok) {
+            const data = await resp.json();
+            const place = data?.features?.[0]?.place_name;
+            if (place) setForm((prev) => ({ ...prev, locationName: place }));
+          }
+        } catch (e) {
+          // ignore reverse geocode failures — coords are still set
+        }
+      }
+    }, () => setError("Location permission was not allowed. You can type the place instead."));
   }
 
   async function submit(event) {
