@@ -33,6 +33,12 @@ This file documents steps to deploy the current branch to Netlify / Render and t
    - `PAYPAL_CLIENT_ID` / `PAYPAL_CLIENT_SECRET` — (optional) PayPal keys
    - `FRONTEND_URL` — e.g. https://your-site.netlify.app (used by payment redirects)
    - `VITE_MAPBOX_TOKEN` — Mapbox token (frontend build-time or runtime)
+    - `MAPBOX_TOKEN` — Mapbox secret/publishable token used server-side by the `/api/geocode` proxy (optional)
+    - `VITE_MAPBOX_TOKEN` — Mapbox token (frontend build-time or runtime)
+
+   Notes:
+   - If you prefer to keep map tokens off clients, set `MAPBOX_TOKEN` (server env) or create a platform setting key `mapboxToken` via the admin settings. When present the backend exposes a `serverGeocode` flag via `/api/public/settings` and a proxy at `/api/geocode` for `search` and `reverse` endpoints.
+   - To restrict allowed interactive styles, add a platform setting `allowedMapboxStyles` with a comma-separated list of pre-approved style ids (e.g. `mapbox://styles/myorg/ck...`). If not set, the server will accept `mapbox://styles/*`-prefixed styles only.
    - `MODERATION_PROVIDER` (optional)
    - `CLOUDINARY_URL` or `S3_*` variables depending on `MEDIA_STORAGE_DRIVER`
    - `GUEST_ACCESS_DAYS`, `GUEST_DELETION_DAYS` (optional overrides)

@@ -10,6 +10,7 @@ import eventRoutes from "./routes/events.js";
 import storeRoutes from "./routes/store.js";
 import downloadRoutes from "./routes/downloads.js";
 import skinRoutes from "./routes/skins.js";
+import geocodeRoutes from "./routes/geocode.js";
 import { requireAdmin, requireAuth, requireOrganizerOrAdmin } from "./middleware/auth.js";
 
 export function createApp() {
@@ -43,6 +44,8 @@ export function createApp() {
   app.use("/api/auth", authRoutes);
   app.use("/api/public", publicRoutes);
   app.use("/api/skins", skinRoutes);
+  // Public geocode proxy (optional — requires MAPBOX_TOKEN or platform setting 'mapboxToken')
+  app.use("/api/geocode", geocodeRoutes);
   app.use("/api/trips", requireAuth, tripRoutes);
   app.use("/api/events", requireAuth, requireOrganizerOrAdmin, eventRoutes);
   app.use("/api/store", requireAuth, storeRoutes);
