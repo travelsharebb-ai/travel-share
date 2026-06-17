@@ -18,35 +18,34 @@
     "cleanup:guests": "node scripts/cleanup-expired-guests.mjs"
   },
   "dependencies": {
-    "form-data": "4.0.6",
     "@aws-sdk/client-s3": "^3.1068.0",
-    "axios": "^1.17.0",
     "@prisma/client": "^5.22.0",
     "@sendgrid/mail": "^8.1.6",
+    "axios": "^1.17.0",
     "bcryptjs": "^2.4.3",
     "cloudinary": "^2.5.1",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.21.1",
     "express-rate-limit": "^7.4.1",
+    "form-data": "4.0.6",
     "jsonwebtoken": "^9.0.2",
+    "mkdirp": "^1.0.4",
     "multer": "2.2.0",
     "nanoid": "^5.0.7",
     "qrcode": "^1.5.4",
     "sharp": "^0.33.5",
     "xtend": "^4.0.2",
-    "mkdirp": "^1.0.4",
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "ioredis": "^5.3.2",
     "nodemon": "^3.1.7",
     "prisma": "^5.22.0",
+    "rate-limit-redis": "^2.1.0",
     "supertest": "^7.2.2",
-    "vitest": "^4.1.7",
-    "ioredis": "^5.3.2",
-    "rate-limit-redis": "^2.1.0"
-  }
-  ,
+    "vitest": "^4.1.7"
+  },
   "overrides": {
     "form-data": "4.0.6"
   }

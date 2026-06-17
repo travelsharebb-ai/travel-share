@@ -54,7 +54,7 @@ export async function attachFrameUrls(uploads, prismaClient = prisma) {
   return uploads.map((u) => {
     if (!u) return u;
     const skin = u.skinId ? map[u.skinId] : null;
-    return { ...u, skinId: u.skinId || null, frameAssetUrl: skin?.metadata?.frameAssetUrl || null };
+    return { ...u, skinId: u.skinId || null, frameAssetUrl: skin?.metadata?.frameAssetUrl || skin?.previewUrl || null };
   });
 }
 
