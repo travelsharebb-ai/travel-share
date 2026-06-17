@@ -797,6 +797,7 @@ function TripDetails() {
                 {item === "qr" ? "QR Settings" : item === "approved" ? "Approved Album" : item === "map" ? "Memory Map" : item[0].toUpperCase() + item.slice(1)}
               </button>
             ))}
+              <Link to={`/trips/${trip.id}/upload`} className="btn-ghost shrink-0">Upload memory</Link>
           </div>
 
           {/* Mobile: compact tab selector so map remains reachable on small screens */}
@@ -1216,18 +1217,12 @@ function PublicUpload({ type }) {
       const lng = String(pos.coords.longitude);
       setForm((prev) => ({ ...prev, latitude: lat, longitude: lng }));
       // If we have a Mapbox token, reverse-geocode to fill the location name automatically
-      const token = import.meta.env.VITE_MAPBOX_TOKEN || "";
-      if (token) {
-        try {
-          const resp = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(lng)},${encodeURIComponent(lat)}.json?access_token=${token}&limit=1`);
-          if (resp.ok) {
-            const data = await resp.json();
-            const place = data?.features?.[0]?.place_name;
-            if (place) setForm((prev) => ({ ...prev, locationName: place }));
-          }
-        } catch (e) {
-          // ignore reverse geocode failures — coords are still set
-        }
+      try {
+        const { reverseGeocode } = await import("./lib/geocode.js");
+        const place = await reverseGeocode(lat, lng);
+        if (place) setForm((prev) => ({ ...prev, locationName: place }));
+      } catch (e) {
+        // ignore reverse geocode failures — coords are still set
       }
     }, () => setError("Location permission was not allowed. You can type the place instead."));
   }
@@ -1322,6 +1317,86 @@ function PublicUpload({ type }) {
             </div>
           </article>
         )}
+      </main>
+    </Shell>
+  );
+}
+
+function TripUpload() {
+  // Authenticated upload page for owners to add memories directly to a trip
+  const { tripId } = useParams();
+  const navigate = useNavigate();
+  const [file, setFile] = useState(null);
+  const [form, setForm] = useState({ caption: "", latitude: "", longitude: "", locationName: "", region: "", locationVisibility: "approximate" });
+  const [error, setError] = useState("");
+  const [uploading, setUploading] = useState(false);
+
+  async function useLocation() {
+    navigator.geolocation?.getCurrentPosition(async (pos) => {
+      const lat = String(pos.coords.latitude);
+      const lng = String(pos.coords.longitude);
+      setForm((prev) => ({ ...prev, latitude: lat, longitude: lng }));
+      try {
+        const { reverseGeocode } = await import("./lib/geocode.js");
+        const place = await reverseGeocode(lat, lng);
+        if (place) setForm((prev) => ({ ...prev, locationName: place }));
+      } catch (e) {
+        // ignore
+      }
+    }, () => setError("Location permission was not allowed. You can type the place instead."));
+  }
+
+  async function submit(e) {
+    e.preventDefault();
+    const body = new FormData();
+    if (!file) return setError("Choose a file to upload.");
+    body.append("file", file);
+    Object.entries(form).forEach(([k, v]) => { if (v !== undefined && v !== null) body.append(k, v); });
+    try {
+      setError("");
+      setUploading(true);
+      await api(`/api/trips/${tripId}/uploads`, { method: "POST", body, timeoutMs: 30000 });
+      navigate(`/trips/${tripId}`);
+    } catch (err) {
+      if (err?.name === "AbortError") setError("The upload took too long. Try a smaller file or check your connection.");
+      else setError(err.message || "Upload failed. Try again.");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
+    <Shell>
+      <main className="page-shell flex min-h-[75vh] items-center justify-center">
+        <form onSubmit={submit} className="card w-full max-w-xl space-y-4 p-5">
+          <h1 className="font-serif text-3xl font-black">Upload memory to album</h1>
+          <input className="field" type="file" accept="image/*,video/*" onChange={(e) => setFile(e.target.files?.[0])} disabled={uploading} />
+          <input className="field" placeholder="Caption (optional)" value={form.caption} onChange={(e) => setForm({ ...form, caption: e.target.value })} />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <LocationField value={form.locationName} onChange={(val) => setForm({ ...form, locationName: val })} latitude={form.latitude} longitude={form.longitude} onLatChange={(val) => setForm({ ...form, latitude: val })} onLngChange={(val) => setForm({ ...form, longitude: val })} placeholder="Location name or search" />
+            <input className="field" placeholder="Region" value={form.region} onChange={(e) => setForm({ ...form, region: e.target.value })} />
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <select className="field" value={form.locationVisibility} onChange={(e) => setForm({ ...form, locationVisibility: e.target.value })}>
+              <option value="exact">Exact</option>
+              <option value="approximate">Approximate</option>
+              <option value="hidden">Hidden</option>
+            </select>
+            <input className="field" placeholder="Latitude" value={form.latitude} onChange={(e) => setForm({ ...form, latitude: e.target.value })} />
+            <input className="field" placeholder="Longitude" value={form.longitude} onChange={(e) => setForm({ ...form, longitude: e.target.value })} />
+          </div>
+          <button type="button" className="btn-ghost w-full" onClick={useLocation}><MapPin size={18} /> Use device location</button>
+          {form.latitude && form.longitude && (
+            <a className="text-sm text-primary mt-2 inline-block" target="_blank" rel="noreferrer" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(form.latitude + ',' + form.longitude)}`}>
+              Open coordinates in Google Maps
+            </a>
+          )}
+          {error && <p className="rounded-lg bg-red-50 p-3 text-sm font-bold text-reject">{error}</p>}
+          <div className="flex gap-2">
+            <button className="btn-ghost w-full" onClick={(e) => { e.preventDefault(); navigate(-1); }}>Cancel</button>
+            <button className="btn-primary w-full" disabled={!file} aria-busy={uploading}><UploadCloud size={18} /> {uploading ? "Uploading..." : "Upload"}</button>
+          </div>
+        </form>
       </main>
     </Shell>
   );
@@ -2065,6 +2140,7 @@ export default function App() {
         <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
         <Route path="/tourist" element={<PrivateRoute><TouristDashboard /></PrivateRoute>} />
         <Route path="/trips/:tripId" element={<PrivateRoute><TripDetails /></PrivateRoute>} />
+        <Route path="/trips/:tripId/upload" element={<PrivateRoute><TripUpload /></PrivateRoute>} />
         <Route path="/events" element={<PrivateRoute roles={["organizer", "platform_admin"]}><EventsDashboard /></PrivateRoute>} />
         <Route path="/events/:eventId" element={<PrivateRoute roles={["organizer", "platform_admin"]}><EventDetails /></PrivateRoute>} />
         <Route path="/store" element={<PrivateRoute><Store /></PrivateRoute>} />
