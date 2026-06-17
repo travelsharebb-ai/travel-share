@@ -171,15 +171,23 @@ router.get("/analytics", async (_req, res) => {
 });
 
 router.get("/settings", async (_req, res) => {
+  const guestAccessDays = Number(await settingValue("guestAccessDays", process.env.GUEST_ACCESS_DAYS || 3));
+  const maxUploadSizeMb = Number(await settingValue("maxUploadSizeMb", process.env.MAX_UPLOAD_SIZE_MB || 50));
+  const defaultPrivacy = await settingValue("defaultPrivacy", process.env.DEFAULT_LOCATION_VISIBILITY || "approximate");
+  const moderationProvider = await settingValue("moderationProvider", process.env.MODERATION_PROVIDER || "disabled");
+  const mapProvider = await settingValue("mapProvider", "mapbox");
+  const paymentProvider = await settingValue("paymentProvider", process.env.PAYMENT_PROVIDER || "planned_stripe");
+  const backgroundVideoUrl = await settingValue("backgroundVideoUrl", process.env.BACKGROUND_VIDEO_URL || "/videos/come-to-barbados.mp4");
+
   res.json({
     settings: {
-      guestAccessDays: Number(process.env.GUEST_ACCESS_DAYS || 3),
-      maxUploadSizeMb: Number(process.env.MAX_UPLOAD_SIZE_MB || 50),
-      defaultPrivacy: process.env.DEFAULT_LOCATION_VISIBILITY || "approximate",
-      moderationProvider: process.env.MODERATION_PROVIDER || "disabled",
-      mapProvider: "mapbox",
-      paymentProvider: process.env.PAYMENT_PROVIDER || "planned_stripe",
-      backgroundVideoUrl: await settingValue("backgroundVideoUrl", process.env.BACKGROUND_VIDEO_URL || "/videos/come-to-barbados.mp4")
+      guestAccessDays,
+      maxUploadSizeMb,
+      defaultPrivacy,
+      moderationProvider,
+      mapProvider,
+      paymentProvider,
+      backgroundVideoUrl
     }
   });
 });
