@@ -87,7 +87,7 @@ function BottomAd() {
           <div className="min-w-0 flex-1">
             <p className="flex items-center gap-2 text-xs font-black uppercase text-primary"><Megaphone size={15} /> Sponsored</p>
             <p className="break-words text-base font-black">{ad.title}</p>
-            {ad.description && <p className="line-clamp-2 break-words text-sm text-slatebody">{ad.description}</p>}
+            {ad.description && <p className="mt-2 line-clamp-2 break-words text-sm text-slatebody">{ad.description}</p>}
           </div>
           {ad.linkUrl && <ExternalLink className="hidden shrink-0 text-primary sm:block" size={20} />}
         </a>
@@ -635,11 +635,19 @@ function Dashboard() {
             <h2 className="mt-2 font-serif text-3xl font-black">Memory maps and private albums</h2>
             <p className="mt-3 text-slatebody">Create trips, collect QR uploads, approve memories, and replay journeys by place.</p>
           </Link>
-          <Link to="/events" className="card group p-6 transition hover:-translate-y-1">
-            <p className="text-sm font-black uppercase text-primary">Events Mode</p>
-            <h2 className="mt-2 font-serif text-3xl font-black">Live event maps and zones</h2>
-            <p className="mt-3 text-slatebody">Host festivals, parties, tours, conferences, or pop-ups with QR-powered memory zones.</p>
-          </Link>
+          {isOrganizer() ? (
+            <Link to="/events" className="card group p-6 transition hover:-translate-y-1">
+              <p className="text-sm font-black uppercase text-primary">Events Mode</p>
+              <h2 className="mt-2 font-serif text-3xl font-black">Live event maps and zones</h2>
+              <p className="mt-3 text-slatebody">Host festivals, parties, tours, conferences, or pop-ups with QR-powered memory zones.</p>
+            </Link>
+          ) : (
+            <Link to="/discover" className="card group p-6 transition hover:-translate-y-1">
+              <p className="text-sm font-black uppercase text-primary">Events Discovery</p>
+              <h2 className="mt-2 font-serif text-3xl font-black">Public event memory pages</h2>
+              <p className="mt-3 text-slatebody">Discover public events and open event or zone QR pages to upload memories.</p>
+            </Link>
+          )}
         </section>
         <Link className="floating-chapter-btn" to={chapterTarget}><Sparkles size={18} /> Start a new chapter</Link>
       </main>
