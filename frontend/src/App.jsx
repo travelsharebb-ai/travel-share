@@ -181,7 +181,7 @@ function Landing() {
             // Make 'Events Mode' card clickable to open the Events page
             if (title === "Events Mode") {
               return (
-                <Link key={title} to="/events" className="card p-5 block">
+                <Link key={title} to={isOrganizer() ? "/events" : "/discover"} className="card p-5 block">
                   <p className="font-serif text-2xl font-black">{title}</p>
                   <p className="mt-2 text-slatebody">{copy}</p>
                 </Link>
@@ -208,6 +208,8 @@ function GuestMode() {
   const [creatorLoading, setCreatorLoading] = useState(false);
   const [tripForm, setTripForm] = useState({ title: "", destination: "", defaultLocationVisibility: "approximate" });
   const [eventForm, setEventForm] = useState({ title: "", category: "", location: "", description: "" });
+  const [tripLoading, setTripLoading] = useState(false);
+  const [eventLoading, setEventLoading] = useState(false);
   const [guestMessage, setGuestMessage] = useState("");
   const [showGuestToast, setShowGuestToast] = useState(false);
 
@@ -266,18 +268,32 @@ function GuestMode() {
 
   async function createGuestTrip(event) {
     event.preventDefault();
-    const data = await api("/api/public/guest/trips", { method: "POST", body: JSON.stringify(tripForm) });
-    setGuestMessage(`Guest album created. QR link: ${data.scanUrl}`);
-    setTripForm({ title: "", destination: "", defaultLocationVisibility: "approximate" });
-    await loadCreator();
+    setTripLoading(true);
+    try {
+      const data = await api("/api/public/guest/trips", { method: "POST", body: JSON.stringify(tripForm) });
+      setGuestMessage(`Guest album created. QR link: ${data.scanUrl}`);
+      setTripForm({ title: "", destination: "", defaultLocationVisibility: "approximate" });
+      await loadCreator();
+    } catch (err) {
+      setGuestMessage(err.message || "Failed to create guest album.");
+    } finally {
+      setTripLoading(false);
+    }
   }
 
   async function createGuestEvent(event) {
     event.preventDefault();
-    const data = await api("/api/public/guest/events", { method: "POST", body: JSON.stringify(eventForm) });
-    setGuestMessage(`Guest event created. QR link: ${data.scanUrl}`);
-    setEventForm({ title: "", category: "", location: "", description: "" });
-    await loadCreator();
+    setEventLoading(true);
+    try {
+      const data = await api("/api/public/guest/events", { method: "POST", body: JSON.stringify(eventForm) });
+      setGuestMessage(`Guest event created. QR link: ${data.scanUrl}`);
+      setEventForm({ title: "", category: "", location: "", description: "" });
+      await loadCreator();
+    } catch (err) {
+      setGuestMessage(err.message || "Failed to create guest event.");
+    } finally {
+      setEventLoading(false);
+    }
   }
 
   return (
@@ -307,6 +323,7 @@ function GuestMode() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:gap-3">
             <Link className="btn-primary" to="/discover"><MapPin size={18} /> Discover public events</Link>
             <Link className="btn-primary" to="/signup"><QrCode size={18} /> Create account to host</Link>
+            <Link className="btn-ghost" to="/guest/skins"><Flame size={18} /> Browse guest add-ons</Link>
             {!guest ? (
               <button className={`btn-ghost ${creatorLoading ? "opacity-60 cursor-not-allowed" : ""}`} onClick={startCreator} disabled={creatorLoading} aria-busy={creatorLoading}><Sparkles size={18} /> {creatorLoading ? "Starting…" : "Start 3-day guest creator"}</button>
             ) : (
@@ -337,6 +354,29 @@ function GuestMode() {
           )}
         </section>
         {guest && (
+          <>
+            <section className="grid gap-4 xl:grid-cols-2">
+            <div className="card p-5">
+              <h3 className="text-sm font-black uppercase text-primary">Create a temporary album</h3>
+              <p className="mt-2 text-sm text-slatebody">Collect upload memories for 3 days before signing up to keep them.</p>
+              <form className="mt-4 space-y-3" onSubmit={createGuestTrip}>
+                <input className="field" placeholder="Album title" value={tripForm.title} onChange={(e) => setTripForm({ ...tripForm, title: e.target.value })} required />
+                <input className="field" placeholder="Destination" value={tripForm.destination} onChange={(e) => setTripForm({ ...tripForm, destination: e.target.value })} required />
+                <button className="btn-primary w-full" type="submit" disabled={tripLoading} aria-busy={tripLoading}>{tripLoading ? "Creating…" : "Create album"}</button>
+              </form>
+            </div>
+            <div className="card p-5">
+              <h3 className="text-sm font-black uppercase text-primary">Create a temporary event</h3>
+              <p className="mt-2 text-sm text-slatebody">Open a public event page for guest contributions and QR zone uploads.</p>
+              <form className="mt-4 space-y-3" onSubmit={createGuestEvent}>
+                <input className="field" placeholder="Event title" value={eventForm.title} onChange={(e) => setEventForm({ ...eventForm, title: e.target.value })} required />
+                <input className="field" placeholder="Location" value={eventForm.location} onChange={(e) => setEventForm({ ...eventForm, location: e.target.value })} />
+                <input className="field" placeholder="Category" value={eventForm.category} onChange={(e) => setEventForm({ ...eventForm, category: e.target.value })} />
+                <textarea className="field min-h-[120px]" placeholder="Description" value={eventForm.description} onChange={(e) => setEventForm({ ...eventForm, description: e.target.value })} />
+                <button className="btn-primary w-full" type="submit" disabled={eventLoading} aria-busy={eventLoading}>{eventLoading ? "Creating…" : "Create event"}</button>
+              </form>
+            </div>
+          </section>
           <section className="grid gap-5 xl:grid-cols-2">
             <div className="space-y-4">
               <h3 className="text-sm font-black uppercase text-primary">Your Temporary Albums</h3>
@@ -418,7 +458,8 @@ function GuestMode() {
                 )}
               </div>
             </div>
-          </section>
+            </section>
+          </>
         )}
         <section className="space-y-4">
           <div className="card p-5">
@@ -429,16 +470,88 @@ function GuestMode() {
               <EmptyCard title="No store items" copy="Preview items will appear here." />
             ) : (
               items.map((item) => (
-                <Link key={item.id} to="/store" className="card p-5 transition hover:-translate-y-1">
-                  {item.previewUrl && <img src={item.previewUrl} alt="" className="mb-4 h-36 w-full rounded-lg object-cover" />}
-                  <p className="text-xs font-black uppercase text-primary">{item.type || "Store item"}</p>
+                <article key={item.id} className="card p-5 transition hover:-translate-y-1">
+                  {item.previewUrl && <img src={assetUrl(item.previewUrl)} alt={item.name || "Skin preview"} className="mb-4 h-36 w-full rounded-lg object-cover" />}
+                  <p className="text-xs font-black uppercase text-primary">{item.type === "image_skin" ? "Photo frame" : item.type?.replace("_", " ") || "Store item"}</p>
                   <h2 className="font-serif text-2xl font-black">{item.name}</h2>
-                  <p className="text-sm text-slatebody">{item.description || ""}</p>
-                  <p className="mt-3 text-sm font-bold text-primary">{(item.priceCents || 0) > 0 ? `$${((item.priceCents || 0) / 100).toFixed(2)}` : "Free"}</p>
-                </Link>
+                  <p className="text-sm text-slatebody">{item.description || "Preview the frame and sign up to unlock it."}</p>
+                  <div className="mt-3 flex items-center justify-between gap-2">
+                    <p className="text-sm font-bold text-primary">{(item.priceCents || 0) > 0 ? `$${((item.priceCents || 0) / 100).toFixed(2)}` : "Free for registered users"}</p>
+                    <span className="inline-flex items-center gap-1 rounded-full border border-borderline bg-slate-50 px-2 py-1 text-xs font-bold text-slatebody">{item.priceCents > 0 ? "Locked" : "Basic"}</span>
+                  </div>
+                  <Link className="btn-ghost mt-4 w-full" to="/signup">Sign up to unlock</Link>
+                </article>
               ))
             )}
           </div>
+        </section>
+      </main>
+    </Shell>
+  );
+}
+
+
+function GuestStorePreview() {
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    api("/api/public/store-preview")
+      .then((data) => {
+        if (!mounted) return;
+        setItems(data.items || []);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  return (
+    <Shell>
+      <main className="page-shell space-y-6">
+        <section className="hero-copy-panel">
+          <HeaderBlock
+            eyebrow="Guest Browsing"
+            title="Browse skins, frames and add-ons"
+            copy="Guests can preview all available add-ons before signing up to unlock and apply them."
+          />
+        </section>
+
+        <section className="grid gap-4 sm:grid-cols-[1fr_auto] items-center">
+          <div className="text-slatebody">
+            <p className="max-w-3xl">Guests can explore every store item and compare basic versus premium frames. Sign up to unlock styles and apply them inside your albums.</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Link className="btn-primary" to="/signup">Sign up to unlock</Link>
+            <Link className="btn-ghost" to="/guest">Back to guest home</Link>
+          </div>
+        </section>
+
+        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {loading ? (
+            <div className="card p-5">Loading add-ons…</div>
+          ) : items.length === 0 ? (
+            <EmptyCard title="No add-ons available" copy="The guest preview is currently empty." />
+          ) : (
+            items.map((item) => (
+              <article key={item.id} className="card p-5 transition hover:-translate-y-1">
+                {item.previewUrl && <img src={assetUrl(item.previewUrl)} alt={item.name || "Preview image"} className="mb-4 h-36 w-full rounded-lg object-cover" />}
+                <p className="text-xs font-black uppercase text-primary">{item.type === "image_skin" ? "Photo frame" : item.type?.replace("_", " ") || "Store item"}</p>
+                <h2 className="font-serif text-2xl font-black">{item.name}</h2>
+                <p className="text-sm text-slatebody">{item.description || "Preview the add-on, then sign up to unlock it."}</p>
+                <div className="mt-3 flex items-center justify-between gap-2">
+                  <p className="text-sm font-bold text-primary">{(item.priceCents || 0) > 0 ? `$${((item.priceCents || 0) / 100).toFixed(2)}` : "Free for registered users"}</p>
+                  <span className="inline-flex items-center gap-1 rounded-full border border-borderline bg-slate-50 px-2 py-1 text-xs font-bold text-slatebody">{(item.priceCents || 0) > 0 ? "Locked" : "Basic"}</span>
+                </div>
+                <Link className="btn-ghost mt-4 w-full" to="/signup">Sign up to unlock</Link>
+              </article>
+            ))
+          )}
         </section>
       </main>
     </Shell>
@@ -527,6 +640,7 @@ function OAuthCallback() {
 function ForgotPassword() {
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
+  const [showToken, setShowToken] = useState(false);
   const [error, setError] = useState("");
 
   async function submit(event) {
@@ -2171,6 +2285,8 @@ function SettingsAdmin({ settings }) {
     defaultPrivacy: settings?.defaultPrivacy || "approximate",
     moderationProvider: settings?.moderationProvider || "disabled",
     mapProvider: settings?.mapProvider || "mapbox",
+    mapboxToken: settings?.mapboxToken || "",
+    allowedMapboxStyles: settings?.allowedMapboxStyles || "",
     paymentProvider: settings?.paymentProvider || "planned_stripe",
     backgroundVideoUrl: settings?.backgroundVideoUrl || "/videos/come-to-barbados.mp4"
   });
@@ -2184,6 +2300,8 @@ function SettingsAdmin({ settings }) {
       defaultPrivacy: settings?.defaultPrivacy || "approximate",
       moderationProvider: settings?.moderationProvider || "disabled",
       mapProvider: settings?.mapProvider || "mapbox",
+      mapboxToken: settings?.mapboxToken || "",
+      allowedMapboxStyles: settings?.allowedMapboxStyles || "",
       paymentProvider: settings?.paymentProvider || "planned_stripe",
       backgroundVideoUrl: settings?.backgroundVideoUrl || "/videos/come-to-barbados.mp4"
     });
@@ -2193,6 +2311,8 @@ function SettingsAdmin({ settings }) {
     event.preventDefault();
     const payload = {
       ...form,
+      mapboxToken: form.mapboxToken || "",
+      allowedMapboxStyles: form.allowedMapboxStyles || "",
       guestAccessDays: Number(form.guestAccessDays || 3),
       guestDeletionDays: Number(form.guestDeletionDays || 14),
       maxUploadSizeMb: Number(form.maxUploadSizeMb || 50)
@@ -2246,6 +2366,19 @@ function SettingsAdmin({ settings }) {
           <label className="space-y-2">
             <span className="text-sm font-bold">Payment provider</span>
             <input className="field" value={form.paymentProvider} onChange={(e) => setForm({ ...form, paymentProvider: e.target.value })} />
+          </label>
+          <label className="space-y-2">
+            <span className="text-sm font-bold">Mapbox server token</span>
+            <div className="flex gap-2">
+              <input className="field" type={showToken ? "text" : "password"} value={form.mapboxToken || ""} onChange={(e) => setForm({ ...form, mapboxToken: e.target.value })} />
+              <button type="button" className="btn-ghost" onClick={() => setShowToken(!showToken)}>{showToken ? "Hide" : "Show"}</button>
+            </div>
+            <p className="text-xs text-slatebody">Optional: set a server-side Mapbox token to proxy geocode requests (keeps token off clients).</p>
+          </label>
+          <label className="space-y-2">
+            <span className="text-sm font-bold">Allowed Mapbox Styles</span>
+            <textarea className="field" value={form.allowedMapboxStyles || ""} onChange={(e) => setForm({ ...form, allowedMapboxStyles: e.target.value })} placeholder="Comma-separated style ids e.g. mapbox://styles/org/ck..." />
+            <p className="text-xs text-slatebody">Optional: comma-separated list of pre-approved Mapbox style ids.</p>
           </label>
         </div>
         <label className="space-y-2 block">
@@ -2324,6 +2457,7 @@ export default function App() {
         <Route path="/signup" element={<AuthPage mode="signup" />} />
         <Route path="/login" element={<AuthPage mode="login" />} />
         <Route path="/guest" element={<GuestMode />} />
+        <Route path="/guest/skins" element={<GuestStorePreview />} />
         <Route path="/discover" element={<DiscoverEvents />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password/:token" element={<ResetPassword />} />

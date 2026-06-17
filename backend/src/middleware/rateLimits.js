@@ -44,7 +44,7 @@ export const uploadLimiter = rateLimit({
 export const geocodeLimiter = rateLimit({
   // stricter limits for geocode proxy to avoid abuse
   windowMs: 1 * 60 * 1000,
-  max: 15,
+  max: 10,
   standardHeaders: true,
   legacyHeaders: false,
   store: createStore()

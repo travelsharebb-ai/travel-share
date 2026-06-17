@@ -183,6 +183,8 @@ router.get("/settings", async (_req, res) => {
   const defaultPrivacy = await settingValue("defaultPrivacy", process.env.DEFAULT_LOCATION_VISIBILITY || "approximate");
   const moderationProvider = await settingValue("moderationProvider", process.env.MODERATION_PROVIDER || "disabled");
   const mapProvider = await settingValue("mapProvider", "mapbox");
+  const mapboxToken = await settingValue("mapboxToken", process.env.MAPBOX_TOKEN || "");
+  const allowedMapboxStyles = await settingValue("allowedMapboxStyles", process.env.ALLOWED_MAPBOX_STYLES || "");
   const paymentProvider = await settingValue("paymentProvider", process.env.PAYMENT_PROVIDER || "planned_stripe");
   const backgroundVideoUrl = await settingValue("backgroundVideoUrl", process.env.BACKGROUND_VIDEO_URL || "/videos/come-to-barbados.mp4");
 
@@ -194,6 +196,8 @@ router.get("/settings", async (_req, res) => {
       defaultPrivacy,
       moderationProvider,
       mapProvider,
+      mapboxToken,
+      allowedMapboxStyles,
       paymentProvider,
       backgroundVideoUrl
     }

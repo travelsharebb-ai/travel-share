@@ -4,28 +4,54 @@ import { prisma } from "../utils/prisma.js";
 const router = Router();
 import { geocodeLimiter } from "../middleware/rateLimits.js";
 
-// Small in-memory cache to reduce Mapbox calls: simple TTL cache with size cap
+// Small cache layer: prefer Redis if available (REDIS_URL), otherwise in-memory TTL cache
 const CACHE_TTL_MS = 60 * 1000; // 60s
 const CACHE_MAX = 500;
-const cache = new Map();
+let redisClient = null;
+try {
+  // optional dependency; dynamic require so local dev without ioredis still works
+  // eslint-disable-next-line import/no-extraneous-dependencies, global-require
+  const IORedis = require("ioredis");
+  const redisUrl = process.env.REDIS_URL || process.env.REDIS_TLS_URL;
+  if (redisUrl) redisClient = new IORedis(redisUrl);
+} catch (err) {
+  redisClient = null;
+}
 
-function cacheGet(key) {
-  const entry = cache.get(key);
+const memoryCache = new Map();
+
+async function cacheGet(key) {
+  if (redisClient) {
+    try {
+      const v = await redisClient.get(`geocode:${key}`);
+      return v ? JSON.parse(v) : null;
+    } catch (e) {
+      // fall back to memory
+    }
+  }
+  const entry = memoryCache.get(key);
   if (!entry) return null;
   if (Date.now() - entry.ts > CACHE_TTL_MS) {
-    cache.delete(key);
+    memoryCache.delete(key);
     return null;
   }
   return entry.value;
 }
 
-function cacheSet(key, value) {
-  if (cache.size >= CACHE_MAX) {
-    // simple eviction: remove first inserted (Map preserves insertion order)
-    const firstKey = cache.keys().next().value;
-    if (firstKey) cache.delete(firstKey);
+async function cacheSet(key, value) {
+  if (redisClient) {
+    try {
+      await redisClient.set(`geocode:${key}`, JSON.stringify(value), "PX", CACHE_TTL_MS);
+      return;
+    } catch (e) {
+      // fall back to memory
+    }
   }
-  cache.set(key, { ts: Date.now(), value });
+  if (memoryCache.size >= CACHE_MAX) {
+    const firstKey = memoryCache.keys().next().value;
+    if (firstKey) memoryCache.delete(firstKey);
+  }
+  memoryCache.set(key, { ts: Date.now(), value });
 }
 
 // Helper to resolve token from env or platform setting
