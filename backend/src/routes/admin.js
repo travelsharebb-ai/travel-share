@@ -210,6 +210,8 @@ router.patch("/settings", async (req, res, next) => {
       "defaultPrivacy",
       "moderationProvider",
       "mapProvider",
+      "mapboxToken",
+      "allowedMapboxStyles",
       "paymentProvider",
       "backgroundVideoUrl"
     ];
