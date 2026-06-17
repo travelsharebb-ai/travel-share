@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { Link, Navigate, Route, Routes, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   BarChart3,
@@ -32,6 +32,7 @@ import MediaCard from "./components/MediaCard";
 import ScreenshotGuard from "./components/ScreenshotGuard";
 import { API_URL, api, currentUser, setSession, updateStoredUser, getGuestToken, setGuestToken, clearGuestToken } from "./lib/api";
 import LocationField from "./components/LocationField";
+import { reverseGeocode } from "./lib/geocode";
 
 const supportEmail = import.meta.env.VITE_SUPPORT_EMAIL || "support@example.com";
 const mapboxToken = import.meta.env.VITE_MAPBOX_TOKEN || "";
@@ -669,8 +670,11 @@ function TouristDashboard() {
     setCreating(true);
     setCreateError("");
     try {
-      await api("/api/trips", { method: "POST", body: JSON.stringify(form) });
+      const data = await api("/api/trips", { method: "POST", body: JSON.stringify(form) });
+      // Optimistically add the created trip to the list to avoid UI races
+      if (data?.trip) setTrips((prev) => [data.trip, ...prev]);
       setForm({ title: "", destination: "", startDate: "", endDate: "", defaultLocationVisibility: "approximate" });
+      // Refresh from server to ensure consistent counts and ordering
       await load();
     } catch (err) {
       setCreateError(err.message || "Could not create album. Try again.");
@@ -838,7 +842,7 @@ function TripDetails() {
 
         {tab === "approved" && (visible.length === 0 ? <EmptyCard title="No approved memories yet" copy="Approved uploads will appear in your album and memory map." /> : <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{visible.map((upload) => <MediaCard key={upload.id} upload={upload} skinOptions={skinOptions} onApplySkin={applySkin} onDelete={(id) => api(`/api/uploads/${id}`, { method: "DELETE" }).then(load)} />)}</div>)}
         {tab === "chapters" && <ChaptersPanel chapters={trip.chapters || []} chapterForm={chapterForm} setChapterForm={setChapterForm} createChapter={createChapter} />}
-        {tab === "map" && <MemoryMap data={mapData} />}
+        {tab === "map" && <MemoryMap data={mapData} tripId={trip.id} />}
         {tab === "qr" && qr && <QrPanel qr={qr} trip={trip} updateQr={updateQr} createShareLink={createShareLink} />}
         {tab === "stats" && <StatsGrid stats={{ Pending: pendingCount, Approved: uploads.filter((u) => u.status === "approved").length, Reported: uploads.filter((u) => u.status === "reported").length, "Map Pins": mapData?.pins?.length || 0 }} />}
         <button className="floating-chapter-btn" onClick={() => setTab("chapters")}><Sparkles size={18} /> Start a new chapter</button>
@@ -1222,6 +1226,16 @@ function PublicUpload({ type }) {
   const [error, setError] = useState("");
   const [isLocating, setIsLocating] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [searchParams] = useSearchParams();
+
+  useEffect(() => {
+    const lat = searchParams.get("lat");
+    const lng = searchParams.get("lng");
+    const locationName = searchParams.get("locationName") || searchParams.get("place");
+    if (lat || lng || locationName) {
+      setForm((prev) => ({ ...prev, latitude: lat || prev.latitude, longitude: lng || prev.longitude, locationName: locationName || prev.locationName }));
+    }
+  }, []);
   function useLocation() {
     if (!navigator.geolocation) return setError("Geolocation is not available in this browser.");
     setIsLocating(true);
@@ -1336,6 +1350,18 @@ function PublicUpload({ type }) {
             </div>
           </article>
         )}
+        {emptySpot && (
+          <div className="absolute right-4 bottom-4 z-40">
+            <div className="card p-3 max-w-xs">
+              <p className="font-bold">Add memory here</p>
+              <p className="text-sm text-slatebody">{emptySpot.place || `${emptySpot.lat.toFixed(5)}, ${emptySpot.lng.toFixed(5)}`}</p>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <button className="btn-ghost" onClick={() => { navigator.clipboard?.writeText(`${emptySpot.lat},${emptySpot.lng}`); alert('Coordinates copied to clipboard'); }}>Copy coords</button>
+                <button className="btn-primary" onClick={() => { setEmptySpot(null); navigate('/guest'); }}>Start guest upload</button>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </Shell>
   );
@@ -1349,6 +1375,17 @@ function TripUpload() {
   const [form, setForm] = useState({ caption: "", latitude: "", longitude: "", locationName: "", region: "", locationVisibility: "approximate" });
   const [error, setError] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [searchParams] = useSearchParams();
+
+  useEffect(() => {
+    const lat = searchParams.get("lat");
+    const lng = searchParams.get("lng");
+    const locationName = searchParams.get("locationName") || searchParams.get("place");
+    if (lat || lng || locationName) {
+      setForm((prev) => ({ ...prev, latitude: lat || prev.latitude, longitude: lng || prev.longitude, locationName: locationName || prev.locationName }));
+    }
+    // populate once on mount
+  }, []);
 
   const [isLocating, setIsLocating] = useState(false);
   async function useLocation() {
@@ -1636,17 +1673,50 @@ function Legal({ type }) {
   );
 }
 
-function MemoryMap({ data }) {
+function MemoryMap({ data, tripId }) {
   const [selected, setSelected] = useState(null);
   const [replayIndex, setReplayIndex] = useState(0);
   const [isMapLoading, setIsMapLoading] = useState(false);
   const [mapLoadError, setMapLoadError] = useState(false);
+  const [isLocating, setIsLocating] = useState(false);
+  const navigate = useNavigate();
   const pins = data?.pins || [];
   const route = data?.route || [];
   const replay = data?.replay || [];
   const activeReplay = replay[replayIndex];
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
+  const [filters, setFilters] = useState({ photosOnly: false });
+  const [searchText, setSearchText] = useState("");
+  const [emptySpot, setEmptySpot] = useState(null);
+
+  async function forwardGeocode(query) {
+    const token = import.meta.env.VITE_MAPBOX_TOKEN || "";
+    if (!token || !query) return null;
+    try {
+      const resp = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${token}&limit=1`);
+      if (!resp.ok) return null;
+      const data = await resp.json();
+      const feat = data?.features?.[0];
+      if (!feat) return null;
+      return { lat: feat.center[1], lng: feat.center[0], place: feat.place_name };
+    } catch (e) {
+      return null;
+    }
+  }
+  async function locateMe() {
+    if (!navigator.geolocation) return alert("Geolocation not available in this browser.");
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition((pos) => {
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
+      if (mapInstanceRef.current) mapInstanceRef.current.easeTo({ center: [lng, lat], zoom: 14 });
+      setIsLocating(false);
+    }, () => {
+      setIsLocating(false);
+      alert("Could not determine device location.");
+    }, { timeout: 10000 });
+  }
 
   // Helper: detect if we have geo pins suitable for a real map
   const hasGeoPins = pins.some((p) => p.latitude && p.longitude);
@@ -1708,9 +1778,16 @@ function MemoryMap({ data }) {
 
       mapInstanceRef.current.on("load", () => {
         if (!mapInstanceRef.current) return;
+        // Apply filters when building source features
+        const filteredFeatures = features.filter((f) => {
+          if (!filters.photosOnly) return true;
+          const memories = f.properties?.memories || [];
+          return memories.some((m) => m?.fileUrl && /\.(jpe?g|png|gif|webp|bmp)$/i.test(m.fileUrl));
+        });
+
         mapInstanceRef.current.addSource("pins", {
           type: "geojson",
-          data: { type: "FeatureCollection", features },
+          data: { type: "FeatureCollection", features: filteredFeatures },
           cluster: true,
           clusterMaxZoom: 14,
           clusterRadius: 50
@@ -1760,6 +1837,38 @@ function MemoryMap({ data }) {
             mapInstanceRef.current.easeTo({ center: features[0].geometry.coordinates, zoom });
           });
         });
+
+        // click on the map canvas where no pin exists -> open trip upload (prefill coords) or show empty-spot UI
+        mapInstanceRef.current.on("click", (e) => {
+          try {
+            const featuresAtPoint = mapInstanceRef.current.queryRenderedFeatures(e.point, { layers: ["unclustered-point", "clusters"] });
+            if (featuresAtPoint && featuresAtPoint.length > 0) return; // clicked a pin/cluster
+          } catch (err) {
+            // ignore
+          }
+          const lat = e.lngLat.lat;
+          const lng = e.lngLat.lng;
+          if (tripId) {
+            (async () => {
+              let place = null;
+              try { place = await reverseGeocode(lat, lng); } catch (err) { }
+              const q = new URLSearchParams();
+              q.set("lat", String(lat));
+              q.set("lng", String(lng));
+              if (place) q.set("locationName", place);
+              navigate(`/trips/${tripId}/upload?${q.toString()}`);
+            })();
+            return;
+          }
+
+          // Non-trip view: show an empty-spot panel with quick actions
+          (async () => {
+            let place = null;
+            try { place = await reverseGeocode(lat, lng); } catch (err) { }
+            setEmptySpot({ lat, lng, place });
+            window.setTimeout(() => { setEmptySpot(null); }, 20_000);
+          })();
+        });
       });
       // map loaded successfully
       setIsMapLoading(false);
@@ -1783,6 +1892,19 @@ function MemoryMap({ data }) {
         <div className="absolute left-4 top-4 rounded-lg border border-borderline bg-panel/90 p-3 z-10">
           <p className="text-xs font-black uppercase text-primary">Memory Map</p>
           <p className="text-sm text-slatebody">{mapboxToken ? "Mapbox ready" : "Set VITE_MAPBOX_TOKEN for production maps"}</p>
+          <div className="mt-2 flex gap-2 items-center">
+            <input className="field h-9" placeholder="Search place" value={searchText} onChange={(e) => setSearchText(e.target.value)} />
+            <button className="btn-ghost" onClick={async () => {
+              if (!searchText) return;
+              const res = await forwardGeocode(searchText);
+              if (!res) return alert("Place not found");
+              if (mapInstanceRef.current) mapInstanceRef.current.easeTo({ center: [res.lng, res.lat], zoom: 13 });
+            }}>Go</button>
+          </div>
+          <div className="mt-2 flex gap-2 items-center">
+            <button type="button" className="btn-ghost" onClick={locateMe} aria-busy={isLocating}><MousePointer2 size={14} /> <span className="ml-2">{isLocating ? "Locating…" : "Locate me"}</span></button>
+            <label className="ml-2 inline-flex items-center gap-2"><input type="checkbox" checked={filters.photosOnly} onChange={(e) => setFilters((f) => ({ ...f, photosOnly: e.target.checked }))} /> <span className="text-xs">Photos only</span></label>
+          </div>
         </div>
         {mapboxToken && hasGeoPins ? (
           <>
@@ -1792,7 +1914,11 @@ function MemoryMap({ data }) {
           </>
         ) : (
           <>
-            {pins.map((pin, index) => <button key={pin.id} className="map-pin" style={{ left: `${15 + (index * 19) % 70}%`, top: `${24 + (index * 23) % 58}%` }} onClick={() => setSelected(pin)} title={pin.locationName}><MapPin size={18} /><span>{pin.count}</span></button>)}
+            {pins.filter((pin) => {
+              if (!filters.photosOnly) return true;
+              const memories = pin.memories || [];
+              return memories.some((m) => m?.fileUrl && /\.(jpe?g|png|gif|webp|bmp)$/i.test(m.fileUrl));
+            }).map((pin, index) => <button key={pin.id} className="map-pin" style={{ left: `${15 + (index * 19) % 70}%`, top: `${24 + (index * 23) % 58}%` }} onClick={() => setSelected(pin)} title={pin.locationName}><MapPin size={18} /><span>{pin.count}</span></button>)}
             {route.length > 1 && <div className="route-line" />}
           </>
         )}

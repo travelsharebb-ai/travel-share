@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import multer from "multer";
 import { prisma } from "../utils/prisma.js";
+import { secureToken } from "../utils/tokens.js";
 import { uploadMedia } from "../utils/storage.js";
 import { cleanUpload, cleanUser } from "../utils/exportImport.js";
 
@@ -249,6 +250,63 @@ router.patch("/settings", async (req, res, next) => {
         backgroundVideoUrl
       }
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Safely deactivate / anonymize a user while preserving public/approved map data.
+// This avoids cascading deletions of trips/uploads by keeping a record while
+// dissociating or removing non-approved content. This endpoint is intended
+// for platform admins only and will not actually delete the user row to avoid
+// Prisma cascade-on-delete removing related trips. Instead we anonymize and
+// dissociate where appropriate.
+router.post("/users/:userId/safe-delete", async (req, res, next) => {
+  try {
+    const userId = req.params.userId;
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) return res.status(404).json({ error: "User not found." });
+
+    // Trips: if a trip has no approved uploads, delete it (and its uploads).
+    // If it has approved uploads, dissociate the trip from the user so map pins remain.
+    const trips = await prisma.trip.findMany({ where: { userId } });
+    for (const trip of trips) {
+      const approvedCount = await prisma.upload.count({ where: { tripId: trip.id, status: "approved" } });
+      if (approvedCount === 0) {
+        await prisma.trip.delete({ where: { id: trip.id } }).catch(() => null);
+      } else {
+        await prisma.trip.update({ where: { id: trip.id }, data: { userId: null } }).catch(() => null);
+      }
+    }
+
+    // Events: same policy as trips for organizer-owned events
+    const events = await prisma.event.findMany({ where: { organizerId: userId } });
+    for (const ev of events) {
+      const approvedCount = await prisma.upload.count({ where: { eventId: ev.id, status: "approved" } });
+      if (approvedCount === 0) {
+        await prisma.event.delete({ where: { id: ev.id } }).catch(() => null);
+      } else {
+        await prisma.event.update({ where: { id: ev.id }, data: { organizerId: null } }).catch(() => null);
+      }
+    }
+
+    // Remove non-approved standalone uploads (not associated with an approved trip/event)
+    await prisma.upload.deleteMany({ where: { AND: [{ OR: [{ trip: { userId } }, { event: { organizerId: userId } }] }, { status: { not: "approved" } }] } }).catch(() => null);
+
+    // Remove personal purchases and session records to reduce personal data footprint
+    await prisma.userPurchase.deleteMany({ where: { userId } }).catch(() => null);
+    await prisma.guestSession.updateMany({ where: { claimedById: userId }, data: { claimedById: null } }).catch(() => null);
+
+    // Anonymize the user record (do not delete to avoid cascading deletes in Prisma schema)
+    await prisma.user.update({ where: { id: userId }, data: {
+      name: "Deleted user",
+      email: `deleted+${userId}@example.invalid`,
+      passwordHash: secureToken(32),
+      role: "guest",
+      activeStoreItemId: null
+    }}).catch(() => null);
+
+    res.json({ ok: true });
   } catch (error) {
     next(error);
   }
