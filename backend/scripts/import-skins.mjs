@@ -1,0 +1,117 @@
+import fs from 'fs/promises';
+import path from 'path';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
+
+// Map keywords to names
+const styleNames = [
+  'Tropical Glow Frame',
+  'Night Cinematic Frame',
+  'Retro Memory Frame',
+  'Vintage Travel Stamp Frame',
+  'Sunset Aura Frame',
+  'Coastal Polaroid Frame',
+  'Island Breeze Frame',
+  'Classic White Border Frame',
+  'Golden Hour Frame',
+  'Festival Neon Frame',
+  'Passport Stamp Frame',
+  'Holiday Film Frame'
+];
+
+const sourceFiles = [
+  'ChatGPT Image Jun 17, 2026, 02_06_45 AM.png',
+  'ChatGPT Image Jun 17, 2026, 02_07_17 AM.png',
+  'ChatGPT Image Jun 17, 2026, 02_07_29 AM.png',
+  'ChatGPT Image Jun 17, 2026, 02_07_36 AM.png',
+  'ChatGPT Image Jun 17, 2026, 02_07_42 AM.png',
+  'ChatGPT Image Jun 17, 2026, 02_07_48 AM.png',
+  'ChatGPT Image Jun 17, 2026, 02_08_05 AM.png',
+  'ChatGPT Image Jun 17, 2026, 02_08_17 AM.png',
+  'ChatGPT Image Jun 17, 2026, 02_09_14 AM.png',
+  'ChatGPT Image Jun 17, 2026, 02_12_30 AM.png',
+  'ChatGPT Image Jun 17, 2026, 02_30_31 AM.png',
+  'ChatGPT Image Jun 17, 2026, 02_33_42 AM-Photoroom.png'
+];
+
+async function guessName(filename, index) {
+  const lower = filename.toLowerCase();
+  if (lower.includes('tropical')) return 'Tropical Glow Frame';
+  if (lower.includes('cinem')) return 'Night Cinematic Frame';
+  if (lower.includes('polaroid') || lower.includes('retro')) return 'Retro Memory Frame';
+  if (lower.includes('vintage')) return 'Vintage Travel Stamp Frame';
+  // fallback to styleNames rotation
+  return styleNames[index % styleNames.length];
+}
+
+async function categorize(filename, index) {
+  // First two are 'basic'
+  if (index < 2) return 'basic';
+  return 'premium';
+}
+
+async function main() {
+  const repoRoot = path.resolve(process.cwd());
+  const frontendPublic = path.join(repoRoot, 'frontend', 'public');
+  const destRoot = path.join(repoRoot, 'backend', 'public', 'assets', 'skins');
+  await fs.mkdir(destRoot, { recursive: true });
+
+  const created = [];
+
+  for (let i = 0; i < sourceFiles.length; i++) {
+    const fname = sourceFiles[i];
+    const src = path.join(frontendPublic, fname);
+    try {
+      await fs.access(src);
+    } catch (e) {
+      console.warn('Source file missing:', src);
+      continue;
+    }
+
+    const cat = await categorize(fname, i);
+    const destDir = path.join(destRoot, cat);
+    await fs.mkdir(destDir, { recursive: true });
+    const destName = fname.replace(/[^a-z0-9.\-_]/gi, '_');
+    const dest = path.join(destDir, destName);
+    await fs.copyFile(src, dest);
+
+    const frameAssetUrl = `/assets/skins/${cat}/${destName}`;
+    const previewImage = frameAssetUrl;
+    const name = await guessName(fname, i);
+
+    const isPremium = cat !== 'basic';
+    const priceCents = isPremium ? 299 : 0; // basic free, premium $2.99
+
+    // prisma.purchaseItem.upsert requires a unique identifier in `where`.
+    // Use findFirst -> update/create to support previewUrl which is not unique in schema.
+    let item = await prisma.purchaseItem.findFirst({ where: { previewUrl: previewImage } });
+    if (item) {
+      item = await prisma.purchaseItem.update({ where: { id: item.id }, data: { name, description: `Frame overlay: ${name}`, priceCents, active: true, metadata: { frameAssetUrl } } });
+    } else {
+      item = await prisma.purchaseItem.create({ data: { name, description: `Frame overlay: ${name}`, type: 'image_skin', priceCents, previewUrl: previewImage, active: true, metadata: { frameAssetUrl } } });
+    }
+
+    created.push(item);
+  }
+
+  console.log('Imported skins:', created.map((c) => ({ id: c.id, name: c.name, preview: c.previewUrl })));
+
+  // Grant 2 basic skins to every registered user (tourist, organizer, admin, platform_admin)
+  const users = await prisma.user.findMany({ where: { role: { not: 'guest' } } });
+  const basicSkins = await prisma.purchaseItem.findMany({ where: { type: 'image_skin' }, orderBy: { createdAt: 'asc' } });
+  const basics = basicSkins.filter((s) => (s.metadata && s.metadata.frameAssetUrl && s.previewUrl && s.priceCents === 0)).slice(0, 2);
+  for (const user of users) {
+    for (const skin of basics) {
+      await prisma.userSkinUnlock.upsert({
+        where: { id: `${user.id}_${skin.id}` },
+        update: {},
+        create: { id: `${user.id}_${skin.id}`, userId: user.id, skinId: skin.id }
+      }).catch(() => {});
+    }
+  }
+
+  console.log('Granted basic skins to users');
+}
+
+main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });

@@ -1,6 +1,7 @@
 import { Link, NavLink, useNavigate } from "react-router-dom";
-import { ArrowLeft, CalendarDays, Camera, Compass, LayoutDashboard, LogOut, Map, Menu, ShieldCheck, ShoppingBag, Sparkles, UserCircle } from "lucide-react";
+import { ArrowLeft, CalendarDays, Camera, Compass, LayoutDashboard, LogOut, Map, Menu, ShieldCheck, ShoppingBag, Sparkles, UserCircle, X } from "lucide-react";
 import { clearSession, currentUser } from "../lib/api";
+import { useState, useRef, useEffect } from "react";
 
 export default function Shell({ children }) {
   const user = currentUser();
@@ -17,6 +18,20 @@ export default function Shell({ children }) {
         ...(isAdmin ? [["Admin", "/admin", ShieldCheck]] : [])
       ]
     : [];
+
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const firstLinkRef = useRef(null);
+
+  useEffect(() => {
+    if (!drawerOpen) return;
+    function onKey(e) {
+      if (e.key === "Escape") setDrawerOpen(false);
+    }
+    document.addEventListener("keydown", onKey);
+    // focus first actionable element in drawer for accessibility
+    requestAnimationFrame(() => firstLinkRef.current?.focus?.());
+    return () => document.removeEventListener("keydown", onKey);
+  }, [drawerOpen]);
 
   return (
     <div className="min-h-screen bg-sand text-navy">
@@ -66,7 +81,7 @@ export default function Shell({ children }) {
                   <Compass size={22} />
                   <span className="truncate">TravelShare</span>
                 </Link>
-                <Menu size={22} />
+                <button aria-label="Open menu" className="btn-ghost" onClick={() => setDrawerOpen(true)}><Menu size={22} /></button>
               </div>
               <nav className="flex gap-2 overflow-x-auto px-4 pb-3">
                 <button className="btn-ghost shrink-0" onClick={() => navigate(-1)}><ArrowLeft size={17} /> Back</button>
@@ -79,6 +94,44 @@ export default function Shell({ children }) {
               </nav>
             </header>
             {children}
+
+            {/* Mobile drawer overlay */}
+            {drawerOpen && (
+              <div className="fixed inset-0 z-50 flex">
+                <div className="fixed inset-0 bg-black/50" onClick={() => setDrawerOpen(false)} />
+                  <aside className="relative w-72 bg-panel p-4" role="dialog" aria-modal="true" aria-label="Navigation menu">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <Compass size={20} />
+                      <span className="font-serif text-lg font-black">TravelShare</span>
+                    </div>
+                    <button className="btn-ghost" onClick={() => setDrawerOpen(false)} aria-label="Close menu"><X size={18} /></button>
+                  </div>
+                  <nav className="flex flex-col gap-2">
+                    {links.map(([label, href, Icon], i) => (
+                      <Link key={href} to={href} className="side-link" onClick={() => setDrawerOpen(false)} ref={i === 0 ? firstLinkRef : null}>
+                        <Icon size={18} />
+                        {label}
+                      </Link>
+                    ))}
+                  </nav>
+                  <div className="mt-4">
+                    {user ? (
+                      <div>
+                        <p className="truncate text-sm font-bold">{user.name}</p>
+                        <p className="truncate text-xs capitalize text-slatebody">{user.role.replace("_", " ")}</p>
+                        <button className="btn-ghost mt-3 w-full" onClick={() => { clearSession(); setDrawerOpen(false); navigate('/'); }}><LogOut size={18} /> Sign out</button>
+                      </div>
+                    ) : (
+                      <div className="flex gap-2">
+                        <Link className="btn-ghost" to="/login" onClick={() => setDrawerOpen(false)}>Login</Link>
+                        <Link className="btn-primary" to="/signup" onClick={() => setDrawerOpen(false)}><Sparkles size={18} /> Sign up</Link>
+                      </div>
+                    )}
+                  </div>
+                </aside>
+              </div>
+            )}
           </div>
         </div>
       ) : (

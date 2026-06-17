@@ -5,6 +5,7 @@ const prisma = new PrismaClient();
 async function main() {
   const defaults = {
     guestAccessDays: '3',
+    guestDeletionDays: '14',
     maxUploadSizeMb: '50',
     defaultPrivacy: 'approximate',
     moderationProvider: 'disabled',

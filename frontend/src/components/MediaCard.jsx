@@ -2,14 +2,20 @@ import { Check, Eye, Flag, Trash2, X } from "lucide-react";
 import { API_URL } from "../lib/api";
 
 export default function MediaCard({ upload, selected, onSelect, onApprove, onReject, onReport, onDelete, downloadOptions, currentDownloadItemId, onChangeDownloadItem }) {
+  const overlayRaw = upload.frameAssetUrl || upload.skinFrameUrl;
+  const overlayUrl = overlayRaw ? (overlayRaw.startsWith("/") ? `${API_URL}${overlayRaw}` : overlayRaw) : null;
+
   return (
     <article className="card min-w-0 overflow-hidden">
-      <div className="watermarked-media aspect-[4/3] w-full overflow-hidden bg-skysoft" data-watermark="TravelShare">
+      <div className="watermarked-media relative aspect-[4/3] w-full overflow-hidden bg-skysoft" data-watermark="TravelShare">
         {upload.fileType === "video" ? (
           <video src={upload.fileUrl} controls className="h-full w-full object-cover" />
         ) : (
           <img src={upload.fileUrl} alt="" className="h-full w-full object-cover" />
         )}
+        {overlayUrl ? (
+          <img src={overlayUrl} alt="" className="pointer-events-none absolute inset-0 h-full w-full object-cover" />
+        ) : null}
       </div>
       <div className="space-y-3 p-4">
         <div className="flex items-start justify-between gap-3">

@@ -32,6 +32,8 @@ export function cleanUpload(upload) {
     region: upload.region,
     locationVisibility: upload.locationVisibility,
     moderationStatus: upload.moderationStatus,
+    skinId: upload.skinId || null,
+    frameAssetUrl: upload.frameAssetUrl || null,
     createdAt: upload.createdAt,
     approvedAt: upload.approvedAt
   };

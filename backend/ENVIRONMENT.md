@@ -28,6 +28,7 @@
 - `MODERATION_PROVIDER`: Optional moderation provider switch.
 - `MAX_UPLOAD_SIZE_MB`: Upload limit. Default: `50`.
 - `BACKGROUND_VIDEO_URL`: Default public landing/auth background video URL.
+ - `GUEST_DELETION_DAYS`: Number of days after guest expiry to permanently remove guest-owned data. Default: `14`.
 - `BACKUP_S3_BUCKET`: S3 bucket used by `scripts/db-backup.sh`.
 - `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`: Required by AWS CLI for backups/restores.
 - `S3_BUCKET`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_ENDPOINT`, `S3_PUBLIC_BASE_URL`: Required only when `STORAGE_PROVIDER=s3`.
@@ -118,3 +119,53 @@ Set these in your hosting provider's environment config (Render, Railway, Heroku
 7. Schedule daily DB backups (see `scripts/db-backup.sh`) and test restores periodically.
 
 If you want, use this file as the source of truth and paste these variables into your provider's environment settings when creating the service.
+
+## Seeding Platform Settings (DB)
+
+You can populate the `PlatformSetting` table with sane defaults using the provided seed script. This is useful so the Settings UI is not empty and platform defaults can be edited from the admin UI/API.
+
+How to run the seed (on the server where `DATABASE_URL` is configured):
+
+```bash
+# from the repo root in your backend service directory
+cd backend
+node scripts/seed-platform-settings.mjs
+# or via npm script
+npm run seed:platform-settings
+```
+
+The script will upsert keys: `guestAccessDays`, `maxUploadSizeMb`, `defaultPrivacy`, `moderationProvider`, `mapProvider`, `paymentProvider`, `backgroundVideoUrl`.
+
+Cleanup expired guests
+----------------------
+
+To remove expired guest sessions and their guest-owned data (albums, uploads, QR links) after the configured retention window, run the cleanup script on the host that can access the production database:
+
+```bash
+cd backend
+# optional: set custom deletion window in days
+GUEST_DELETION_DAYS=14 npm run cleanup:guests
+```
+
+The script uses the environment variable `GUEST_DELETION_DAYS` (or the `guestDeletionDays` `PlatformSetting`) to decide which guest sessions to purge. It will not remove public map aggregates or non-guest-owned data.
+
+You can also update these via the admin API (authenticated admin) with `PATCH /api/admin/settings` sending JSON with key/value pairs, for example:
+
+```json
+{
+	"guestAccessDays": 5,
+	"defaultPrivacy": "exact",
+	"mapProvider": "mapbox"
+}
+```
+
+The server validates and ignores unknown keys.
+
+
+## Skins (photo-frame overlays)
+
+1. Ensure the backend serves static assets from the `public` folder (the app exposes `/assets`). The import script copies overlays to `/backend/public/assets/skins` and they will be served as `/assets/skins/...`.
+2. Run the import script once after migrations to copy PNGs and create `PurchaseItem` rows: from repo root run `node backend/scripts/import-skins.mjs` (we recommend running this during deploy with the repository checked out so `frontend/public` assets are available).
+3. The import script grants the first two basic skins to registered users by inserting `UserSkinUnlock` records. Premium skins remain gated behind purchases.
+4. Frontend components read `upload.frameAssetUrl` (when present) and overlay the PNG above the media; confirm `GET` endpoints return `frameAssetUrl` (uploads list, trip get, public share). If you add other upload-returning endpoints, hydrate them similarly.
+5. If you plan to host skin assets on external storage (S3/Cloudinary), adjust `import-skins.mjs` to copy or upload assets there and set `metadata.frameAssetUrl` to the public URL.

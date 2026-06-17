@@ -9,6 +9,7 @@ import adminRoutes from "./routes/admin.js";
 import eventRoutes from "./routes/events.js";
 import storeRoutes from "./routes/store.js";
 import downloadRoutes from "./routes/downloads.js";
+import skinRoutes from "./routes/skins.js";
 import { requireAdmin, requireAuth, requireOrganizerOrAdmin } from "./middleware/auth.js";
 
 export function createApp() {
@@ -30,7 +31,10 @@ export function createApp() {
     credentials: true
   }));
   app.use(express.json({ limit: "2mb" }));
+  app.use(express.static(path.resolve(process.cwd(), "public")));
   app.use("/uploads", express.static(path.resolve(process.cwd(), "uploads")));
+  // Serve skin and other assets under /assets
+  app.use("/assets", express.static(path.resolve(process.cwd(), "public", "assets")));
 
   app.get("/health", (_req, res) => {
     res.json({ ok: true, app: process.env.APP_NAME || "Travel Share" });
@@ -38,6 +42,7 @@ export function createApp() {
 
   app.use("/api/auth", authRoutes);
   app.use("/api/public", publicRoutes);
+  app.use("/api/skins", skinRoutes);
   app.use("/api/trips", requireAuth, tripRoutes);
   app.use("/api/events", requireAuth, requireOrganizerOrAdmin, eventRoutes);
   app.use("/api/store", requireAuth, storeRoutes);

@@ -194,20 +194,50 @@ router.get("/settings", async (_req, res) => {
 
 router.patch("/settings", async (req, res, next) => {
   try {
-    const schema = z.object({
-      backgroundVideoUrl: z.string().min(1).max(500).optional()
-    });
-    const data = schema.parse(req.body);
-    if (data.backgroundVideoUrl !== undefined) {
+    // Allow updating a controlled set of platform settings via admin API.
+    const allowedKeys = [
+      "guestAccessDays",
+      "guestDeletionDays",
+      "maxUploadSizeMb",
+      "defaultPrivacy",
+      "moderationProvider",
+      "mapProvider",
+      "paymentProvider",
+      "backgroundVideoUrl"
+    ];
+
+    // Accept a simple key/value object in the request body. Validate basic types.
+    const schema = z.record(z.string(), z.any()).optional();
+    const data = schema.parse(req.body) || {};
+
+    for (const [key, value] of Object.entries(data)) {
+      if (!allowedKeys.includes(key)) continue; // ignore unknown keys
+      const stringValue = value === null || value === undefined ? "" : String(value);
       await prisma.platformSetting.upsert({
-        where: { key: "backgroundVideoUrl" },
-        update: { value: data.backgroundVideoUrl },
-        create: { key: "backgroundVideoUrl", value: data.backgroundVideoUrl }
+        where: { key },
+        update: { value: stringValue },
+        create: { key, value: stringValue }
       });
     }
+
+    // Return the current settings after updates (read via DB/env fallback)
+    const guestAccessDays = Number(await settingValue("guestAccessDays", process.env.GUEST_ACCESS_DAYS || 3));
+    const maxUploadSizeMb = Number(await settingValue("maxUploadSizeMb", process.env.MAX_UPLOAD_SIZE_MB || 50));
+    const defaultPrivacy = await settingValue("defaultPrivacy", process.env.DEFAULT_LOCATION_VISIBILITY || "approximate");
+    const moderationProvider = await settingValue("moderationProvider", process.env.MODERATION_PROVIDER || "disabled");
+    const mapProvider = await settingValue("mapProvider", "mapbox");
+    const paymentProvider = await settingValue("paymentProvider", process.env.PAYMENT_PROVIDER || "planned_stripe");
+    const backgroundVideoUrl = await settingValue("backgroundVideoUrl", process.env.BACKGROUND_VIDEO_URL || "/videos/come-to-barbados.mp4");
+
     res.json({
       settings: {
-        backgroundVideoUrl: await settingValue("backgroundVideoUrl", process.env.BACKGROUND_VIDEO_URL || "/videos/come-to-barbados.mp4")
+        guestAccessDays,
+        maxUploadSizeMb,
+        defaultPrivacy,
+        moderationProvider,
+        mapProvider,
+        paymentProvider,
+        backgroundVideoUrl
       }
     });
   } catch (error) {

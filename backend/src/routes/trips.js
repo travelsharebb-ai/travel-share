@@ -58,7 +58,8 @@ router.get("/:tripId/map", async (req, res) => {
   });
   if (!trip) return res.status(404).json({ error: "Trip not found." });
 
-  const visibleUploads = trip.uploads.map((upload) => {
+  // Map uploads into the visible shape then attach frameAssetUrl in batch
+  const visibleUploadsBase = trip.uploads.map((upload) => {
     const lat = upload.locationVisibility === "exact" ? upload.latitude : upload.approximateLatitude;
     const lng = upload.locationVisibility === "exact" ? upload.longitude : upload.approximateLongitude;
     return {
@@ -71,9 +72,11 @@ router.get("/:tripId/map", async (req, res) => {
       latitude: upload.locationVisibility === "hidden" ? null : lat,
       longitude: upload.locationVisibility === "hidden" ? null : lng,
       createdAt: upload.createdAt,
-      locationVisibility: upload.locationVisibility
+      locationVisibility: upload.locationVisibility,
+      skinId: upload.skinId || null
     };
   });
+  const visibleUploads = await import("../utils/skins.js").then((m) => m.attachFrameUrls(visibleUploadsBase));
 
   const groups = new Map();
   for (const memory of visibleUploads) {
@@ -113,7 +116,10 @@ router.get("/:tripId", async (req, res) => {
     }
   });
   if (!trip) return res.status(404).json({ error: "Trip not found." });
-  res.json({ trip });
+  // hydrate uploads with frameAssetUrl when present (batch)
+  const uploadsBase = trip.uploads.map((u) => ({ ...u, skinId: u.skinId || null }));
+  const uploads = await import("../utils/skins.js").then((m) => m.attachFrameUrls(uploadsBase));
+  res.json({ trip: { ...trip, uploads } });
 });
 
 router.post("/:tripId/chapters", async (req, res, next) => {

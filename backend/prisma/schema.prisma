@@ -193,6 +193,7 @@ model Upload {
   moderationStatus       String?
   moderationLabels       Json?
   reportReason           String?
+  skinId                 String?               
   createdAt              DateTime               @default(now())
   approvedAt             DateTime?
   rejectedAt             DateTime?
@@ -206,6 +207,16 @@ model Upload {
   @@index([guestSessionId])
   @@index([downloadPurchaseItemId])
   @@index([uploaderFingerprint])
+}
+
+model UserSkinUnlock {
+  id         String   @id @default(cuid())
+  userId     String
+  skinId     String
+  purchasedAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([skinId])
 }
 
 model ShareLink {

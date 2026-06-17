@@ -54,6 +54,9 @@ async function getOrCreateGuestSession(req, res, scopeType, scopeId) {
     setGuestSessionCookie(res, existing.token);
     return existing;
   }
+  // Determine guest session lifetime from platform settings (fallback to env or 3 days)
+  const guestAccessDays = Number(await platformSetting("guestAccessDays", process.env.GUEST_ACCESS_DAYS || 3)) || 3;
+  const expiresAt = new Date(Date.now() + guestAccessDays * 24 * 60 * 60 * 1000);
 
   const session = await prisma.guestSession.create({
     data: {
@@ -61,7 +64,7 @@ async function getOrCreateGuestSession(req, res, scopeType, scopeId) {
       deviceFingerprint: fingerprintFromRequest(req),
       scopeType,
       scopeId,
-      expiresAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)
+      expiresAt
     }
   });
   setGuestSessionCookie(res, session.token);
@@ -75,7 +78,8 @@ async function getOrCreateCreatorSession(req, res) {
     setGuestSessionCookie(res, existing.token);
     return existing;
   }
-
+  // Determine guest session lifetime from platform settings (fallback to env or 3 days)
+  const guestAccessDays = Number(await platformSetting("guestAccessDays", process.env.GUEST_ACCESS_DAYS || 3)) || 3;
   const token = secureToken(24);
   const session = await prisma.guestSession.create({
     data: {
@@ -83,12 +87,37 @@ async function getOrCreateCreatorSession(req, res) {
       deviceFingerprint: fingerprintFromRequest(req),
       scopeType: "creator",
       scopeId: token,
-      expiresAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)
+      expiresAt: new Date(Date.now() + guestAccessDays * 24 * 60 * 60 * 1000)
     }
   });
   setGuestSessionCookie(res, session.token);
   return session;
 }
+
+// Public settings endpoint (read-only, uses same DB/env fallback logic as admin)
+router.get("/settings", async (_req, res) => {
+  const guestAccessDays = Number(await platformSetting("guestAccessDays", process.env.GUEST_ACCESS_DAYS || 3));
+  const guestDeletionDays = Number(await platformSetting("guestDeletionDays", process.env.GUEST_DELETION_DAYS || 14));
+  const maxUploadSizeMb = Number(await platformSetting("maxUploadSizeMb", process.env.MAX_UPLOAD_SIZE_MB || 50));
+  const defaultPrivacy = await platformSetting("defaultPrivacy", process.env.DEFAULT_LOCATION_VISIBILITY || "approximate");
+  const moderationProvider = await platformSetting("moderationProvider", process.env.MODERATION_PROVIDER || "disabled");
+  const mapProvider = await platformSetting("mapProvider", "mapbox");
+  const paymentProvider = await platformSetting("paymentProvider", process.env.PAYMENT_PROVIDER || "planned_stripe");
+  const backgroundVideoUrl = await platformSetting("backgroundVideoUrl", process.env.BACKGROUND_VIDEO_URL || "/videos/come-to-barbados.mp4");
+
+  res.json({
+    settings: {
+      guestAccessDays,
+      guestDeletionDays,
+      maxUploadSizeMb,
+      defaultPrivacy,
+      moderationProvider,
+      mapProvider,
+      paymentProvider,
+      backgroundVideoUrl
+    }
+  });
+});
 
 async function requireCreatorSession(req, res) {
   const token = readCookie(req, "ts_guest") || req.get("x-guest-token");
@@ -535,23 +564,14 @@ router.post("/share/:token/unlock", async (req, res, next) => {
     }
 
     if (link.trip) {
-      return res.json({
-        trip: {
-          title: link.trip.title,
-          destination: link.trip.destination,
-          touristName: link.trip.user?.name || "Guest host",
-          uploads: link.trip.uploads.map(({ id, fileUrl, fileType, approvedAt }) => ({ id, fileUrl, fileType, approvedAt }))
-        }
-      });
+      const uploadsBase = link.trip.uploads.map((u) => ({ id: u.id, fileUrl: u.fileUrl, fileType: u.fileType, approvedAt: u.approvedAt, skinId: u.skinId || null }));
+      const uploads = await import("../utils/skins.js").then((m) => m.attachFrameUrls(uploadsBase));
+      return res.json({ trip: { title: link.trip.title, destination: link.trip.destination, touristName: link.trip.user?.name || "Guest host", uploads } });
     }
     if (link.event) {
-      return res.json({
-        event: {
-          title: link.event.title,
-          location: link.event.location,
-          uploads: link.event.uploads.map(({ id, fileUrl, fileType, approvedAt }) => ({ id, fileUrl, fileType, approvedAt }))
-        }
-      });
+      const uploadsBase = link.event.uploads.map((u) => ({ id: u.id, fileUrl: u.fileUrl, fileType: u.fileType, approvedAt: u.approvedAt, skinId: u.skinId || null }));
+      const uploads = await import("../utils/skins.js").then((m) => m.attachFrameUrls(uploadsBase));
+      return res.json({ event: { title: link.event.title, location: link.event.location, uploads } });
     }
   } catch (error) {
     next(error);

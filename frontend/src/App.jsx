@@ -1168,6 +1168,7 @@ function PublicUpload({ type }) {
 
   async function submit(event) {
     event.preventDefault();
+    // Submit the upload to the public upload endpoint
     const body = new FormData();
     body.append("file", file);
     Object.entries(form).forEach(([key, value]) => { if (value !== undefined && value !== null) body.append(key, value); });
@@ -1185,35 +1186,76 @@ function PublicUpload({ type }) {
     }
   }
 
+  // Two-step review state: 'form' -> 'review'
+  const [step, setStep] = useState("form");
+
+  function startReview(e) {
+    e.preventDefault();
+    if (!file) return setError("Choose a file before reviewing.");
+    setStep("review");
+  }
+
+  function backToForm(e) {
+    e.preventDefault();
+    setStep("form");
+  }
+
   return (
     <Shell>
       <main className="page-shell flex min-h-[75vh] items-center justify-center">
-        <form onSubmit={submit} className="card w-full max-w-xl space-y-4 p-5">
-          <h1 className="font-serif text-3xl font-black">Upload a memory</h1>
-          <input className="field" type="file" accept="image/*,video/*" onChange={(e) => setFile(e.target.files?.[0])} disabled={uploading} />
-          <input className="field" placeholder="Caption (optional)" value={form.caption} onChange={(e) => setForm({ ...form, caption: e.target.value })} />
-          <div className="grid gap-3 sm:grid-cols-2">
-            <input className="field" placeholder="Location name" value={form.locationName} onChange={(e) => setForm({ ...form, locationName: e.target.value })} />
-            <input className="field" placeholder="Region" value={form.region} onChange={(e) => setForm({ ...form, region: e.target.value })} />
-          </div>
-          <div className="grid gap-3 sm:grid-cols-3">
-            <select className="field" value={form.locationVisibility} onChange={(e) => setForm({ ...form, locationVisibility: e.target.value })}>
-              <option value="exact">Exact</option>
-              <option value="approximate">Approximate</option>
-              <option value="hidden">Hidden</option>
-            </select>
-            <input className="field" placeholder="Latitude" value={form.latitude} onChange={(e) => setForm({ ...form, latitude: e.target.value })} />
-            <input className="field" placeholder="Longitude" value={form.longitude} onChange={(e) => setForm({ ...form, longitude: e.target.value })} />
-          </div>
-          <button type="button" className="btn-ghost w-full" onClick={useLocation}><MapPin size={18} /> Use device location</button>
-          {form.latitude && form.longitude && (
-            <a className="text-sm text-primary mt-2 inline-block" target="_blank" rel="noreferrer" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(form.latitude + ',' + form.longitude)}`}>
-              Open coordinates in Google Maps
-            </a>
-          )}
-          {error && <p className="rounded-lg bg-red-50 p-3 text-sm font-bold text-reject">{error}</p>}
-          <button className="btn-primary w-full" disabled={!file || uploading} aria-busy={uploading}><UploadCloud size={18} /> {uploading ? "Uploading..." : "Upload for review"}</button>
-        </form>
+        {step === "form" ? (
+          <form onSubmit={startReview} className="card w-full max-w-xl space-y-4 p-5">
+            <h1 className="font-serif text-3xl font-black">Upload a memory</h1>
+            <input className="field" type="file" accept="image/*,video/*" onChange={(e) => setFile(e.target.files?.[0])} disabled={uploading} />
+            <input className="field" placeholder="Caption (optional)" value={form.caption} onChange={(e) => setForm({ ...form, caption: e.target.value })} />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <LocationField value={form.locationName} onChange={(val) => setForm({ ...form, locationName: val })} latitude={form.latitude} longitude={form.longitude} onLatChange={(val) => setForm({ ...form, latitude: val })} onLngChange={(val) => setForm({ ...form, longitude: val })} placeholder="Location name or search" />
+              <input className="field" placeholder="Region" value={form.region} onChange={(e) => setForm({ ...form, region: e.target.value })} />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <select className="field" value={form.locationVisibility} onChange={(e) => setForm({ ...form, locationVisibility: e.target.value })}>
+                <option value="exact">Exact</option>
+                <option value="approximate">Approximate</option>
+                <option value="hidden">Hidden</option>
+              </select>
+              <input className="field" placeholder="Latitude" value={form.latitude} onChange={(e) => setForm({ ...form, latitude: e.target.value })} />
+              <input className="field" placeholder="Longitude" value={form.longitude} onChange={(e) => setForm({ ...form, longitude: e.target.value })} />
+            </div>
+            <button type="button" className="btn-ghost w-full" onClick={useLocation}><MapPin size={18} /> Use device location</button>
+            {form.latitude && form.longitude && (
+              <a className="text-sm text-primary mt-2 inline-block" target="_blank" rel="noreferrer" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(form.latitude + ',' + form.longitude)}`}>
+                Open coordinates in Google Maps
+              </a>
+            )}
+            {error && <p className="rounded-lg bg-red-50 p-3 text-sm font-bold text-reject">{error}</p>}
+            <div className="flex gap-2">
+              <button className="btn-ghost w-full" onClick={(e) => { e.preventDefault(); navigate(-1); }}>Cancel</button>
+              <button className="btn-primary w-full" disabled={!file} aria-busy={uploading}><UploadCloud size={18} /> Review</button>
+            </div>
+          </form>
+        ) : (
+          <article className="card w-full max-w-xl space-y-4 p-5">
+            <h1 className="font-serif text-3xl font-black">Review your upload</h1>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                {file && file.type?.startsWith("image") && <img src={URL.createObjectURL(file)} alt="Preview" className="w-full rounded-lg object-cover" />}
+                {file && file.type?.startsWith("video") && <video src={URL.createObjectURL(file)} controls className="w-full rounded-lg object-cover" />}
+              </div>
+              <div>
+                <p className="font-bold">{form.locationName || "No place provided"}</p>
+                <p className="text-sm text-slatebody">{form.region || "Region not provided"}</p>
+                <p className="mt-2">Accuracy: <strong>{form.locationVisibility}</strong></p>
+                {form.latitude && form.longitude && <a className="text-sm text-primary" target="_blank" rel="noreferrer" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(form.latitude + ',' + form.longitude)}`}>Open location in Google Maps</a>}
+                <p className="mt-4 text-slatebody">Caption:</p>
+                <p className="mt-1">{form.caption || "—"}</p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button className="btn-ghost w-full" onClick={backToForm}>Back</button>
+              <button className="btn-primary w-full" onClick={submit} disabled={uploading} aria-busy={uploading}><UploadCloud size={18} /> {uploading ? "Uploading..." : "Confirm & Upload"}</button>
+            </div>
+          </article>
+        )}
       </main>
     </Shell>
   );
@@ -1265,6 +1307,13 @@ function ShareAlbum() {
 function Settings() {
   const user = currentUser();
   const hasMapboxToken = Boolean(import.meta.env.VITE_MAPBOX_TOKEN);
+  const [platformSettings, setPlatformSettings] = useState(null);
+
+  useEffect(() => {
+    api("/api/public/settings")
+      .then((d) => setPlatformSettings(d.settings))
+      .catch(() => {});
+  }, []);
 
   return (
     <Shell>
@@ -1273,7 +1322,9 @@ function Settings() {
           <h1 className="font-serif text-4xl font-black">Settings</h1>
           {/* Only show guest-specific guidance to guest users (registered members aren't guests) */}
           {user?.role === "guest" && (
-            <p className="text-slatebody">Guest access lasts 3 days. Uploads are approval-first by default. Location privacy can be exact, approximate, or hidden/general region.</p>
+            <p className="text-slatebody">{
+              `Guest access lasts ${platformSettings?.guestAccessDays ?? "3"} days. Uploads are approval-first by default.`
+            } {platformSettings?.guestDeletionDays ? `Guest data is scheduled for removal ${platformSettings.guestDeletionDays} days after expiry.` : ""}</p>
           )}
 
           {/* Only prompt for a Mapbox token when none is provided at build time */}
@@ -1308,15 +1359,144 @@ function MemoryMap({ data }) {
   const route = data?.route || [];
   const replay = data?.replay || [];
   const activeReplay = replay[replayIndex];
+  const mapRef = useRef(null);
+  const mapInstanceRef = useRef(null);
+
+  // Helper: detect if we have geo pins suitable for a real map
+  const hasGeoPins = pins.some((p) => p.latitude && p.longitude);
+
+  useEffect(() => {
+    if (!mapboxToken || !hasGeoPins) return;
+
+    let cancelled = false;
+
+    async function loadMapbox() {
+      // Load CSS
+      if (!document.getElementById("mapbox-gl-css")) {
+        const link = document.createElement("link");
+        link.id = "mapbox-gl-css";
+        link.rel = "stylesheet";
+        link.href = "https://api.mapbox.com/mapbox-gl-js/v2.20.0/mapbox-gl.css";
+        document.head.appendChild(link);
+      }
+
+      // Load script
+      if (!window.mapboxgl) {
+        await new Promise((resolve, reject) => {
+          const s = document.createElement("script");
+          s.src = "https://api.mapbox.com/mapbox-gl-js/v2.20.0/mapbox-gl.js";
+          s.async = true;
+          s.onload = resolve;
+          s.onerror = reject;
+          document.head.appendChild(s);
+        }).catch(() => {
+          // If loading fails, we'll fall back to the DOM map
+        });
+      }
+
+      if (cancelled) return;
+      if (!window.mapboxgl) return;
+
+      const mapboxgl = window.mapboxgl;
+      mapboxgl.accessToken = mapboxToken;
+      const center = (() => {
+        const first = pins.find((p) => p.latitude && p.longitude);
+        return first ? [first.longitude, first.latitude] : [0, 0];
+      })();
+
+      // create map
+      mapInstanceRef.current = new mapboxgl.Map({ container: mapRef.current, style: 'https://api.mapbox.com/styles/v1/mapbox/streets-v11', center, zoom: 10 });
+
+      // Build GeoJSON
+      const features = pins.filter((p) => p.latitude && p.longitude).map((p) => ({
+        type: "Feature",
+        properties: { id: p.id, locationName: p.locationName, count: p.count, memories: p.memories },
+        geometry: { type: "Point", coordinates: [p.longitude, p.latitude] }
+      }));
+
+      mapInstanceRef.current.on("load", () => {
+        if (!mapInstanceRef.current) return;
+        mapInstanceRef.current.addSource("pins", {
+          type: "geojson",
+          data: { type: "FeatureCollection", features },
+          cluster: true,
+          clusterMaxZoom: 14,
+          clusterRadius: 50
+        });
+
+        // cluster circles
+        mapInstanceRef.current.addLayer({
+          id: "clusters",
+          type: "circle",
+          source: "pins",
+          filter: ["has", "point_count"],
+          paint: { "circle-color": "#1E40AF", "circle-radius": ["step", ["get", "point_count"], 15, 10, 20, 50, 30] }
+        });
+
+        mapInstanceRef.current.addLayer({
+          id: "cluster-count",
+          type: "symbol",
+          source: "pins",
+          filter: ["has", "point_count"],
+          layout: { "text-field": "{point_count}", "text-size": 12 }
+        });
+
+        // unclustered points
+        mapInstanceRef.current.addLayer({
+          id: "unclustered-point",
+          type: "circle",
+          source: "pins",
+          filter: ["!", ["has", "point_count"]],
+          paint: { "circle-color": "#06B6D4", "circle-radius": 8 }
+        });
+
+        // click handlers
+        mapInstanceRef.current.on("click", "unclustered-point", (e) => {
+          const feature = e.features && e.features[0];
+          if (!feature) return;
+          const props = feature.properties || {};
+          const id = props.id;
+          const pin = pins.find((p) => p.id === id);
+          if (pin) setSelected(pin);
+        });
+
+        mapInstanceRef.current.on("click", "clusters", (e) => {
+          const features = mapInstanceRef.current.queryRenderedFeatures(e.point, { layers: ["clusters"] });
+          const clusterId = features[0].properties.cluster_id;
+          mapInstanceRef.current.getSource("pins").getClusterExpansionZoom(clusterId, (err, zoom) => {
+            if (err) return;
+            mapInstanceRef.current.easeTo({ center: features[0].geometry.coordinates, zoom });
+          });
+        });
+      });
+    }
+
+    loadMapbox();
+
+    return () => {
+      cancelled = true;
+      if (mapInstanceRef.current) {
+        try { mapInstanceRef.current.remove(); } catch (e) { /* ignore */ }
+        mapInstanceRef.current = null;
+      }
+    };
+  }, [pins, hasGeoPins]);
+
   return (
     <section className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
-      <div className="map-surface">
-        <div className="absolute left-4 top-4 rounded-lg border border-borderline bg-panel/90 p-3">
+      <div className="map-surface relative">
+        <div className="absolute left-4 top-4 rounded-lg border border-borderline bg-panel/90 p-3 z-10">
           <p className="text-xs font-black uppercase text-primary">Memory Map</p>
           <p className="text-sm text-slatebody">{mapboxToken ? "Mapbox ready" : "Set VITE_MAPBOX_TOKEN for production maps"}</p>
         </div>
-        {pins.map((pin, index) => <button key={pin.id} className="map-pin" style={{ left: `${15 + (index * 19) % 70}%`, top: `${24 + (index * 23) % 58}%` }} onClick={() => setSelected(pin)} title={pin.locationName}><MapPin size={18} /><span>{pin.count}</span></button>)}
-        {route.length > 1 && <div className="route-line" />}
+        {mapboxToken && hasGeoPins ? (
+          <div ref={mapRef} style={{ position: "absolute", inset: 0 }} />
+        ) : (
+          <>
+            {pins.map((pin, index) => <button key={pin.id} className="map-pin" style={{ left: `${15 + (index * 19) % 70}%`, top: `${24 + (index * 23) % 58}%` }} onClick={() => setSelected(pin)} title={pin.locationName}><MapPin size={18} /><span>{pin.count}</span></button>)}
+            {route.length > 1 && <div className="route-line" />}
+          </>
+        )}
       </div>
       <div className="space-y-4">
         <div className="card p-5">
@@ -1512,8 +1692,13 @@ function StoreAdmin({ items, itemForm, setItemForm, saveItem, updateItem, reload
               </form>
             ) : (
               <>
-                <p className="font-bold">{item.name}</p>
-                <p className="text-sm text-slatebody">{item.type} • ${(item.priceCents / 100).toFixed(2)} • {item.active ? "active" : "paused"}</p>
+                <div className="flex items-center gap-3">
+                  {item.previewUrl && <div className="w-20 h-12 overflow-hidden rounded bg-skysoft"><img src={item.previewUrl} alt="preview" className="w-full h-full object-cover" /></div>}
+                  <div>
+                    <p className="font-bold">{item.name}</p>
+                    <p className="text-sm text-slatebody">{item.type} • ${(item.priceCents / 100).toFixed(2)} • {item.active ? "active" : "paused"}</p>
+                  </div>
+                </div>
                 <div className="mt-3 flex flex-wrap gap-2">
                   <button className="btn-ghost" onClick={() => edit(item)}>Edit</button>
                   <button className="btn-ghost" onClick={() => updateItem(item.id, { active: !item.active })}>{item.active ? "Pause" : "Activate"}</button>

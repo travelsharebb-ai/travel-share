@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../utils/prisma.js";
+import { attachFrameUrls } from "../utils/skins.js";
 import { notifyReportedUpload } from "../utils/email.js";
 import { isPlatformAdmin } from "../middleware/auth.js";
 
@@ -20,6 +21,11 @@ async function manageableUpload(req, uploadId) {
   return ownedUpload(req.user.id, uploadId);
 }
 
+// Use batch attachFrameUrls to avoid repeated queries
+async function hydrateUploads(uploads) {
+  return attachFrameUrls(uploads);
+}
+
 router.get("/trips/:tripId/uploads", async (req, res) => {
   const trip = await prisma.trip.findFirst({ where: { id: req.params.tripId, userId: req.user.id } });
   if (!trip) return res.status(404).json({ error: "Trip not found." });
@@ -29,7 +35,8 @@ router.get("/trips/:tripId/uploads", async (req, res) => {
     where: { tripId: trip.id, status: status || undefined },
     orderBy: { createdAt: "desc" }
   });
-  res.json({ uploads });
+  const hydrated = await hydrateUploads(uploads);
+  res.json({ uploads: hydrated });
 });
 
 router.patch("/uploads/:uploadId/approve", async (req, res) => {
@@ -40,7 +47,8 @@ router.patch("/uploads/:uploadId/approve", async (req, res) => {
     where: { id: upload.id },
     data: { status: "approved", approvedAt: new Date(), rejectedAt: null }
   });
-  res.json({ upload: updated });
+  const hydrated = (await hydrateUploads([updated]))[0];
+  res.json({ upload: hydrated });
 });
 
 router.patch("/uploads/:uploadId/reject", async (req, res) => {
@@ -51,7 +59,8 @@ router.patch("/uploads/:uploadId/reject", async (req, res) => {
     where: { id: upload.id },
     data: { status: "rejected", rejectedAt: new Date(), approvedAt: null }
   });
-  res.json({ upload: updated });
+  const hydrated = (await hydrateUploads([updated]))[0];
+  res.json({ upload: hydrated });
 });
 
 router.patch("/uploads/:uploadId/report", async (req, res, next) => {
@@ -91,7 +100,8 @@ router.patch("/uploads/:uploadId/report", async (req, res, next) => {
       console.error("Reported upload notification failed", error);
     });
 
-    res.json({ upload: updated });
+    const hydrated = (await hydrateUploads([updated]))[0];
+    res.json({ upload: hydrated });
   } catch (error) {
     next(error);
   }
@@ -102,6 +112,35 @@ router.delete("/uploads/:uploadId", async (req, res) => {
   if (!upload) return res.status(404).json({ error: "Upload not found." });
   await prisma.upload.delete({ where: { id: upload.id } });
   res.status(204).end();
+});
+
+// Apply or remove a skin on an upload (only owner or admin). Registered users only.
+router.patch("/uploads/:uploadId/skin", async (req, res) => {
+  const { skinId } = req.body || {};
+  // only authenticated users reach here via requireAuth in app.js
+  if (!req.user) return res.status(403).json({ error: "Authentication required." });
+
+  const upload = await manageableUpload(req, req.params.uploadId);
+  if (!upload) return res.status(404).json({ error: "Upload not found." });
+
+  // Guests not allowed to apply skins
+  if (req.user.role === "guest") return res.status(403).json({ error: "Guests cannot apply skins." });
+
+  // Validate skin exists (optional)
+  if (skinId) {
+    const skin = await prisma.purchaseItem.findUnique({ where: { id: skinId } });
+    if (!skin || skin.type !== "image_skin") return res.status(400).json({ error: "Invalid skin." });
+
+    // Check user unlock or ownership (platform admin bypass)
+    const unlocked = await prisma.userSkinUnlock.findFirst({ where: { userId: req.user.id, skinId } });
+    if (!unlocked && !["admin", "platform_admin"].includes(req.user.role)) {
+      return res.status(403).json({ error: "Skin not unlocked. Purchase required." });
+    }
+  }
+
+  const updated = await prisma.upload.update({ where: { id: upload.id }, data: { skinId: skinId || null } });
+  const hydrated = (await hydrateUploads([updated]))[0];
+  res.json({ upload: hydrated });
 });
 
 router.post("/trips/:tripId/uploads/bulk", async (req, res, next) => {
