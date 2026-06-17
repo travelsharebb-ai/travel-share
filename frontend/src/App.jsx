@@ -1778,6 +1778,7 @@ function MemoryMap({ data }) {
 
   return (
     <section className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
+      <MapStatusBanner isMapLoading={isMapLoading} mapLoadError={mapLoadError} />
       <div className="map-surface relative">
         <div className="absolute left-4 top-4 rounded-lg border border-borderline bg-panel/90 p-3 z-10">
           <p className="text-xs font-black uppercase text-primary">Memory Map</p>
@@ -1812,11 +1813,25 @@ function MemoryMap({ data }) {
   );
 }
 
+function MapStatusBanner({ isMapLoading, mapLoadError }) {
+  if (!isMapLoading && !mapLoadError) return null;
+  return (
+    <div className="absolute left-4 top-20 z-30">
+      {isMapLoading && <div className="rounded-lg bg-panel/95 p-2 text-sm">Loading interactive map…</div>}
+      {mapLoadError && <div className="rounded-lg bg-red-50 p-2 text-sm font-bold text-reject">Map failed to load — using a simple preview. Set `VITE_MAPBOX_TOKEN` for full maps.</div>}
+    </div>
+  );
+}
+
 function EventMap({ event }) {
   const map = event.maps?.[0];
+  const hasMapboxToken = Boolean(import.meta.env.VITE_MAPBOX_TOKEN);
   return (
     <section className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
       <div className="map-surface overflow-hidden">
+        {map?.mapboxStyle && !hasMapboxToken && (
+          <div className="absolute left-4 top-16 z-30"><div className="rounded-lg bg-red-50 p-2 text-sm font-bold text-reject">Interactive map style configured, but <code>VITE_MAPBOX_TOKEN</code> is not set — using static map preview.</div></div>
+        )}
         {map?.imageUrl && <img src={map.imageUrl} alt="" className="absolute inset-0 h-full w-full object-cover opacity-60" />}
         <div className="absolute left-4 top-4 rounded-lg border border-borderline bg-panel/90 p-3"><p className="text-xs font-black uppercase text-primary">Event Map</p><p className="text-sm text-slatebody">{map?.title || "Add a custom map in the editor"}</p></div>
         {event.zones?.map((zone, index) => <Link key={zone.id} className={`zone-pin crowd-${zone.crowdStatus}`} to={`/zone/${zone.qrToken}`} style={{ left: `${zone.x || 18 + (index * 17) % 68}%`, top: `${zone.y || 22 + (index * 21) % 60}%` }}><MapPin size={16} />{zone.name}</Link>)}
