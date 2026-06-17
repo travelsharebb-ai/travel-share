@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, Navigate, Route, Routes, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, Navigate, Route, Routes, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   BarChart3,
   Calendar,
@@ -96,6 +96,8 @@ function BottomAd() {
 function AppBackground() {
   const [videoUrl, setVideoUrl] = useState("/videos/come-to-barbados.mp4");
   const user = currentUser();
+  const location = useLocation();
+  const videoPaths = new Set(["/", "/login", "/signup", "/discover", "/privacy"]);
 
   useEffect(() => {
     api("/api/public/appearance")
@@ -103,7 +105,7 @@ function AppBackground() {
       .catch(() => {});
   }, []);
 
-  if (user || !videoUrl) return null;
+  if (user || !videoUrl || !videoPaths.has(location.pathname)) return null;
   return (
     <>
       <video className="app-bg-video" src={videoUrl} autoPlay muted loop playsInline aria-hidden="true" />
@@ -119,7 +121,7 @@ function applyActiveStoreItem(item) {
   if (!item) return;
 
   const metadata = item.metadata && typeof item.metadata === "object" ? item.metadata : {};
-  if (item.type === "image_skin" || item.type === "album_theme" || item.type === "event_theme") {
+  if (item.type === "album_theme" || item.type === "event_theme") {
     const url = metadata.backgroundUrl || item.previewUrl;
     if (url) {
       root.style.setProperty("--app-skin-url", `url("${url}")`);
@@ -130,6 +132,10 @@ function applyActiveStoreItem(item) {
       root.classList.add("has-active-theme");
     }
   }
+}
+
+function assetUrl(url) {
+  return url && url.startsWith("/") ? `${API_URL}${url}` : url;
 }
 
 function SessionSync() {
@@ -707,6 +713,7 @@ function TripDetails() {
   const [trip, setTrip] = useState(null);
   const [tab, setTab] = useState(searchParams.get("tab") || "pending");
   const [uploads, setUploads] = useState([]);
+  const [skinOptions, setSkinOptions] = useState([]);
   const [selected, setSelected] = useState([]);
   const [qr, setQr] = useState(null);
   const [mapData, setMapData] = useState(null);
@@ -714,16 +721,18 @@ function TripDetails() {
   const pendingCount = uploads.filter((u) => u.status === "pending").length;
 
   async function load() {
-    const [tripData, uploadsData, qrData, mapResponse] = await Promise.all([
+    const [tripData, uploadsData, qrData, mapResponse, storeData] = await Promise.all([
       api(`/api/trips/${tripId}`),
       api(`/api/trips/${tripId}/uploads`),
       api(`/api/trips/${tripId}/qr`),
-      api(`/api/trips/${tripId}/map`)
+      api(`/api/trips/${tripId}/map`),
+      api("/api/store")
     ]);
     setTrip(tripData.trip);
     setUploads(uploadsData.uploads);
     setQr(qrData);
     setMapData(mapResponse);
+    setSkinOptions((storeData.items || []).filter((item) => item.type === "image_skin" && item.owned));
   }
 
   useEffect(() => { load(); }, [tripId]);
@@ -757,6 +766,11 @@ function TripDetails() {
     load();
   }
 
+  async function applySkin(uploadId, skinId) {
+    await api(`/api/uploads/${uploadId}/skin`, { method: "PATCH", body: JSON.stringify({ skinId }) });
+    load();
+  }
+
   const visible = uploads.filter((u) => tab === "pending" ? u.status === "pending" : u.status === "approved");
   if (!trip) return <Shell><main className="page-shell">Loading...</main></Shell>;
 
@@ -779,11 +793,11 @@ function TripDetails() {
               <button className="btn-green" disabled={!selected.length} onClick={() => bulk("approve")}><Check size={18} /> Approve Selected</button>
               <button className="btn-danger" disabled={!selected.length} onClick={() => bulk("reject")}>Reject Selected</button>
             </div>
-            {visible.length === 0 ? <EmptyCard title="No new uploads yet" copy="Share the QR at beaches, tours, and events to start collecting memories." /> : <MediaGrid uploads={visible} selected={selected} setSelected={setSelected} action={action} />}
+            {visible.length === 0 ? <EmptyCard title="No new uploads yet" copy="Share the QR at beaches, tours, and events to start collecting memories." /> : <MediaGrid uploads={visible} selected={selected} setSelected={setSelected} action={action} skinOptions={skinOptions} onApplySkin={applySkin} />}
           </section>
         )}
 
-        {tab === "approved" && (visible.length === 0 ? <EmptyCard title="No approved memories yet" copy="Approved uploads will appear in your album and memory map." /> : <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{visible.map((upload) => <MediaCard key={upload.id} upload={upload} onDelete={(id) => api(`/api/uploads/${id}`, { method: "DELETE" }).then(load)} />)}</div>)}
+        {tab === "approved" && (visible.length === 0 ? <EmptyCard title="No approved memories yet" copy="Approved uploads will appear in your album and memory map." /> : <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{visible.map((upload) => <MediaCard key={upload.id} upload={upload} skinOptions={skinOptions} onApplySkin={applySkin} onDelete={(id) => api(`/api/uploads/${id}`, { method: "DELETE" }).then(load)} />)}</div>)}
         {tab === "chapters" && <ChaptersPanel chapters={trip.chapters || []} chapterForm={chapterForm} setChapterForm={setChapterForm} createChapter={createChapter} />}
         {tab === "map" && <MemoryMap data={mapData} />}
         {tab === "qr" && qr && <QrPanel qr={qr} trip={trip} updateQr={updateQr} createShareLink={createShareLink} />}
@@ -998,15 +1012,20 @@ function Store() {
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {items.map((item) => (
             <article key={item.id} className="card overflow-hidden p-4">
-              <div className="h-36 rounded-lg bg-skysoft">{item.previewUrl && <img src={item.previewUrl} alt="" className="h-full w-full rounded-lg object-cover" />}</div>
-              <p className="mt-4 text-xs font-black uppercase text-primary">{item.type.replace("_", " ")}</p>
+              <div className="relative h-36 rounded-lg bg-skysoft">
+                {item.previewUrl && <img src={assetUrl(item.previewUrl)} alt="" className="h-full w-full rounded-lg object-cover" />}
+                {!item.owned && <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full border border-borderline bg-panel px-2 py-1 text-xs font-bold"><Lock size={13} /> Locked</span>}
+              </div>
+              <p className="mt-4 text-xs font-black uppercase text-primary">{item.type === "image_skin" ? "photo frame" : item.type.replace("_", " ")}</p>
               <h2 className="font-serif text-2xl font-black">{item.name}</h2>
               <p className="text-sm text-slatebody">{item.description || "Premium TravelShare add-on."}</p>
+              <p className="mt-3 text-sm font-bold text-primary">{item.priceCents ? `$${(item.priceCents / 100).toFixed(2)}` : "Included for registered users"}</p>
               {!item.owned && item.priceCents > 0 && <div className="mt-4 grid gap-2 sm:grid-cols-2"><button className="btn-primary" onClick={() => checkout(item, "stripe")}>Stripe</button><button className="btn-ghost" onClick={() => checkout(item, "paypal")}>PayPal</button></div>}
               <button className={item.owned ? "btn-ghost mt-4 w-full" : "btn-primary mt-4 w-full"} disabled={item.owned || item.priceCents > 0} onClick={() => buy(item)}>
                 <ShoppingBag size={18} /> {item.owned ? "Owned" : item.priceCents ? `Checkout $${(item.priceCents / 100).toFixed(2)}` : "Unlock"}
               </button>
-              {item.owned && <button className={activeItem?.id === item.id ? "btn-primary mt-2 w-full" : "btn-ghost mt-2 w-full"} disabled={activeItem?.id === item.id} onClick={() => activate(item)}>{activeItem?.id === item.id ? "Active" : "Activate"}</button>}
+              {item.owned && item.type === "image_skin" && <p className="mt-2 rounded-lg bg-skysoft p-3 text-sm font-bold text-slatebody">Available in album photo frame pickers.</p>}
+              {item.owned && item.type !== "image_skin" && <button className={activeItem?.id === item.id ? "btn-primary mt-2 w-full" : "btn-ghost mt-2 w-full"} disabled={activeItem?.id === item.id} onClick={() => activate(item)}>{activeItem?.id === item.id ? "Active" : "Activate"}</button>}
             </article>
           ))}
           {items.length === 0 && <EmptyCard title="No add-ons yet" copy="Admin can add image skins, frames, themes, premium QR designs, and branded pages." />}
@@ -1593,8 +1612,8 @@ function StatsGrid({ stats }) {
   return <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{Object.entries(stats || {}).map(([label, value]) => <Stat key={label} label={label} value={value} />)}</div>;
 }
 
-function MediaGrid({ uploads, selected, setSelected, action }) {
-  return <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{uploads.map((upload) => <MediaCard key={upload.id} upload={upload} selected={selected.includes(upload.id)} onSelect={(id, checked) => setSelected((prev) => checked ? [...prev, id] : prev.filter((value) => value !== id))} onApprove={(id) => action(id, "approve")} onReject={(id) => action(id, "reject")} onReport={(id) => action(id, "report")} />)}</div>;
+function MediaGrid({ uploads, selected, setSelected, action, skinOptions, onApplySkin }) {
+  return <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{uploads.map((upload) => <MediaCard key={upload.id} upload={upload} selected={selected.includes(upload.id)} onSelect={(id, checked) => setSelected((prev) => checked ? [...prev, id] : prev.filter((value) => value !== id))} onApprove={(id) => action(id, "approve")} onReject={(id) => action(id, "reject")} onReport={(id) => action(id, "report")} skinOptions={skinOptions} onApplySkin={onApplySkin} />)}</div>;
 }
 
 function QrPanel({ qr, trip, updateQr, createShareLink }) {

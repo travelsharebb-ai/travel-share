@@ -1,9 +1,13 @@
-import { Check, Eye, Flag, Trash2, X } from "lucide-react";
+import { Check, Eye, Flag, Lock, Trash2, X } from "lucide-react";
 import { API_URL } from "../lib/api";
 
-export default function MediaCard({ upload, selected, onSelect, onApprove, onReject, onReport, onDelete, downloadOptions, currentDownloadItemId, onChangeDownloadItem }) {
+function assetUrl(url) {
+  return url && url.startsWith("/") ? `${API_URL}${url}` : url;
+}
+
+export default function MediaCard({ upload, selected, onSelect, onApprove, onReject, onReport, onDelete, downloadOptions, currentDownloadItemId, onChangeDownloadItem, skinOptions = [], onApplySkin }) {
   const overlayRaw = upload.frameAssetUrl || upload.skinFrameUrl;
-  const overlayUrl = overlayRaw ? (overlayRaw.startsWith("/") ? `${API_URL}${overlayRaw}` : overlayRaw) : null;
+  const overlayUrl = assetUrl(overlayRaw);
 
   return (
     <article className="card min-w-0 overflow-hidden">
@@ -58,6 +62,37 @@ export default function MediaCard({ upload, selected, onSelect, onApprove, onRej
               ))}
             </select>
             <p className="mt-2 text-xs text-slatebody">Assigned download assets gate the full view to buyers and the uploader.</p>
+          </div>
+        ) : null}
+        {onApplySkin && upload.fileType !== "video" ? (
+          <div className="space-y-2 rounded-lg border border-borderline bg-skysoft p-3">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-sm font-bold">Photo frame</p>
+              <button className={!upload.skinId ? "btn-primary" : "btn-ghost"} type="button" onClick={() => onApplySkin(upload.id, null)} aria-label="Remove photo frame" disabled={!upload.skinId}>
+                None
+              </button>
+            </div>
+            <div className="flex gap-2 overflow-x-auto pb-1" role="list" aria-label="Available photo frames">
+              {skinOptions.map((skin) => {
+                const metadata = skin.metadata && typeof skin.metadata === "object" ? skin.metadata : {};
+                const frameUrl = assetUrl(metadata.frameAssetUrl || skin.previewUrl);
+                const selectedSkin = upload.skinId === skin.id;
+                return (
+                  <button
+                    key={skin.id}
+                    type="button"
+                    className={selectedSkin ? "btn-primary shrink-0" : "btn-ghost shrink-0"}
+                    onClick={() => onApplySkin(upload.id, skin.id)}
+                    aria-label={`Apply ${skin.name}`}
+                    title={skin.name}
+                  >
+                    {frameUrl ? <img src={frameUrl} alt="" className="h-7 w-7 rounded object-cover" /> : <Lock size={16} />}
+                    <span className="max-w-28 truncate">{skin.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {skinOptions.length === 0 && <p className="text-xs text-slatebody">Unlock basic or premium frames in the store to apply them here.</p>}
           </div>
         ) : null}
       </div>

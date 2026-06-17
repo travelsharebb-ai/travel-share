@@ -1,4 +1,4 @@
-import { Link, NavLink, useNavigate } from "react-router-dom";
+import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { ArrowLeft, CalendarDays, Camera, Compass, LayoutDashboard, LogOut, Map, Menu, ShieldCheck, ShoppingBag, Sparkles, UserCircle, X } from "lucide-react";
 import { clearSession, currentUser } from "../lib/api";
 import { useState, useRef, useEffect } from "react";
@@ -6,6 +6,7 @@ import { useState, useRef, useEffect } from "react";
 export default function Shell({ children }) {
   const user = currentUser();
   const navigate = useNavigate();
+  const location = useLocation();
   const isAdmin = ["admin", "platform_admin"].includes(user?.role);
   const isOrganizer = ["organizer", "admin", "platform_admin"].includes(user?.role);
   const links = user
@@ -83,15 +84,6 @@ export default function Shell({ children }) {
                 </Link>
                 <button aria-label="Open menu" className="btn-ghost" onClick={() => setDrawerOpen(true)}><Menu size={22} /></button>
               </div>
-              <nav className="flex gap-2 overflow-x-auto px-4 pb-3">
-                <button className="btn-ghost shrink-0" onClick={() => navigate(-1)}><ArrowLeft size={17} /> Back</button>
-                {links.map(([label, href, Icon]) => (
-                  <NavLink key={href} to={href} className="btn-ghost shrink-0">
-                    <Icon size={17} />
-                    {label}
-                  </NavLink>
-                ))}
-              </nav>
             </header>
             {children}
 
@@ -139,7 +131,9 @@ export default function Shell({ children }) {
           <header className="sticky top-0 z-40 border-b border-borderline bg-sand/95 backdrop-blur">
             <div className="page-shell flex items-center justify-between gap-3 py-3">
               <div className="flex min-w-0 items-center gap-2">
-                <button className="btn-ghost shrink-0" onClick={() => navigate(-1)}><ArrowLeft size={17} /> Back</button>
+                {location.pathname !== "/" && (
+                  <button className="btn-ghost shrink-0" onClick={() => navigate(-1)} aria-label="Go back"><ArrowLeft size={17} /> Back</button>
+                )}
                 <Link to="/" className="flex min-w-0 items-center gap-2 font-serif text-xl font-black text-primary">
                   <Camera size={22} />
                   <span className="truncate">TravelShare</span>

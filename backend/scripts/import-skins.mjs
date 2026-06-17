@@ -51,11 +51,20 @@ async function categorize(filename, index) {
   return 'premium';
 }
 
+function slugify(value) {
+  return String(value || 'travel-frame')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80) || 'travel-frame';
+}
+
 async function main() {
   const repoRoot = path.resolve(process.cwd());
   const frontendPublic = path.join(repoRoot, 'frontend', 'public');
   const destRoot = path.join(repoRoot, 'backend', 'public', 'assets', 'skins');
   await fs.mkdir(destRoot, { recursive: true });
+  await Promise.all(['basic', 'premium', 'seasonal', 'pending-naming'].map((dir) => fs.mkdir(path.join(destRoot, dir), { recursive: true })));
 
   const created = [];
 
@@ -72,24 +81,33 @@ async function main() {
     const cat = await categorize(fname, i);
     const destDir = path.join(destRoot, cat);
     await fs.mkdir(destDir, { recursive: true });
-    const destName = fname.replace(/[^a-z0-9.\-_]/gi, '_');
+    const name = await guessName(fname, i);
+    const destName = `${cat}-${slugify(name)}.png`;
     const dest = path.join(destDir, destName);
     await fs.copyFile(src, dest);
 
     const frameAssetUrl = `/assets/skins/${cat}/${destName}`;
     const previewImage = frameAssetUrl;
-    const name = await guessName(fname, i);
 
     const isPremium = cat !== 'basic';
     const priceCents = isPremium ? 299 : 0; // basic free, premium $2.99
+    const tags = name.toLowerCase().replace(' frame', '').split(/\s+/).filter(Boolean);
+    const metadata = {
+      frameAssetUrl,
+      previewImage,
+      category: cat,
+      isPremium,
+      unlockType: isPremium ? 'purchase' : 'included',
+      tags
+    };
 
     // prisma.purchaseItem.upsert requires a unique identifier in `where`.
     // Use findFirst -> update/create to support previewUrl which is not unique in schema.
     let item = await prisma.purchaseItem.findFirst({ where: { previewUrl: previewImage } });
     if (item) {
-      item = await prisma.purchaseItem.update({ where: { id: item.id }, data: { name, description: `Frame overlay: ${name}`, priceCents, active: true, metadata: { frameAssetUrl } } });
+      item = await prisma.purchaseItem.update({ where: { id: item.id }, data: { name, description: `Frame overlay: ${name}`, priceCents, active: true, metadata } });
     } else {
-      item = await prisma.purchaseItem.create({ data: { name, description: `Frame overlay: ${name}`, type: 'image_skin', priceCents, previewUrl: previewImage, active: true, metadata: { frameAssetUrl } } });
+      item = await prisma.purchaseItem.create({ data: { name, description: `Frame overlay: ${name}`, type: 'image_skin', priceCents, previewUrl: previewImage, active: true, metadata } });
     }
 
     created.push(item);

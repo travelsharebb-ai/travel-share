@@ -4,7 +4,8 @@ const prisma = new PrismaClient();
 
 async function main() {
   // Read deletion window from environment or platform settings (default 14 days)
-  const deletionDays = Number(process.env.GUEST_DELETION_DAYS || 14);
+  const setting = await prisma.platformSetting.findUnique({ where: { key: 'guestDeletionDays' } }).catch(() => null);
+  const deletionDays = Number(setting?.value || process.env.GUEST_DELETION_DAYS || 14);
   const cutoff = new Date(Date.now() - deletionDays * 24 * 60 * 60 * 1000);
 
   console.log(`Cleaning up guest sessions expired on or before ${cutoff.toISOString()}`);

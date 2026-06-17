@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../utils/prisma.js";
-import { attachFrameUrls } from "../utils/skins.js";
+import { attachFrameUrls, userOwnsSkin } from "../utils/skins.js";
 import { notifyReportedUpload } from "../utils/email.js";
 import { isPlatformAdmin } from "../middleware/auth.js";
 
@@ -131,8 +131,8 @@ router.patch("/uploads/:uploadId/skin", async (req, res) => {
     const skin = await prisma.purchaseItem.findUnique({ where: { id: skinId } });
     if (!skin || skin.type !== "image_skin") return res.status(400).json({ error: "Invalid skin." });
 
-    // Check user unlock or ownership (platform admin bypass)
-    const unlocked = await prisma.userSkinUnlock.findFirst({ where: { userId: req.user.id, skinId } });
+    // Check user unlock, purchase ownership, or included basic skin (platform admin bypass)
+    const unlocked = await userOwnsSkin(req.user.id, skinId);
     if (!unlocked && !["admin", "platform_admin"].includes(req.user.role)) {
       return res.status(403).json({ error: "Skin not unlocked. Purchase required." });
     }

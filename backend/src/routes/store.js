@@ -1,15 +1,21 @@
 import { Router } from "express";
 import { prisma } from "../utils/prisma.js";
 import { capturePaypalOrder, createPaypalOrder, createStripeCheckout, verifyStripeCheckout } from "../utils/payments.js";
+import { ensureBasicSkinUnlocks } from "../utils/skins.js";
 
 const router = Router();
 
 router.get("/", async (req, res) => {
-  const [items, purchases] = await Promise.all([
+  await ensureBasicSkinUnlocks(req.user.id).catch((error) => {
+    console.error("Failed to grant basic skins while loading store", error);
+  });
+  const [items, purchases, skinUnlocks] = await Promise.all([
     prisma.purchaseItem.findMany({ where: { active: true }, orderBy: [{ type: "asc" }, { updatedAt: "desc" }] }),
-    prisma.userPurchase.findMany({ where: { userId: req.user.id }, select: { itemId: true } })
+    prisma.userPurchase.findMany({ where: { userId: req.user.id }, select: { itemId: true } }),
+    prisma.userSkinUnlock.findMany({ where: { userId: req.user.id }, select: { skinId: true } })
   ]);
   const owned = new Set(purchases.map((purchase) => purchase.itemId));
+  skinUnlocks.forEach((unlock) => owned.add(unlock.skinId));
   res.json({ items: items.map((item) => ({ ...item, owned: owned.has(item.id) })) });
 });
 
@@ -24,6 +30,13 @@ router.post("/:itemId/purchase", async (req, res) => {
     update: { status: "owned" },
     create: { userId: req.user.id, itemId: item.id, status: "owned" }
   });
+  if (item.type === "image_skin") {
+    await prisma.userSkinUnlock.upsert({
+      where: { id: `${req.user.id}_${item.id}` },
+      update: {},
+      create: { id: `${req.user.id}_${item.id}`, userId: req.user.id, skinId: item.id }
+    });
+  }
   res.status(201).json({ purchase, message: "Add-on unlocked. Payment checkout can be connected later." });
 });
 
@@ -84,6 +97,13 @@ router.post("/payments/:transactionId/confirm", async (req, res, next) => {
         update: { status: "owned" },
         create: { userId: req.user.id, itemId: transaction.itemId, status: "owned" }
       });
+      if (transaction.item.type === "image_skin") {
+        await prisma.userSkinUnlock.upsert({
+          where: { id: `${req.user.id}_${transaction.itemId}` },
+          update: {},
+          create: { id: `${req.user.id}_${transaction.itemId}`, userId: req.user.id, skinId: transaction.itemId }
+        });
+      }
     }
 
     res.json({ status: updated.status, item: transaction.item });

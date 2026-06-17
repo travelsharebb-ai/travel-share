@@ -8,6 +8,7 @@ import { requireAuth } from "../middleware/auth.js";
 import { hashToken, readCookie, secureToken } from "../utils/tokens.js";
 import { sendPasswordResetEmail } from "../utils/email.js";
 import { cleanUpload, cleanUser } from "../utils/exportImport.js";
+import { ensureBasicSkinUnlocks } from "../utils/skins.js";
 
 const router = Router();
 
@@ -106,6 +107,9 @@ router.post("/signup", authLimiter, async (req, res, next) => {
         ]);
       }
     }
+    await ensureBasicSkinUnlocks(user.id).catch((error) => {
+      console.error("Failed to grant basic skins on signup", error);
+    });
 
     res.status(201).json({ user, token: sign(user) });
   } catch (error) {
@@ -180,6 +184,9 @@ router.get("/oauth/:provider/callback", authLimiter, async (req, res, next) => {
       },
       select: { id: true, name: true, email: true, role: true }
     });
+    await ensureBasicSkinUnlocks(user.id).catch((error) => {
+      console.error("Failed to grant basic skins on OAuth sign-in", error);
+    });
 
     res.redirect(frontendOAuthUrl({ user, token: sign(user) }));
   } catch (error) {
@@ -197,6 +204,9 @@ router.post("/login", authLimiter, async (req, res, next) => {
     if (!valid) return res.status(401).json({ error: "Invalid email or password." });
 
     const safeUser = { id: user.id, name: user.name, email: user.email, role: user.role };
+    await ensureBasicSkinUnlocks(user.id).catch((error) => {
+      console.error("Failed to grant basic skins on login", error);
+    });
     res.json({ user: safeUser, token: sign(user) });
   } catch (error) {
     next(error);
@@ -287,6 +297,9 @@ router.get("/me", requireAuth, async (req, res, next) => {
         purchases: { include: { item: true }, orderBy: { createdAt: "desc" } },
         activeStoreItem: true
       }
+    });
+    await ensureBasicSkinUnlocks(req.user.id).catch((error) => {
+      console.error("Failed to grant basic skins while loading profile", error);
     });
     res.json({ user });
   } catch (error) {

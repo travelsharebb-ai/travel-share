@@ -26,12 +26,17 @@ const adSchema = z.object({
   endsAt: z.string().datetime().optional().nullable()
 });
 
+const assetUrlSchema = z.string().refine((value) => {
+  if (value.startsWith("/assets/") || value.startsWith("/uploads/")) return true;
+  return z.string().url().safeParse(value).success;
+}, "Must be a URL or an internal asset path.");
+
 const storeItemSchema = z.object({
   name: z.string().min(2).max(120),
   description: z.string().max(500).optional().nullable(),
   type: z.enum(["image_skin", "photo_frame", "album_theme", "event_theme", "download_asset", "premium_qr", "branded_page", "ad_free"]),
   priceCents: z.coerce.number().int().min(0).optional(),
-  previewUrl: z.string().url().optional().nullable(),
+  previewUrl: assetUrlSchema.optional().nullable(),
   active: z.boolean().optional(),
   metadata: z.any().optional().nullable()
 });
