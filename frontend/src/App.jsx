@@ -1555,6 +1555,53 @@ function cleanNumbers(obj) {
   return Object.fromEntries(Object.entries(obj).map(([key, value]) => [key, value === "" ? null : value]));
 }
 
+function DiscoverEvents() {
+  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    api("/api/public/events")
+      .then((data) => {
+        if (!mounted) return;
+        setEvents(data.events || []);
+      })
+      .catch(() => {})
+      .finally(() => mounted && setLoading(false));
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  return (
+    <Shell>
+      <main className="page-shell space-y-6">
+        <section className="hero-copy-panel">
+          <HeaderBlock eyebrow="Discover" title="Public Events" copy="Browse upcoming and recent public events and open their QR pages to contribute memories." />
+        </section>
+
+        <section className="grid gap-4">
+          {loading ? (
+            <div className="card p-5">Loading events…</div>
+          ) : events.length === 0 ? (
+            <div className="card p-5">No public events found.</div>
+          ) : (
+            events.map((ev) => (
+              <div key={ev.id} className="card p-5">
+                <Link to={`/event/${ev.qrToken}`} className="block">
+                  <p className="font-serif text-2xl font-black">{ev.title}</p>
+                  <p className="text-slatebody">{ev.location || "Public event"} • {ev._count?.uploads || 0} memories</p>
+                  <p className="mt-2 text-primary">Open event QR page</p>
+                </Link>
+              </div>
+            ))
+          )}
+        </section>
+      </main>
+    </Shell>
+  );
+}
+
 export default function App() {
   return (
     <>
