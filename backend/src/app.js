@@ -20,7 +20,12 @@ export function createApp() {
   app.use(cors({
     origin(origin, callback) {
       if (!origin || allowedOrigins.includes(origin) || /^http:\/\/localhost:\d+$/.test(origin)) return callback(null, true);
-      return callback(new Error("Origin not allowed by CORS."));
+      // Provide a clearer, exposed 403 error and log the blocked origin to server logs
+      console.warn("CORS blocked origin:", origin, "allowed:", allowedOrigins);
+      const err = new Error("Origin not allowed by CORS.");
+      err.status = 403;
+      err.expose = true;
+      return callback(err);
     },
     credentials: true
   }));
