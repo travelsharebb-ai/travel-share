@@ -176,12 +176,23 @@ function Landing() {
             ["Tourist Mode", "Personal albums, memory maps, route replay, and QR photo collection."],
             ["Events Mode", "Custom event maps, zones, crowd status, and location-specific QR uploads."],
             ["Business Admin", "Users, organizers, ads, store items, reports, analytics, and settings."]
-          ].map(([title, copy]) => (
-            <div className="card p-5" key={title}>
-              <p className="font-serif text-2xl font-black">{title}</p>
-              <p className="mt-2 text-slatebody">{copy}</p>
-            </div>
-          ))}
+          ].map(([title, copy]) => {
+            // Make 'Events Mode' card clickable to open the Events page
+            if (title === "Events Mode") {
+              return (
+                <Link key={title} to="/events" className="card p-5 block">
+                  <p className="font-serif text-2xl font-black">{title}</p>
+                  <p className="mt-2 text-slatebody">{copy}</p>
+                </Link>
+              );
+            }
+            return (
+              <div className="card p-5" key={title}>
+                <p className="font-serif text-2xl font-black">{title}</p>
+                <p className="mt-2 text-slatebody">{copy}</p>
+              </div>
+            );
+          })}
         </section>
       </main>
     </Shell>

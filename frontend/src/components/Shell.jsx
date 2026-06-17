@@ -74,8 +74,12 @@ export default function Shell({ children }) {
           </aside>
           <div className="min-w-0">
             <div className="hidden px-6 pt-4 lg:block">
-              {/* Desktop-only back button (hidden on landing and mobile) */}
-              {location.pathname !== "/" && <button className="btn-ghost" onClick={() => navigate(-1)}><ArrowLeft size={18} /> Back</button>}
+              {/* Desktop-only back button (hide on landing and dashboard) */}
+              {location.pathname !== "/" && !location.pathname.startsWith("/dashboard") && (
+                <button className="btn-ghost" onClick={() => navigate(-1)}>
+                  <ArrowLeft size={18} /> Back
+                </button>
+              )}
             </div>
             <header className="sticky top-0 z-40 border-b border-borderline bg-sand/95 backdrop-blur lg:hidden">
               <div className="flex items-center justify-between gap-3 px-4 py-3">
@@ -132,7 +136,7 @@ export default function Shell({ children }) {
           <header className="sticky top-0 z-40 border-b border-borderline bg-sand/95 backdrop-blur">
             <div className="page-shell flex items-center justify-between gap-3 py-3">
               <div className="flex min-w-0 items-center gap-2">
-                {location.pathname !== "/" && (
+                {location.pathname !== "/" && !location.pathname.startsWith("/dashboard") && (
                   <button className="btn-ghost shrink-0" onClick={() => navigate(-1)} aria-label="Go back"><ArrowLeft size={17} /> Back</button>
                 )}
                 <Link to="/" className="flex min-w-0 items-center gap-2 font-serif text-xl font-black text-primary">
