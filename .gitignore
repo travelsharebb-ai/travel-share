@@ -31,6 +31,12 @@ Thumbs.db
 # Frontend build / public media
 frontend/public/videos/
 
+# Allow tracking skin images in backend/public/assets/skins
+# (images are otherwise ignored by the global image patterns above)
+!backend/public/assets/skins/
+!backend/public/assets/skins/**
+!backend/public/assets/skins/*.png
+
 # Local env
 .env.local
 .env.*.local
