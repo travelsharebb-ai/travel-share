@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import path from "node:path";
+import fs from "node:fs";
 import authRoutes from "./routes/auth.js";
 import tripRoutes from "./routes/trips.js";
 import publicRoutes from "./routes/public.js";
@@ -32,6 +33,18 @@ export function createApp() {
     credentials: true
   }));
   app.use(express.json({ limit: "2mb" }));
+  // Prefer serving a built frontend at `frontend/dist` when present (avoids copying)
+  const frontendDist = path.resolve(process.cwd(), "frontend", "dist");
+  if (fs.existsSync && fs.existsSync(frontendDist)) {
+    app.use(express.static(frontendDist));
+    // SPA fallback: serve index.html for non-API routes so client-side routing works
+    app.get("*", (req, res, next) => {
+      if (req.path.startsWith("/api") || req.path.startsWith("/uploads") || req.path.startsWith("/assets")) return next();
+      res.sendFile(path.join(frontendDist, "index.html"));
+    });
+  }
+
+  // Legacy/public static directory (kept for deployments that copy build into `public`)
   app.use(express.static(path.resolve(process.cwd(), "public")));
   app.use("/uploads", express.static(path.resolve(process.cwd(), "uploads")));
   // Serve skin and other assets under /assets
