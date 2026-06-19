@@ -1003,6 +1003,7 @@ function EventDetails() {
 
 function Store() {
   const [items, setItems] = useState([]);
+  const [storeTab, setStoreTab] = useState('all');
   const [message, setMessage] = useState("");
   const [activeItem, setActiveItem] = useState(currentUser()?.activeStoreItem || null);
   async function load() {
@@ -1052,8 +1053,18 @@ function Store() {
         <HeaderBlock eyebrow="Premium Add-ons" title="Skins, frames, themes, QR styles" copy="Purchases are modeled now. Stripe checkout can plug into this store later." />
         {message && <p className="rounded-lg border border-primary/30 bg-primary/10 p-3 font-bold text-primary">{message}</p>}
         {activeItem && <div className="card flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"><p><span className="font-bold">Active:</span> {activeItem.name}</p><button className="btn-ghost" onClick={clearActive}>Clear active</button></div>}
+        <div className="flex gap-2 mb-4">
+          <button className={storeTab === 'all' ? 'btn-primary' : 'btn-ghost'} onClick={() => setStoreTab('all')}>All</button>
+          <button className={storeTab === 'seasonal' ? 'btn-primary' : 'btn-ghost'} onClick={() => setStoreTab('seasonal')}>Seasonal</button>
+          <button className={storeTab === 'premium' ? 'btn-primary' : 'btn-ghost'} onClick={() => setStoreTab('premium')}>Premium</button>
+        </div>
+
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {items.map((item) => (
+          {(() => {
+            let shown = items;
+            if (storeTab === 'seasonal') shown = items.filter((it) => it.metadata && it.metadata.category === 'seasonal');
+            if (storeTab === 'premium') shown = items.filter((it) => it.metadata && it.metadata.isPremium === true);
+            return shown.map((item) => (
             <article key={item.id} className="card overflow-hidden p-4">
               <div className="relative h-36 rounded-lg bg-skysoft">
                 {item.previewUrl && <img src={assetUrl(item.previewUrl)} alt="" className="h-full w-full rounded-lg object-cover" />}
@@ -1070,7 +1081,8 @@ function Store() {
               {item.owned && item.type === "image_skin" && <p className="mt-2 rounded-lg bg-skysoft p-3 text-sm font-bold text-slatebody">Available in album photo frame pickers.</p>}
               {item.owned && item.type !== "image_skin" && <button className={activeItem?.id === item.id ? "btn-primary mt-2 w-full" : "btn-ghost mt-2 w-full"} disabled={activeItem?.id === item.id} onClick={() => activate(item)}>{activeItem?.id === item.id ? "Active" : "Activate"}</button>}
             </article>
-          ))}
+            ))
+          })()}
           {items.length === 0 && <EmptyCard title="No add-ons yet" copy="Admin can add image skins, frames, themes, premium QR designs, and branded pages." />}
         </div>
       </main>
