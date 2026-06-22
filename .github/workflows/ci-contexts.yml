@@ -1,0 +1,17 @@
+name: CI Contexts Helper
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  ci:
+    name: ci
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Echo CI context
+        run: |
+          echo "This job exists to create the 'ci' check-run context for branch protection"
