@@ -34,10 +34,14 @@ export async function userOwnsSkin(userId, skinId, prismaClient = prisma) {
     await ensureBasicSkinUnlocks(userId, prismaClient);
     return true;
   }
-  const [unlock, purchase] = await Promise.all([
-    prismaClient.userSkinUnlock.findFirst({ where: { userId, skinId } }),
-    prismaClient.userPurchase.findUnique({ where: { userId_itemId: { userId, itemId: skinId } } }).catch(() => null)
-  ]);
+  const unlock = await prismaClient.userSkinUnlock.findFirst({ where: { userId, skinId } });
+  let purchase = null;
+  try {
+    purchase = await prismaClient.userPurchase.findUnique({ where: { userId_itemId: { userId, itemId: skinId } } });
+  } catch (err) {
+    console.warn('userPurchase.findUnique failed', err?.message || err);
+    purchase = null;
+  }
   return Boolean(unlock || purchase?.status === "owned");
 }
 

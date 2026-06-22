@@ -324,6 +324,51 @@ router.patch("/uploads/:uploadId/skin", async (req, res) => {
   }
 });
 
+// Assign or update location for a photo (alias route: /api/photos/:id/location)
+router.patch("/photos/:id/location", async (req, res, next) => {
+  try {
+    const schema = z.object({
+      locationId: z.string().optional(),
+      latitude: z.number().optional(),
+      longitude: z.number().optional(),
+      name: z.string().optional(),
+      address: z.string().optional()
+    });
+    const data = schema.parse(req.body || {});
+    const upload = await manageableUpload(req, req.params.id);
+    if (!upload) return res.status(404).json({ error: "Upload not found." });
+
+    // Validate coordinates
+    if ((data.latitude !== undefined && (data.latitude < -90 || data.latitude > 90)) || (data.longitude !== undefined && (data.longitude < -180 || data.longitude > 180))) {
+      return res.status(400).json({ error: "Invalid coordinates." });
+    }
+
+    let locationIdToSet = data.locationId || null;
+    if (!locationIdToSet && (data.latitude !== undefined || data.longitude !== undefined)) {
+      // Create a lightweight location record
+      const created = await prisma.location.create({ data: {
+        name: data.name || (upload.locationName || "Saved location"),
+        address: data.address || null,
+        latitude: data.latitude ?? null,
+        longitude: data.longitude ?? null,
+        userId: req.user?.id || null
+      }});
+      locationIdToSet = created.id;
+    }
+
+    const updateData = {};
+    if (locationIdToSet) updateData.locationId = locationIdToSet;
+    if (data.latitude !== undefined) updateData.latitude = data.latitude;
+    if (data.longitude !== undefined) updateData.longitude = data.longitude;
+
+    const updated = await prisma.upload.update({ where: { id: upload.id }, data: updateData });
+    const hydrated = (await hydrateUploads([updated]))[0];
+    res.json({ upload: hydrated });
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.post("/trips/:tripId/uploads/bulk", async (req, res, next) => {
   try {
     const schema = z.object({

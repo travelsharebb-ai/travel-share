@@ -2,13 +2,41 @@ import { prisma } from './prisma.js';
 import fs from 'fs/promises';
 import path from 'path';
 
+let lastCheck = 0;
+let cached = true;
+let inFlight = null;
+
+const TTL = 30000;
+
+export async function checkDB() {
+  const now = Date.now();
+
+  // return cached result if still fresh
+  if (now - lastCheck < TTL) return cached;
+
+  // prevent duplicate concurrent checks
+  if (inFlight) return inFlight;
+
+  inFlight = (async () => {
+try {
+  await prisma.$queryRaw`SELECT 1`;
+  cached = true;
+} catch (err) {
+  cached = false;
+} finally {
+  lastCheck = Date.now();
+  inFlight = null;
+}
+
+    return cached;
+  })();
+
+  return inFlight;
+}
+
 export async function checkDbConnection() {
-  try {
-    await prisma.$queryRaw`SELECT 1`;
-    return { ok: true };
-  } catch (err) {
-    return { ok: false, error: String(err.message || err) };
-  }
+  const ok = await checkDB();
+  return ok ? { ok: true } : { ok: false, error: 'Database connectivity check failed' };
 }
 
 export async function listAppliedMigrations() {
@@ -40,4 +68,4 @@ export async function compareMigrations() {
   return { ok: true, missingInDb, extraInDb, applied, local };
 }
 
-export default { checkDbConnection, listAppliedMigrations, listLocalMigrations, compareMigrations };
+export default { checkDB, checkDbConnection, listAppliedMigrations, listLocalMigrations, compareMigrations };

@@ -33,6 +33,7 @@ import ScreenshotGuard from "./components/ScreenshotGuard";
 import { API_URL, api, currentUser, setSession, updateStoredUser, getGuestToken, setGuestToken, clearGuestToken } from "./lib/api";
 import LocationField from "./components/LocationField";
 import { reverseGeocode } from "./lib/geocode";
+import MapView from "./pages/MapView";
 
 const supportEmail = import.meta.env.VITE_SUPPORT_EMAIL || "support@example.com";
 const mapboxToken = import.meta.env.VITE_MAPBOX_TOKEN || "";
@@ -2353,6 +2354,7 @@ export default function App() {
         <Route path="/share/:token" element={<ShareAlbum />} />
         <Route path="/privacy" element={<Legal type="privacy" />} />
         <Route path="/terms" element={<Legal type="terms" />} />
+        <Route path="/map" element={<MapView />} />
       </Routes>
       <BottomAd />
     </>

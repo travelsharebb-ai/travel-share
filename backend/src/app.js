@@ -5,6 +5,7 @@ import authRoutes from "./routes/auth.js";
 import tripRoutes from "./routes/trips.js";
 import publicRoutes from "./routes/public.js";
 import uploadRoutes from "./routes/uploads.js";
+import locationRoutes from "./routes/locations.js";
 import adminRoutes from "./routes/admin.js";
 import eventRoutes from "./routes/events.js";
 import storeRoutes from "./routes/store.js";
@@ -59,6 +60,8 @@ export function createApp() {
   app.use("/api/skins", skinRoutes);
   app.use("/api/trips", requireAuth, tripRoutes);
   app.use("/api/events", requireAuth, requireOrganizerOrAdmin, eventRoutes);
+  // Allow read-only access to locations for the public map UI; write operations still require auth inside the routes.
+  app.use("/api/locations", locationRoutes);
   app.use("/api/store", requireAuth, storeRoutes);
   app.use("/api/downloads", downloadRoutes);
   app.use("/api", requireAuth, uploadRoutes);
