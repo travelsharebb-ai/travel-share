@@ -1,0 +1,93 @@
+name: Travel Share CI (LOCKED)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: travel_share
+        ports:
+          - 5432:5432
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/travel_share
+      JWT_SECRET: test-secret
+      FINGERPRINT_SECRET: test-secret
+      CI_QR_TOKEN: test-ci-token
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch origin/main
+        run: git fetch --no-tags --prune origin main
+
+      - name: CI Workflow Integrity Check
+        run: |
+          # compare current workflow checksum with the repository baseline
+          if command -v sha256sum >/dev/null 2>&1; then
+            sha256sum .github/workflows/ci.yml | diff .ci-lock/workflow.sha256 - || (echo "CI WORKFLOW CHECKSUM MISMATCH" && exit 1)
+          else
+            shasum -a 256 .github/workflows/ci.yml | awk '{print $1 "  .github/workflows/ci.yml"}' | diff .ci-lock/workflow.sha256 - || (echo "CI WORKFLOW CHECKSUM MISMATCH" && exit 1)
+          fi
+
+      - name: Origin-based immutability check
+        run: |
+          git fetch --no-tags --prune origin main
+          git diff --name-only origin/main...HEAD -- .github/workflows/ci.yml | grep . && echo "CI modified vs origin/main" && exit 1 || echo "CI stable vs origin/main"
+
+      - name: Backend drift guard
+        run: |
+          git fetch --no-tags --prune origin main
+          git diff --name-only origin/main...HEAD -- backend/src backend/prisma | grep . && echo "Backend drift detected vs origin/main" && exit 1 || echo "Backend stable vs origin/main"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # =========================
+      # 1. BOOTSTRAP STAGE (ONLY SAFE MUTATIONS)
+      # =========================
+      - name: Install dependencies
+        run: npm install
+
+      - name: Prisma generate
+        run: npx prisma generate
+        working-directory: backend
+
+      - name: Prisma migrate deploy
+        run: npx prisma migrate deploy
+        working-directory: backend
+
+      - name: Start backend server
+        run: |
+          npm start &
+          npx wait-on http://localhost:10000/health
+        working-directory: backend
+
+      # =========================
+      # 2. AUDIT STAGE (READ ONLY)
+      # =========================
+
+      - name: Phase 1–3 Audit
+        run: node backend/scripts/phase-audit.mjs
+
+      - name: Phase 4 Audit
+        run: node backend/scripts/phase4-audit.mjs
+
+      # =========================
+      # 3. CI Contract Layer v1 (Read-only API checks)
+      # =========================
+      - name: CI Contract: Run read-only API contract checks
+        run: |
+          node backend/scripts/ci-contract-check.mjs

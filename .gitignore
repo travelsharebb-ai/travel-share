@@ -1,0 +1,42 @@
+.env
+.env.*
+!.env.example
+node_modules/
+dist/
+build/
+.DS_Store
+coverage/
+uploads/
+tmp/
+*.log
+backend/prisma/dev.db
+
+# Editor/IDE
+.vscode/
+.idea/
+
+# OS
+Thumbs.db
+
+# Media and documents
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.mp4
+*.mov
+*.avi
+*.pdf
+
+# Frontend build / public media
+frontend/public/videos/
+
+# Allow tracking skin images in backend/public/assets/skins
+# (images are otherwise ignored by the global image patterns above)
+!backend/public/assets/skins/
+!backend/public/assets/skins/**
+!backend/public/assets/skins/*.png
+
+# Local env
+.env.local
+.env.*.local
