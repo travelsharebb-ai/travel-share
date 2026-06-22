@@ -15,6 +15,7 @@ CREATE INDEX IF NOT EXISTS "InternalAd_createdById_idx" ON "InternalAd"("created
 ALTER TABLE "Location" ALTER COLUMN "updatedAt" DROP DEFAULT;
 
 ALTER TABLE "Upload" ALTER COLUMN "uploaderFingerprint" DROP NOT NULL;
+ALTER TABLE "Upload" ADD COLUMN IF NOT EXISTS "skinId" TEXT;
 CREATE INDEX IF NOT EXISTS "Upload_locationId_idx" ON "Upload"("locationId");
 
 DO $$
