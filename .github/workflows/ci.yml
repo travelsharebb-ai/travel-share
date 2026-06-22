@@ -34,6 +34,7 @@ jobs:
 
       - name: CI Workflow Integrity Check
         run: |
+          set -e
           if command -v sha256sum >/dev/null 2>&1; then
             sha256sum .github/workflows/ci.yml
           else
@@ -42,13 +43,19 @@ jobs:
 
       - name: Origin-based immutability check
         run: |
+          set -e
           git fetch --no-tags --prune origin main
-          git diff --name-only origin/main...HEAD -- .github/workflows/ci.yml | grep . && echo "CI modified vs origin/main" && exit 1 || echo "CI stable vs origin/main"
+          git diff --name-only origin/main...HEAD -- .github/workflows/ci.yml | grep . && \
+          echo "CI modified vs origin/main" && exit 1 || \
+          echo "CI stable vs origin/main"
 
       - name: Backend drift guard
         run: |
+          set -e
           git fetch --no-tags --prune origin main
-          git diff --name-only origin/main...HEAD -- backend/src backend/prisma | grep . && echo "Backend drift detected vs origin/main" && exit 1 || echo "Backend stable vs origin/main"
+          git diff --name-only origin/main...HEAD -- backend/src backend/prisma | grep . && \
+          echo "Backend drift detected vs origin/main" && exit 1 || \
+          echo "Backend stable vs origin/main"
 
       - uses: actions/setup-node@v4
         with:
