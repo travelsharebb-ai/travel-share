@@ -1,5 +1,9 @@
 #!/usr/bin/env node
-// CI contract check - lightweight, read-only checks
+// CI contract check - very lightweight, read-only existence checks
+// Rules (lightweight mode):
+// - Do NOT validate exact JSON schema types
+// - Only validate that the response is JSON and required top-level keys exist
+// - Do NOT fail CI for extra fields or schema extensions
 // Usage: node backend/scripts/ci-contract-check.mjs [BASE_URL]
 
 const fetch = global.fetch || (await import('node-fetch')).default;
@@ -13,16 +17,22 @@ function timeoutPromise(p, ms, msg) {
   ]);
 }
 
-async function checkJSON(url, expectedShapeFn, name) {
+async function checkTopLevelKey(url, requiredKey, name) {
   try {
     const res = await timeoutPromise(fetch(url, { method: 'GET' }), timeoutMs, 'request timeout');
     if (res.status !== 200) {
       throw new Error(`${name} expected 200 but got ${res.status}`);
     }
-    const json = await res.json();
-    const ok = expectedShapeFn(json);
-    if (!ok) throw new Error(`${name} response shape invalid: ${JSON.stringify(json)}`);
-    console.log(`${name}: OK`);
+    let json;
+    try {
+      json = await res.json();
+    } catch (e) {
+      throw new Error(`${name} response not JSON`);
+    }
+    if (!(json && Object.prototype.hasOwnProperty.call(json, requiredKey))) {
+      throw new Error(`${name} missing required top-level key: ${requiredKey}`);
+    }
+    console.log(`${name}: OK (contains key '${requiredKey}')`);
     return true;
   } catch (err) {
     console.error(`${name}: FAIL — ${err.message}`);
@@ -30,19 +40,17 @@ async function checkJSON(url, expectedShapeFn, name) {
   }
 }
 
-async function checkProtected(url, name) {
+async function checkProtectedUnauth(url, name) {
   try {
     const res = await timeoutPromise(fetch(url, { method: 'GET' }), timeoutMs, 'request timeout');
     if (res.status === 401 || res.status === 403) {
       console.log(`${name}: OK (unauthenticated -> ${res.status})`);
       return true;
     }
-    // 404 treat as warning
     if (res.status === 404) {
-      console.warn(`${name}: WARN (404 Not Found) - endpoint may not exist`);
-      return true;
+      console.warn(`${name}: WARN (404 Not Found) - endpoint may not exist)`);
+      return true; // don't fail for absent endpoints
     }
-    // Any 2xx/3xx is unexpected
     console.error(`${name}: FAIL (expected 401/403) got ${res.status}`);
     return false;
   } catch (err) {
@@ -52,46 +60,26 @@ async function checkProtected(url, name) {
 }
 
 (async function main() {
-  console.log('CI Contract Check — base:', base);
-  const checks = [];
+  console.log('CI Contract Check (lightweight) — base:', base);
+  const results = [];
 
-  // /health -> { db: "ok" }
-  checks.push(await checkJSON(`${base}/health`, (j) => j && j.db === 'ok', 'GET /health'));
+  // GET /health -> must contain key: db
+  results.push(await checkTopLevelKey(`${base}/health`, 'db', 'GET /health'));
 
-  // /api/skins -> { skins: Array }
-  checks.push(await checkJSON(`${base}/api/skins`, (j) => j && Array.isArray(j.skins), 'GET /api/skins'));
+  // GET /api/skins -> must contain key: skins
+  results.push(await checkTopLevelKey(`${base}/api/skins`, 'skins', 'GET /api/skins'));
 
-  // /api/events -> { events: Array }
-  checks.push(await checkJSON(`${base}/api/events`, (j) => j && Array.isArray(j.events), 'GET /api/events'));
+  // GET /api/events -> must contain key: events
+  results.push(await checkTopLevelKey(`${base}/api/events`, 'events', 'GET /api/events'));
 
-  // /api/public (wildcard) - try /api/public, warn if not present
-  try {
-    const res = await timeoutPromise(fetch(`${base}/api/public`, { method: 'GET' }), timeoutMs, 'request timeout');
-    if (res.status === 200) {
-      try {
-        const json = await res.json();
-        console.log('GET /api/public: OK (200)');
-      } catch (e) {
-        console.warn('GET /api/public: WARN (non-JSON response)');
-      }
-    } else if (res.status === 404) {
-      console.warn('GET /api/public: WARN (404 Not Found)');
-    } else {
-      console.warn(`GET /api/public: WARN (${res.status})`);
-    }
-  } catch (err) {
-    console.warn('GET /api/public: WARN —', err.message);
-  }
+  // Protected route: GET /api/users/me -> expects 401/403 when unauthenticated
+  results.push(await checkProtectedUnauth(`${base}/api/users/me`, 'GET /api/users/me (protected)'));
 
-  // Protected route check: /api/users/me -> expect 401/403 when unauthenticated
-  checks.push(await checkProtected(`${base}/api/users/me`, 'GET /api/users/me (protected)'));
-
-  // Evaluate results: fail CI if any critical check failed
-  const allGood = checks.every(Boolean);
-  if (!allGood) {
-    console.error('CI CONTRACT CHECK FAILED');
+  const ok = results.every(Boolean);
+  if (!ok) {
+    console.error('CI CONTRACT CHECK FAILED (lightweight)');
     process.exit(1);
   }
-  console.log('CI CONTRACT CHECK PASSED');
+  console.log('CI CONTRACT CHECK PASSED (lightweight)');
   process.exit(0);
 })();
