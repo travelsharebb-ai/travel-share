@@ -130,6 +130,19 @@ router.get("/:eventId/qr", async (req, res) => {
 router.post("/:eventId/maps", async (req, res, next) => {
   try {
     const data = mapSchema.parse(req.body);
+    // Validate provided mapboxStyle against platform whitelist or basic prefix
+    if (data.mapboxStyle) {
+      // prefer an explicit whitelist stored in platformSetting 'allowedMapboxStyles' (comma-separated)
+      const setting = await prisma.platformSetting.findUnique({ where: { key: "allowedMapboxStyles" } }).catch(() => null);
+      const allowed = setting?.value ? setting.value.split(",").map((s) => s.trim()).filter(Boolean) : null;
+      if (allowed && allowed.length > 0) {
+        if (!allowed.includes(data.mapboxStyle)) return res.status(400).json({ error: "mapboxStyle not allowed by platform settings." });
+      } else {
+        // Basic validation: ensure it looks like a mapbox style reference
+        if (!data.mapboxStyle.startsWith("mapbox://styles/")) return res.status(400).json({ error: "mapboxStyle must start with 'mapbox://styles/' or be pre-approved." });
+        // keep length and allowed chars enforced by zod already (max 160)
+      }
+    }
     const event = await prisma.event.findFirst({ where: eventWhere(req, req.params.eventId) });
     if (!event) return res.status(404).json({ error: "Event not found." });
     const map = await prisma.eventMap.create({

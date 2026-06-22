@@ -20,20 +20,14 @@ const styleNames = [
   'Holiday Film Frame'
 ];
 
-const sourceFiles = [
-  'ChatGPT Image Jun 17, 2026, 02_06_45 AM.png',
-  'ChatGPT Image Jun 17, 2026, 02_07_17 AM.png',
-  'ChatGPT Image Jun 17, 2026, 02_07_29 AM.png',
-  'ChatGPT Image Jun 17, 2026, 02_07_36 AM.png',
-  'ChatGPT Image Jun 17, 2026, 02_07_42 AM.png',
-  'ChatGPT Image Jun 17, 2026, 02_07_48 AM.png',
-  'ChatGPT Image Jun 17, 2026, 02_08_05 AM.png',
-  'ChatGPT Image Jun 17, 2026, 02_08_17 AM.png',
-  'ChatGPT Image Jun 17, 2026, 02_09_14 AM.png',
-  'ChatGPT Image Jun 17, 2026, 02_12_30 AM.png',
-  'ChatGPT Image Jun 17, 2026, 02_30_31 AM.png',
-  'ChatGPT Image Jun 17, 2026, 02_33_42 AM-Photoroom.png'
-];
+async function findSourceFiles(sourceFolder) {
+  const entries = await fs.readdir(sourceFolder, { withFileTypes: true });
+  return entries
+    .filter((entry) => entry.isFile() && /\.(png|webp|jpe?g)$/i.test(entry.name))
+    .filter((entry) => /chatgpt|skin|frame|image/i.test(entry.name))
+    .map((entry) => entry.name)
+    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+}
 
 async function guessName(filename, index) {
   const lower = filename.toLowerCase();
@@ -69,6 +63,7 @@ async function main() {
 
   const created = [];
 
+  const sourceFiles = await findSourceFiles(frontendPublic);
   for (let i = 0; i < sourceFiles.length; i++) {
     const fname = sourceFiles[i];
     const src = path.join(frontendPublic, fname);

@@ -33,7 +33,29 @@ function isOpenQr(record) {
 
 // Public settings endpoint (read-only, uses same DB/env fallback logic as admin)
 router.get("/settings", async (_req, res) => {
-  return publicController.settings(_req, res, () => {});
+  const guestAccessDays = Number(await platformSetting("guestAccessDays", process.env.GUEST_ACCESS_DAYS || 3));
+  const guestDeletionDays = Number(await platformSetting("guestDeletionDays", process.env.GUEST_DELETION_DAYS || 14));
+  const maxUploadSizeMb = Number(await platformSetting("maxUploadSizeMb", process.env.MAX_UPLOAD_SIZE_MB || 50));
+  const defaultPrivacy = await platformSetting("defaultPrivacy", process.env.DEFAULT_LOCATION_VISIBILITY || "approximate");
+  const moderationProvider = await platformSetting("moderationProvider", process.env.MODERATION_PROVIDER || "disabled");
+  const mapProvider = await platformSetting("mapProvider", "mapbox");
+  const serverGeocode = Boolean(process.env.MAPBOX_TOKEN) || Boolean(await platformSetting("mapboxToken", null));
+  const paymentProvider = await platformSetting("paymentProvider", process.env.PAYMENT_PROVIDER || "planned_stripe");
+  const backgroundVideoUrl = await platformSetting("backgroundVideoUrl", process.env.BACKGROUND_VIDEO_URL || "/videos/come-to-barbados.mp4");
+
+  res.json({
+    settings: {
+      guestAccessDays,
+      guestDeletionDays,
+      maxUploadSizeMb,
+      defaultPrivacy,
+      moderationProvider,
+      mapProvider,
+      serverGeocode,
+      paymentProvider,
+      backgroundVideoUrl
+    }
+  });
 });
 
 // `requireCreatorSession` is provided by `sessionService` to enforce creator cookie usage

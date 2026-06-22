@@ -24,7 +24,6 @@ export default function LocationField({
   }, [value]);
 
   useEffect(() => {
-    if (!token) return; // no token -> no autocomplete
     if (!query || query.length < 3) {
       setSuggestions([]);
       return;
@@ -35,11 +34,25 @@ export default function LocationField({
 
     (async () => {
       try {
-        const q = encodeURIComponent(query);
-        const resp = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${q}.json?access_token=${token}&autocomplete=true&limit=6` , { signal: controller.signal });
-        if (!resp.ok) return;
-        const data = await resp.json();
-        setSuggestions((data.features || []).map((f) => ({ id: f.id, place: f.place_name, center: f.center })));
+        // If a client token exists, prefer client-side Mapbox autocomplete for lower latency
+        if (token) {
+          const q = encodeURIComponent(query);
+          const resp = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${q}.json?access_token=${token}&autocomplete=true&limit=6`, { signal: controller.signal });
+          if (!resp.ok) return;
+          const data = await resp.json();
+          setSuggestions((data.features || []).map((f) => ({ id: f.id, place: f.place_name, center: f.center })));
+          return;
+        }
+
+        // No client token: attempt server-side proxy
+        try {
+          const resp = await fetch(`/api/geocode/search?q=${encodeURIComponent(query)}&limit=6`, { signal: controller.signal });
+          if (!resp.ok) return; // proxy not configured or failed
+          const data = await resp.json();
+          setSuggestions((data.features || []).map((f) => ({ id: f.id || f.properties?.id || f.place_name, place: f.place_name, center: f.center })));
+        } catch (e) {
+          if (e.name !== 'AbortError') console.error('Server-side place autocomplete failed', e);
+        }
       } catch (e) {
         if (e.name !== 'AbortError') console.error('Place autocomplete failed', e);
       }

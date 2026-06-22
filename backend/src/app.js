@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import path from "node:path";
+import fs from "node:fs";
 import authRoutes from "./routes/auth.js";
 import tripRoutes from "./routes/trips.js";
 import publicRoutes from "./routes/public.js";
@@ -11,6 +12,7 @@ import eventRoutes from "./routes/events.js";
 import storeRoutes from "./routes/store.js";
 import downloadRoutes from "./routes/downloads.js";
 import skinRoutes from "./routes/skins.js";
+import geocodeRoutes from "./routes/geocode.js";
 import { requireAdmin, requireAuth, requireOrganizerOrAdmin } from "./middleware/auth.js";
 import requestLogger from "./middleware/requestLogger.js";
 import diagnostics from "./utils/diagnostics.js";
@@ -34,6 +36,18 @@ export function createApp() {
     credentials: true
   }));
   app.use(express.json({ limit: "2mb" }));
+  // Prefer serving a built frontend at `frontend/dist` when present (avoids copying)
+  const frontendDist = path.resolve(process.cwd(), "frontend", "dist");
+  if (fs.existsSync && fs.existsSync(frontendDist)) {
+    app.use(express.static(frontendDist));
+    // SPA fallback: serve index.html for non-API routes so client-side routing works
+    app.get("*", (req, res, next) => {
+      if (req.path.startsWith("/api") || req.path.startsWith("/uploads") || req.path.startsWith("/assets")) return next();
+      res.sendFile(path.join(frontendDist, "index.html"));
+    });
+  }
+
+  // Legacy/public static directory (kept for deployments that copy build into `public`)
   app.use(express.static(path.resolve(process.cwd(), "public")));
   app.use("/uploads", express.static(path.resolve(process.cwd(), "uploads")));
   // Serve skin and other assets under /assets
@@ -58,6 +72,8 @@ export function createApp() {
   app.use("/api/auth", authRoutes);
   app.use("/api/public", publicRoutes);
   app.use("/api/skins", skinRoutes);
+  // Public geocode proxy (optional — requires MAPBOX_TOKEN or platform setting 'mapboxToken')
+  app.use("/api/geocode", geocodeRoutes);
   app.use("/api/trips", requireAuth, tripRoutes);
   app.use("/api/events", requireAuth, requireOrganizerOrAdmin, eventRoutes);
   // Allow read-only access to locations for the public map UI; write operations still require auth inside the routes.
