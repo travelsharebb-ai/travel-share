@@ -84,3 +84,10 @@ jobs:
 
       - name: Phase 4 Audit
         run: node backend/scripts/phase4-audit.mjs
+
+      # =========================
+      # 3. CI Contract Layer v1 (Read-only API checks)
+      # =========================
+      - name: CI Contract: Run read-only API contract checks
+        run: |
+          node backend/scripts/ci-contract-check.mjs
