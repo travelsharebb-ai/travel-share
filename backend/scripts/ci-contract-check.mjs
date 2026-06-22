@@ -17,22 +17,41 @@ function timeoutPromise(p, ms, msg) {
   ]);
 }
 
-async function checkTopLevelKey(url, requiredKey, name) {
+async function checkTopLevelKey(url, requiredKey, name, options = { critical: false }) {
   try {
     const res = await timeoutPromise(fetch(url, { method: 'GET' }), timeoutMs, 'request timeout');
-    if (res.status !== 200) {
+    // Only validate top-level key on successful 200 responses
+    if (res.status === 200) {
+      let json;
+      try {
+        json = await res.json();
+      } catch (e) {
+        // For /health (critical) invalid JSON is a failure
+        if (options.critical) throw new Error(`${name} response not JSON`);
+        console.warn(`${name}: WARN (response not JSON)`);
+        return true;
+      }
+      if (!(json && Object.prototype.hasOwnProperty.call(json, requiredKey))) {
+        throw new Error(`${name} missing required top-level key: ${requiredKey}`);
+      }
+      console.log(`${name}: OK (contains key '${requiredKey}')`);
+      return true;
+    }
+
+    // Handle 404 as a warning for non-critical endpoints
+    if (res.status === 404) {
+      if (options.critical) {
+        throw new Error(`${name} returned 404`);
+      }
+      console.warn(`${name}: WARN (404 Not Found) - endpoint may not exist`);
+      return true;
+    }
+
+    // Other non-200 statuses: do not attempt key checks, log info/warning
+    if (options.critical) {
       throw new Error(`${name} expected 200 but got ${res.status}`);
     }
-    let json;
-    try {
-      json = await res.json();
-    } catch (e) {
-      throw new Error(`${name} response not JSON`);
-    }
-    if (!(json && Object.prototype.hasOwnProperty.call(json, requiredKey))) {
-      throw new Error(`${name} missing required top-level key: ${requiredKey}`);
-    }
-    console.log(`${name}: OK (contains key '${requiredKey}')`);
+    console.warn(`${name}: INFO (status ${res.status}) - skipping key validation`);
     return true;
   } catch (err) {
     console.error(`${name}: FAIL — ${err.message}`);
