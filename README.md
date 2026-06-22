@@ -1,3 +1,67 @@
+# travel-share
+
+Overview
+--------
+
+Travel Share is a full-stack application providing backend APIs, user authentication, an event and QR-based access system, and media upload capabilities. The repository contains a Node.js backend with Prisma and a frontend app. CI pipelines run health and contract checks to help keep the system stable.
+
+Features
+--------
+
+- User authentication
+- Event creation system
+- QR-based access flow
+- Image/file uploads
+- API-driven architecture
+
+Tech Stack
+----------
+
+- Node.js
+- Express
+- Prisma
+- PostgreSQL
+- GitHub Actions CI
+
+Setup
+-----
+
+Install dependencies and start the dev server:
+
+```bash
+npm install
+npm run dev
+```
+
+Environment Variables
+---------------------
+
+Create an `.env` or set the environment variables required by the backend:
+
+- `DATABASE_URL` — PostgreSQL connection string (example: `postgresql://user:pass@localhost:5432/travel_share`)
+- `JWT_SECRET` — secret for signing JWTs
+
+CI
+--
+
+This repository uses GitHub Actions for CI. The CI pipeline is designed as an immutability-first system:
+
+- Structural Layer: Git-based checks compare the current branch to `origin/main` and verify a checksum lock for the workflow file — these are change-detection mechanisms only.
+- Behavior Layer: Read-only HTTP checks validate basic endpoint availability (e.g. `/health`, `/api/skins`, `/api/events`) and that protected routes reject unauthenticated requests.
+- Contract Layer: Lightweight checks confirm required top-level keys exist in API responses (shape existence) without enforcing full schema validation.
+
+CI purpose: confirm the application boots, database migrations are applied, and that public APIs are reachable and minimally consistent. The CI intentionally avoids mutating application state or seeding data.
+
+License
+-------
+
+This project is licensed under the MIT License — see the `LICENSE` file for details.
+
+Notes
+-----
+
+- Do not modify backend application code, CI logic, or API routes as part of CI changes.
+- When intentionally updating CI workflow logic, update the checksum lock file in the same PR so reviewers can approve the change.
 # Travel Share
 
 Travel Share is a privacy-first travel memory sharing MVP. A tourist creates a trip album, shares a QR code, and scanners can upload photos or videos into a private approval queue. Nothing appears in the album unless the tourist approves it.
