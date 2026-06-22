@@ -19,8 +19,7 @@ jobs:
           - 5432:5432
 
     env:
-      DATABASE_URL: 
-postgresql://postgres:postgres@localhost:5432/travel_share
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/travel_share
       JWT_SECRET: test-secret
       FINGERPRINT_SECRET: test-secret
       CI_QR_TOKEN: test-ci-token
