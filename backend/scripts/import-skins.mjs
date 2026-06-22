@@ -58,7 +58,8 @@ async function main() {
   const frontendPublic = path.join(repoRoot, 'frontend', 'public');
   const destRoot = path.join(repoRoot, 'backend', 'public', 'assets', 'skins');
   await fs.mkdir(destRoot, { recursive: true });
-  await Promise.all(['basic', 'premium', 'seasonal', 'pending-naming'].map((dir) => fs.mkdir(path.join(destRoot, dir), { recursive: true })));
+  // Ensure supported skin folders exist (create if missing)
+  await Promise.all(['basic', 'premium', 'seasonal', 'featured', 'pending-naming'].map((dir) => fs.mkdir(path.join(destRoot, dir), { recursive: true })));
 
   const created = [];
 
@@ -125,6 +126,76 @@ async function main() {
   }
 
   console.log('Granted basic skins to users');
+
+  // Post-process to assign Seasonal and Featured categories from the imported items
+  try {
+    const seasonalKeywords = ['holiday', 'festival', 'passport', 'island', 'tropical', 'sunset'];
+    const featuredKeywords = ['golden', 'festival', 'passport', 'retro', 'classic', 'golden hour', 'holiday'];
+
+    // Work from the created array; prefer non-basic items
+    const nonBasic = created.filter((c) => (c.priceCents || 0) > 0);
+
+    // Helper to move asset on disk and return new frameAssetUrl
+    async function moveAssetToCategory(item, newCategory) {
+      const oldAsset = (item.metadata && item.metadata.frameAssetUrl) || item.previewUrl;
+      if (!oldAsset) return null;
+      const oldRel = oldAsset.replace(/^\//, ''); // remove leading slash
+      const oldPath = path.join(repoRoot, 'backend', 'public', oldRel);
+      const destDir = path.join(destRoot, newCategory);
+      await fs.mkdir(destDir, { recursive: true });
+      const base = path.basename(oldPath);
+      const newPath = path.join(destDir, base);
+      try {
+        await fs.rename(oldPath, newPath);
+      } catch (err) {
+        // fallback to copy
+        try {
+          await fs.copyFile(oldPath, newPath);
+        } catch (copyErr) {
+          console.warn('Failed to move/copy asset for', item.id, oldPath, newPath, copyErr.message || copyErr);
+          return null;
+        }
+      }
+      const newFrame = `/assets/skins/${newCategory}/${base}`;
+      return newFrame;
+    }
+
+    // select seasonal
+    let seasonal = nonBasic.filter((c) => seasonalKeywords.some((k) => (c.name || '').toLowerCase().includes(k))).slice(0, 2);
+    if (seasonal.length < 2) {
+      // fill from tail of nonBasic excluding already selected
+      const extras = nonBasic.filter((c) => !seasonal.includes(c));
+      for (const e of extras) {
+        seasonal.push(e);
+        if (seasonal.length >= 2) break;
+      }
+    }
+
+    // mark seasonal in DB and move assets
+    for (const s of seasonal) {
+      const newFrame = await moveAssetToCategory(s, 'seasonal');
+      const newMeta = Object.assign({}, s.metadata || {}, { category: 'seasonal', isSeasonal: true, frameAssetUrl: newFrame || (s.metadata && s.metadata.frameAssetUrl) });
+      await prisma.purchaseItem.update({ where: { id: s.id }, data: { metadata: newMeta } }).catch(() => {});
+    }
+
+    // select featured (prefer featuredKeywords, and avoid seasonal/basic)
+    let featured = nonBasic.filter((c) => !seasonal.includes(c) && featuredKeywords.some((k) => (c.name || '').toLowerCase().includes(k))).slice(0, 2);
+    if (featured.length < 2) {
+      const extras = nonBasic.filter((c) => !seasonal.includes(c) && !featured.includes(c));
+      for (const e of extras) {
+        featured.push(e);
+        if (featured.length >= 2) break;
+      }
+    }
+
+    for (const f of featured) {
+      const newFrame = await moveAssetToCategory(f, 'featured');
+      const newMeta = Object.assign({}, f.metadata || {}, { category: 'featured', isFeatured: true, frameAssetUrl: newFrame || (f.metadata && f.metadata.frameAssetUrl) });
+      await prisma.purchaseItem.update({ where: { id: f.id }, data: { metadata: newMeta } }).catch(() => {});
+    }
+  } catch (err) {
+    console.warn('Post-processing skins failed', err && err.message);
+  }
 }
 
 main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });

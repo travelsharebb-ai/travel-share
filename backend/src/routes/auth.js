@@ -6,6 +6,7 @@ import { prisma } from "../utils/prisma.js";
 import { authLimiter } from "../middleware/rateLimits.js";
 import { requireAuth } from "../middleware/auth.js";
 import { hashToken, readCookie, secureToken } from "../utils/tokens.js";
+import crypto from "node:crypto";
 import { sendPasswordResetEmail } from "../utils/email.js";
 import { cleanUpload, cleanUser } from "../utils/exportImport.js";
 import { ensureBasicSkinUnlocks } from "../utils/skins.js";
@@ -426,7 +427,7 @@ router.post("/import", requireAuth, async (req, res, next) => {
           destination: trip.destination || "Imported",
           startDate: trip.startDate ? new Date(trip.startDate) : null,
           endDate: trip.endDate ? new Date(trip.endDate) : null,
-          qrToken: secureToken(24),
+          qrToken: crypto.randomBytes(16).toString("hex"),
           qrMode: trip.qrMode || "approval_required",
           defaultLocationVisibility: trip.defaultLocationVisibility || "approximate"
         }
@@ -446,7 +447,7 @@ router.post("/import", requireAuth, async (req, res, next) => {
           endDate: event.endDate ? new Date(event.endDate) : null,
           visibility: event.visibility || "private",
           status: "draft",
-          qrToken: secureToken(24)
+          qrToken: crypto.randomBytes(16).toString("hex")
         }
       });
       mapping.events[event.id] = created.id;

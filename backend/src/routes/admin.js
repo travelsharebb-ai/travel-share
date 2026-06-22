@@ -4,6 +4,7 @@ import multer from "multer";
 import { prisma } from "../utils/prisma.js";
 import { secureToken } from "../utils/tokens.js";
 import { uploadMedia } from "../utils/storage.js";
+import orchestrator from "../services/uploadOrchestrator.js";
 import { cleanUpload, cleanUser } from "../utils/exportImport.js";
 
 const router = Router();
@@ -43,7 +44,13 @@ const storeItemSchema = z.object({
 });
 
 async function settingValue(key, fallback) {
-  const setting = await prisma.platformSetting.findUnique({ where: { key } }).catch(() => null);
+  let setting = null;
+  try {
+    setting = await prisma.platformSetting.findUnique({ where: { key } });
+  } catch (err) {
+    console.warn('platformSetting.findUnique failed', err?.message || err);
+    setting = null;
+  }
   return setting?.value || fallback;
 }
 
@@ -64,11 +71,40 @@ router.get("/stats", async (_req, res) => {
 
 router.post("/export/site", async (req, res, next) => {
   try {
+    // Select upload fields explicitly to avoid referencing optional columns
+    // that may not yet exist in older databases (eg. skinId).
+    const uploadSelect = {
+      id: true,
+      tripId: true,
+      eventId: true,
+      zoneId: true,
+      guestSessionId: true,
+      uploaderAnonId: true,
+      uploaderFingerprint: true,
+      caption: true,
+      fileUrl: true,
+      filePublicId: true,
+      fileType: true,
+      status: true,
+      latitude: true,
+      longitude: true,
+      approximateLatitude: true,
+      approximateLongitude: true,
+      locationName: true,
+      region: true,
+      locationVisibility: true,
+      moderationStatus: true,
+      createdAt: true,
+      approvedAt: true,
+      rejectedAt: true,
+      downloadPurchaseItemId: true
+    };
+
     const [users, trips, events, uploads, settings, ads, storeItems, purchases, guests] = await Promise.all([
       prisma.user.findMany({ include: { activeStoreItem: true } }),
       prisma.trip.findMany({ include: { chapters: true, shareLinks: true } }),
       prisma.event.findMany({ include: { maps: true, zones: true } }),
-      prisma.upload.findMany(),
+      prisma.upload.findMany({ select: uploadSelect }),
       prisma.platformSetting.findMany(),
       prisma.internalAd.findMany(),
       prisma.purchaseItem.findMany(),
@@ -279,9 +315,17 @@ router.post("/users/:userId/safe-delete", async (req, res, next) => {
     for (const trip of trips) {
       const approvedCount = await prisma.upload.count({ where: { tripId: trip.id, status: "approved" } });
       if (approvedCount === 0) {
-        await prisma.trip.delete({ where: { id: trip.id } }).catch(() => null);
+        try {
+          await prisma.trip.delete({ where: { id: trip.id } });
+        } catch (err) {
+          console.warn('trip.delete failed', err?.message || err);
+        }
       } else {
-        await prisma.trip.update({ where: { id: trip.id }, data: { userId: null } }).catch(() => null);
+        try {
+          await prisma.trip.update({ where: { id: trip.id }, data: { userId: null } });
+        } catch (err) {
+          console.warn('trip.update failed', err?.message || err);
+        }
       }
     }
 
@@ -290,27 +334,51 @@ router.post("/users/:userId/safe-delete", async (req, res, next) => {
     for (const ev of events) {
       const approvedCount = await prisma.upload.count({ where: { eventId: ev.id, status: "approved" } });
       if (approvedCount === 0) {
-        await prisma.event.delete({ where: { id: ev.id } }).catch(() => null);
+        try {
+          await prisma.event.delete({ where: { id: ev.id } });
+        } catch (err) {
+          console.warn('event.delete failed', err?.message || err);
+        }
       } else {
-        await prisma.event.update({ where: { id: ev.id }, data: { organizerId: null } }).catch(() => null);
+        try {
+          await prisma.event.update({ where: { id: ev.id }, data: { organizerId: null } });
+        } catch (err) {
+          console.warn('event.update failed', err?.message || err);
+        }
       }
     }
 
     // Remove non-approved standalone uploads (not associated with an approved trip/event)
-    await prisma.upload.deleteMany({ where: { AND: [{ OR: [{ trip: { userId } }, { event: { organizerId: userId } }] }, { status: { not: "approved" } }] } }).catch(() => null);
+    try {
+      await prisma.upload.deleteMany({ where: { AND: [{ OR: [{ trip: { userId } }, { event: { organizerId: userId } }] }, { status: { not: "approved" } }] } });
+    } catch (err) {
+      console.warn('upload.deleteMany failed', err?.message || err);
+    }
 
     // Remove personal purchases and session records to reduce personal data footprint
-    await prisma.userPurchase.deleteMany({ where: { userId } }).catch(() => null);
-    await prisma.guestSession.updateMany({ where: { claimedById: userId }, data: { claimedById: null } }).catch(() => null);
+    try {
+      await prisma.userPurchase.deleteMany({ where: { userId } });
+    } catch (err) {
+      console.warn('userPurchase.deleteMany failed', err?.message || err);
+    }
+    try {
+      await prisma.guestSession.updateMany({ where: { claimedById: userId }, data: { claimedById: null } });
+    } catch (err) {
+      console.warn('guestSession.updateMany failed', err?.message || err);
+    }
 
     // Anonymize the user record (do not delete to avoid cascading deletes in Prisma schema)
-    await prisma.user.update({ where: { id: userId }, data: {
-      name: "Deleted user",
-      email: `deleted+${userId}@example.invalid`,
-      passwordHash: secureToken(32),
-      role: "guest",
-      activeStoreItemId: null
-    }}).catch(() => null);
+    try {
+      await prisma.user.update({ where: { id: userId }, data: {
+        name: "Deleted user",
+        email: `deleted+${userId}@example.invalid`,
+        passwordHash: secureToken(32),
+        role: "guest",
+        activeStoreItemId: null
+      }});
+    } catch (err) {
+      console.warn('user.update failed', err?.message || err);
+    }
 
     res.json({ ok: true });
   } catch (error) {
@@ -319,22 +387,72 @@ router.post("/users/:userId/safe-delete", async (req, res, next) => {
 });
 
 router.get("/moderation", async (_req, res) => {
-  const uploads = await prisma.upload.findMany({
-    where: { status: "reported" },
-    include: {
-      trip: { select: { title: true, destination: true, user: { select: { name: true, email: true } } } }
-    },
-    orderBy: { createdAt: "desc" }
-  });
-  res.json({ uploads });
+  try {
+    const uploads = await prisma.upload.findMany({
+      where: { status: "reported" },
+      select: {
+        id: true,
+        tripId: true,
+        eventId: true,
+        guestSessionId: true,
+        uploaderAnonId: true,
+        uploaderFingerprint: true,
+        caption: true,
+        fileUrl: true,
+        filePublicId: true,
+        fileType: true,
+        status: true,
+        locationName: true,
+        moderationStatus: true,
+        createdAt: true,
+        approvedAt: true,
+        rejectedAt: true,
+        trip: { select: { title: true, destination: true, user: { select: { name: true, email: true } } } }
+      },
+      orderBy: { createdAt: "desc" }
+    });
+    res.json({ uploads });
+  } catch (error) {
+    // If the database is missing optional columns (eg. skinId) this query
+    // may fail with a Prisma P2022 error. Surface a helpful message rather
+    // than allowing the process to crash.
+    console.error("Moderation listing failed", error);
+    res.status(500).json({ error: "Moderation listing failed. Database schema may be out of date." });
+  }
 });
+ 
 
 router.patch("/uploads/:uploadId/download-item", async (req, res, next) => {
   try {
     const data = z.object({ itemId: z.string().optional().nullable() }).parse(req.body);
     const upload = await prisma.upload.update({
       where: { id: req.params.uploadId },
-      data: { downloadPurchaseItemId: data.itemId }
+      data: { downloadPurchaseItemId: data.itemId },
+      select: {
+        id: true,
+        tripId: true,
+        eventId: true,
+        zoneId: true,
+        guestSessionId: true,
+        uploaderAnonId: true,
+        uploaderFingerprint: true,
+        caption: true,
+        fileUrl: true,
+        filePublicId: true,
+        fileType: true,
+        status: true,
+        latitude: true,
+        longitude: true,
+        approximateLatitude: true,
+        approximateLongitude: true,
+        locationName: true,
+        region: true,
+        locationVisibility: true,
+        moderationStatus: true,
+        createdAt: true,
+        approvedAt: true,
+        rejectedAt: true
+      }
     });
     res.json({ upload });
   } catch (error) {
@@ -427,8 +545,8 @@ router.patch("/store/:itemId", async (req, res, next) => {
 router.post("/ads/media", upload.single("file"), async (req, res, next) => {
   try {
     if (!req.file) return res.status(400).json({ error: "An image or video file is required." });
-    const media = await uploadMedia(req.file);
-    res.status(201).json({ media });
+    const result = await orchestrator.executeUploadPipeline({ file: req.file, body: {}, context: { type: 'admin', entityId: null, params: {} }, idempotencyKey: null, fingerprint: null, sessionToken: null });
+    res.status(201).json({ media: result.media });
   } catch (error) {
     next(error);
   }

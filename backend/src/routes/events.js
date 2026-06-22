@@ -4,6 +4,7 @@ import { z } from "zod";
 import { isPlatformAdmin } from "../middleware/auth.js";
 import { prisma } from "../utils/prisma.js";
 import { secureToken } from "../utils/tokens.js";
+import crypto from "node:crypto";
 
 const router = Router();
 
@@ -75,7 +76,7 @@ router.post("/", async (req, res, next) => {
         status: data.status || "draft",
         coverImageUrl: data.coverImageUrl || null,
         organizerId: isPlatformAdmin(req.user) ? data.organizerId || req.user.id : req.user.id,
-        qrToken: secureToken(24)
+        qrToken: crypto.randomBytes(16).toString("hex")
       }
     });
     res.status(201).json({ event });
@@ -164,7 +165,7 @@ router.post("/:eventId/zones", async (req, res, next) => {
         ...data,
         crowdStatus: data.crowdStatus || "low",
         displayOrder: data.displayOrder || 0,
-        qrToken: secureToken(24)
+        qrToken: crypto.randomBytes(16).toString("hex")
       }
     });
     res.status(201).json({ zone });

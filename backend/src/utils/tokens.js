@@ -55,9 +55,11 @@ export function readCookie(req, name) {
   return parseCookies(req.get("cookie"))[name];
 }
 
-export function setGuestSessionCookie(res, token) {
+export function setGuestSessionCookie(res, token, opts = {}) {
+  const name = opts.name || 'ts_guest';
+  const maxAge = typeof opts.maxAge === 'number' ? opts.maxAge : 60 * 60 * 24 * 3;
   const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
-  res.setHeader("Set-Cookie", `ts_guest=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${60 * 60 * 24 * 3}${secure}`);
+  res.setHeader("Set-Cookie", `${name}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${secure}`);
 }
 
 export function fingerprintFromRequest(req) {

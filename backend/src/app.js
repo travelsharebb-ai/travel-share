@@ -6,6 +6,7 @@ import authRoutes from "./routes/auth.js";
 import tripRoutes from "./routes/trips.js";
 import publicRoutes from "./routes/public.js";
 import uploadRoutes from "./routes/uploads.js";
+import locationRoutes from "./routes/locations.js";
 import adminRoutes from "./routes/admin.js";
 import eventRoutes from "./routes/events.js";
 import storeRoutes from "./routes/store.js";
@@ -13,6 +14,8 @@ import downloadRoutes from "./routes/downloads.js";
 import skinRoutes from "./routes/skins.js";
 import geocodeRoutes from "./routes/geocode.js";
 import { requireAdmin, requireAuth, requireOrganizerOrAdmin } from "./middleware/auth.js";
+import requestLogger from "./middleware/requestLogger.js";
+import diagnostics from "./utils/diagnostics.js";
 
 export function createApp() {
   const app = express();
@@ -50,9 +53,21 @@ export function createApp() {
   // Serve skin and other assets under /assets
   app.use("/assets", express.static(path.resolve(process.cwd(), "public", "assets")));
 
-  app.get("/health", (_req, res) => {
-    res.json({ ok: true, app: process.env.APP_NAME || "Travel Share" });
+  app.get("/health", async (_req, res) => {
+    // Basic health summary. Do not expose secrets. Provide DB & migration status.
+    const db = await diagnostics.checkDbConnection();
+    const migrations = await diagnostics.compareMigrations().catch(() => ({ ok: true }));
+    const status = {
+      ok: db.ok === true,
+      app: process.env.APP_NAME || "Travel Share",
+      db: db.ok ? 'ok' : `error: ${db.error}`,
+      migrations: migrations.ok ? { missingInDb: migrations.missingInDb || [], extraInDb: migrations.extraInDb || [] } : { error: migrations.error }
+    };
+    res.json(status);
   });
+
+  // Add a lightweight request logger for diagnostics (non-intrusive)
+  app.use(requestLogger);
 
   app.use("/api/auth", authRoutes);
   app.use("/api/public", publicRoutes);
@@ -61,6 +76,8 @@ export function createApp() {
   app.use("/api/geocode", geocodeRoutes);
   app.use("/api/trips", requireAuth, tripRoutes);
   app.use("/api/events", requireAuth, requireOrganizerOrAdmin, eventRoutes);
+  // Allow read-only access to locations for the public map UI; write operations still require auth inside the routes.
+  app.use("/api/locations", locationRoutes);
   app.use("/api/store", requireAuth, storeRoutes);
   app.use("/api/downloads", downloadRoutes);
   app.use("/api", requireAuth, uploadRoutes);

@@ -16,7 +16,7 @@ function uploadBuffer(buffer, options) {
   });
 }
 
-export async function uploadMedia(file) {
+export async function uploadMedia(file, options = {}) {
   if (process.env.MEDIA_STORAGE_DRIVER === "mock") {
     return {
       fileUrl: `https://media.test/${encodeURIComponent(file.originalname || "upload")}`,
@@ -49,10 +49,13 @@ export async function uploadMedia(file) {
     }
   }
 
-  const result = await uploadBuffer(buffer, {
+  const uploadOpts = {
     folder: "travel-share/trips",
     resource_type: isVideo ? "video" : "image"
-  });
+  };
+  if (options && options.key) uploadOpts.public_id = options.key.replace(/^travel-share\//, '') ;
+
+  const result = await uploadBuffer(buffer, uploadOpts);
 
   return {
     fileUrl: result.secure_url,

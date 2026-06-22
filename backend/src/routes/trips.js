@@ -4,6 +4,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../utils/prisma.js";
 import { secureToken } from "../utils/tokens.js";
+import crypto from "node:crypto";
 
 const router = Router();
 
@@ -37,7 +38,7 @@ router.post("/", async (req, res, next) => {
         endDate: data.endDate ? new Date(data.endDate) : null,
         qrExpiresAt: data.qrExpiresAt ? new Date(data.qrExpiresAt) : null,
         defaultLocationVisibility: data.defaultLocationVisibility || "approximate",
-        qrToken: secureToken(24)
+        qrToken: crypto.randomBytes(16).toString("hex")
       }
     });
     res.status(201).json({ trip });
@@ -172,7 +173,7 @@ router.patch("/:tripId/qr-settings", async (req, res, next) => {
         qrActive: data.qrActive ?? undefined,
         qrMode: data.qrMode ?? undefined,
         qrExpiresAt: data.qrExpiresAt === undefined ? undefined : data.qrExpiresAt ? new Date(data.qrExpiresAt) : null,
-        qrToken: data.regenerate ? secureToken(24) : undefined
+        qrToken: data.regenerate ? crypto.randomBytes(16).toString("hex") : undefined
       }
     });
 
@@ -192,7 +193,7 @@ router.post("/:tripId/share-links", async (req, res, next) => {
     const shareLink = await prisma.shareLink.create({
       data: {
         tripId: trip.id,
-        token: secureToken(24),
+        token: crypto.randomBytes(16).toString("hex"),
         pinHash: data.pin ? await bcrypt.hash(data.pin, 12) : null
       }
     });

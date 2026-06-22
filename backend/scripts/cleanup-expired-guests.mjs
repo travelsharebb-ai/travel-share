@@ -4,7 +4,13 @@ const prisma = new PrismaClient();
 
 async function main() {
   // Read deletion window from environment or platform settings (default 14 days)
-  const setting = await prisma.platformSetting.findUnique({ where: { key: 'guestDeletionDays' } }).catch(() => null);
+  let setting = null;
+  try {
+    setting = await prisma.platformSetting.findUnique({ where: { key: 'guestDeletionDays' } });
+  } catch (err) {
+    console.warn('platformSetting.findUnique failed', err?.message || err);
+    setting = null;
+  }
   const deletionDays = Number(setting?.value || process.env.GUEST_DELETION_DAYS || 14);
   const cutoff = new Date(Date.now() - deletionDays * 24 * 60 * 60 * 1000);
 
