@@ -104,8 +104,9 @@ async function main() {
   // Ensure at least one public/live event exists for CI validation
   const now = new Date();
   const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+  const qrTokenEnv = process.env.CI_QR_TOKEN || 'seed-event-1';
   await prisma.event.upsert({
-    where: { qrToken: 'seed-event-1' },
+    where: { qrToken: qrTokenEnv },
     update: {
       title: 'Demo Beach Festival',
       description: 'CI validation event',
@@ -123,7 +124,7 @@ async function main() {
       location: 'Barbados',
       visibility: 'public',
       status: 'live',
-      qrToken: 'seed-event-1',
+      qrToken: qrTokenEnv,
       startDate: now,
       endDate: tomorrow
     }
