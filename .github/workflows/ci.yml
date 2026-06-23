@@ -51,6 +51,10 @@ jobs:
         run: npx prisma migrate deploy
         working-directory: backend
 
+      - name: Seed database (CI bootstrap)
+        run: npx prisma db seed
+        working-directory: backend
+
       - name: Start backend server
         run: |
           npm start &
