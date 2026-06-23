@@ -27,3 +27,15 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
+
+await prisma.purchaseItem.createMany({
+  data: [
+    {
+      name: "Default Skin",
+      type: "image_skin",
+      priceCents: 0,
+      active: true,
+      metadata: {}
+    }
+  ]
+});
