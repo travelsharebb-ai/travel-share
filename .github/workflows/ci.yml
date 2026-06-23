@@ -88,5 +88,6 @@ jobs:
       # =========================
       # 3. CI Contract Layer v1 (Read-only API checks)
       # =========================
-      - name: "CI Contract: Run read-only API contract checks"
-        run: node backend/scripts/ci-contract-check.mjs
+      - name: CI Contract: Run read-only API contract checks
+        run: |
+          node backend/scripts/ci-contract-check.mjs
