@@ -48,24 +48,50 @@ export async function qrGet(req, res, next) {
   try {
     // ensure uploader session cookie exists
     getOrSetUploaderSession(req, res);
-    const trip = await prisma.trip.findUnique({ where: { qrToken: req.params.qrToken }, include: { user: { select: { name: true } } } });
-    if (!trip || !uploadService.isOpenQr(trip)) return res.status(404).json({ error: "This QR link is not accepting uploads right now." });
-    if (trip.qrExpiresAt && trip.qrExpiresAt < new Date()) return res.status(410).json({ error: "This QR link has expired." });
+    // Resolve QR token to trip, event, or zone. Return metadata even when uploads are gated.
+    const token = req.params.qrToken;
+    // 1) Try trip
+    const trip = await prisma.trip.findUnique({ where: { qrToken: token }, include: { user: { select: { name: true } } } });
+    if (trip) {
+      if (trip.qrExpiresAt && trip.qrExpiresAt < new Date()) return res.status(410).json({ error: "This QR link has expired." });
+      const guestToken = readCookie(req, 'ts_guest') || req.get('x-guest-token');
+      const fingerprint = fingerprintFromRequest(req);
+      const guest = await getOrCreateGuestSession({ token: guestToken, deviceFingerprint: fingerprint, platformCache: req.platformCache, scopeType: 'trip', scopeId: trip.id });
+      if (guest) setGuestSessionCookie(res, guest.token);
+      return res.json({
+        guest: { token: guest?.token, expiresAt: guest?.expiresAt, expired: guest?.expiresAt <= new Date() },
+        trip: {
+          id: trip.id,
+          title: trip.title,
+          destination: trip.destination,
+          touristFirstName: trip.user?.name?.split(" ")[0] || "Guest host",
+          supportEmail: process.env.SUPPORT_EMAIL || "support@example.com"
+        }
+      });
+    }
 
-    const guestToken = readCookie(req, 'ts_guest') || req.get('x-guest-token');
-    const fingerprint = fingerprintFromRequest(req);
-    const guest = await getOrCreateGuestSession({ token: guestToken, deviceFingerprint: fingerprint, platformCache: req.platformCache, scopeType: 'trip', scopeId: trip.id });
-    if (guest) setGuestSessionCookie(res, guest.token);
-    return res.json({
-      guest: { token: guest?.token, expiresAt: guest?.expiresAt, expired: guest?.expiresAt <= new Date() },
-      trip: {
-        id: trip.id,
-        title: trip.title,
-        destination: trip.destination,
-        touristFirstName: trip.user?.name?.split(" ")[0] || "Guest host",
-        supportEmail: process.env.SUPPORT_EMAIL || "support@example.com"
-      }
-    });
+    // 2) Try event
+    const event = await prisma.event.findUnique({ where: { qrToken: token }, include: { zones: { include: {} }, _count: { select: { uploads: true } } } }).catch(() => null);
+    if (event) {
+      if (event.status === 'archived') return res.status(404).json({ error: 'Event not found.' });
+      const guestToken = readCookie(req, 'ts_guest') || req.get('x-guest-token');
+      const fingerprint = fingerprintFromRequest(req);
+      const guest = await getOrCreateGuestSession({ token: guestToken, deviceFingerprint: fingerprint, platformCache: req.platformCache, scopeType: 'event', scopeId: event.id });
+      if (guest) setGuestSessionCookie(res, guest.token);
+      return res.json({ guest: { token: guest?.token, expiresAt: guest?.expiresAt, expired: guest?.expiresAt <= new Date() }, event });
+    }
+
+    // 3) Try zone
+    const zone = await prisma.mapZone.findUnique({ where: { qrToken: token }, include: { event: true } }).catch(() => null);
+    if (zone) {
+      const guestToken = readCookie(req, 'ts_guest') || req.get('x-guest-token');
+      const fingerprint = fingerprintFromRequest(req);
+      const guest = await getOrCreateGuestSession({ token: guestToken, deviceFingerprint: fingerprint, platformCache: req.platformCache, scopeType: 'zone', scopeId: zone.id });
+      if (guest) setGuestSessionCookie(res, guest.token);
+      return res.json({ guest: { token: guest?.token, expiresAt: guest?.expiresAt, expired: guest?.expiresAt <= new Date() }, zone });
+    }
+
+    return res.status(404).json({ error: 'QR not found' });
   } catch (err) {
     next(err);
   }
