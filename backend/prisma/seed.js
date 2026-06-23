@@ -105,6 +105,7 @@ async function main() {
   const now = new Date();
   const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
   const qrTokenEnv = process.env.CI_QR_TOKEN || 'seed-event-1';
+  // Idempotent upsert for a seeded public event. Use CI_QR_TOKEN when present.
   await prisma.event.upsert({
     where: { qrToken: qrTokenEnv },
     update: {
