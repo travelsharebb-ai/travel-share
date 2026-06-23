@@ -161,11 +161,35 @@ export async function handleQrUpload(req, res, next) {
     if (!req.file) return res.status(400).json({ success: false, error: "File required" });
     const guestToken = readCookie(req, 'ts_guest') || req.get('x-guest-token');
     const fingerprint = fingerprintFromRequest(req);
-    const result = await uploadService.handleTripUpload({ file: req.file, body: req.body, params: req.params, fingerprint, platformCache: req.platformCache, guestToken });
-    // set guest cookie when service created or returned a session
-    if (result && result.guest) setGuestSessionCookie(res, result.guest.token);
-    const saved = result.saved;
-    res.status(201).json({ upload: { id: saved.id, status: saved.status, uploaderAnonId: saved.uploaderAnonId }, message: "Upload received. It is private until the tourist approves it." });
+    // Dispatch uploads to the appropriate handler based on the QR token type.
+    // The `/qr/:qrToken/uploads` route can resolve to a trip, event, or zone.
+    const token = req.params.qrToken;
+    // Try trip first
+    const trip = await prisma.trip.findUnique({ where: { qrToken: token } });
+    if (trip) {
+      const result = await uploadService.handleTripUpload({ file: req.file, body: req.body, params: req.params, fingerprint, platformCache: req.platformCache, guestToken });
+      if (result && result.guest) setGuestSessionCookie(res, result.guest.token);
+      const saved = result.saved;
+      return res.status(201).json({ upload: { id: saved.id, status: saved.status, uploaderAnonId: saved.uploaderAnonId }, message: "Upload received. It is private until the tourist approves it." });
+    }
+
+    // Try event
+    const event = await prisma.event.findUnique({ where: { qrToken: token } }).catch(() => null);
+    if (event) {
+      const result = await uploadService.handleEventUpload({ file: req.file, body: req.body, params: req.params, fingerprint, platformCache: req.platformCache, guestToken });
+      if (result && result.guest) setGuestSessionCookie(res, result.guest.token);
+      return res.status(201).json({ upload: result.saved, message: "Upload received for the event memory gallery." });
+    }
+
+    // Try zone
+    const zone = await prisma.mapZone.findUnique({ where: { qrToken: token } }).catch(() => null);
+    if (zone) {
+      const result = await uploadService.handleZoneUpload({ file: req.file, body: req.body, params: req.params, fingerprint, platformCache: req.platformCache, guestToken });
+      if (result && result.guest) setGuestSessionCookie(res, result.guest.token);
+      return res.status(201).json({ upload: result.saved, message: `Upload received for ${result.saved.locationName || 'zone'}.` });
+    }
+
+    return res.status(404).json({ success: false, error: 'QR not accepting uploads' });
   } catch (err) {
     next(err);
   }

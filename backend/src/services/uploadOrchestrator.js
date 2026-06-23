@@ -130,8 +130,14 @@ export async function executeUploadPipeline({ file, body = {}, context = {}, ide
       const blocked = await prisma.blockedUploader.findUnique({ where: { tripId_uploaderFingerprint: { tripId: target.id, uploaderFingerprint: fingerprint || null } } }).catch(() => null);
       if (blocked) throw Object.assign(new Error('Uploads are blocked for this QR link.'), { status: 403 });
     } else if (type === 'event') {
-      target = await prisma.event.findUnique({ where: { qrToken: entityId }, include: { zones: true } });
-      if (!target || target.status === 'archived') throw Object.assign(new Error('Event not found.'), { status: 404 });
+      // Prefer explicit params.qrToken when provided (controller may pass params),
+      // otherwise fallback to entityId supplied by caller.
+      const token = context.params?.qrToken || entityId;
+      target = await prisma.event.findUnique({ where: { qrToken: token }, include: { zones: true } }).catch(() => null);
+      // Only allow uploads for active, public, live events
+      if (!target || target.status !== 'live' || target.visibility !== 'public') {
+        throw Object.assign(new Error('Event not found.'), { status: 404 });
+      }
       scopeType = 'event'; scopeId = target.id;
     } else if (type === 'zone') {
       target = await prisma.mapZone.findUnique({ where: { qrToken: entityId }, include: { event: true } });
