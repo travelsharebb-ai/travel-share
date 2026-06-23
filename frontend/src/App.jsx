@@ -430,7 +430,7 @@ function GuestMode() {
               <EmptyCard title="No store items" copy="Preview items will appear here." />
             ) : (
               items.map((item) => (
-                <Link key={item.id} to="/store" className="card p-5 transition hover:-translate-y-1">
+                <Link key={item.id} to={`/store/${item.id}`} className="card p-5 transition hover:-translate-y-1">
                   {item.previewUrl && <img src={item.previewUrl} alt="" className="mb-4 h-36 w-full rounded-lg object-cover" />}
                   <p className="text-xs font-black uppercase text-primary">{item.type || "Store item"}</p>
                   <h2 className="font-serif text-2xl font-black">{item.name}</h2>
