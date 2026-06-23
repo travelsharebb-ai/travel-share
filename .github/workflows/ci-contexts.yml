@@ -1,5 +1,10 @@
 name: CI Contexts Helper
 
+# NOTE: This helper workflow only checks out the repo and emits a
+# lightweight check-run context used for branch-protection. It does not
+# run Node. GitHub deprecated Node 20 on hosted runners; our main CI
+# uses Node 24 explicitly where needed. See: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+
 on:
   push:
     branches: [ main ]
