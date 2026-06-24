@@ -5,6 +5,7 @@ import path from 'path';
 
 dotenv.config();
 const prisma = new PrismaClient();
+const SEEDED_EVENT_QR_TOKEN = 'test-ci-token';
 
 async function loadSkinsFromPublic() {
   const skinsRoot = path.resolve(process.cwd(), 'public', 'assets', 'skins');
@@ -104,10 +105,9 @@ async function main() {
   // Ensure at least one public/live event exists for CI validation
   const now = new Date();
   const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-  const qrTokenEnv = process.env.CI_QR_TOKEN || 'seed-event-1';
-  // Idempotent upsert for a seeded public event. Use CI_QR_TOKEN when present.
+  // Idempotent upsert for a deterministic seeded public event.
   await prisma.event.upsert({
-    where: { qrToken: qrTokenEnv },
+    where: { qrToken: SEEDED_EVENT_QR_TOKEN },
     update: {
       title: 'Demo Beach Festival',
       description: 'CI validation event',
@@ -127,7 +127,7 @@ async function main() {
       location: 'Barbados',
       visibility: 'public',
       status: 'live',
-      qrToken: qrTokenEnv,
+      qrToken: SEEDED_EVENT_QR_TOKEN,
       startDate: now,
       endDate: tomorrow,
       latitude: 13.0975,
