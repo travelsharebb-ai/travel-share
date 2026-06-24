@@ -12,6 +12,11 @@ function eventWhere(req, id) {
   return isPlatformAdmin(req.user) ? { id } : { id, organizerId: req.user.id };
 }
 
+function serializeCoordinate(value) {
+  const coordinate = value === null || value === undefined ? null : Number(value);
+  return Number.isFinite(coordinate) && coordinate !== 0 ? coordinate : null;
+}
+
 const eventSchema = z.object({
   title: z.string().min(2).max(140),
   description: z.string().max(1000).optional().nullable(),
@@ -50,13 +55,20 @@ const zoneSchema = z.object({
   displayOrder: z.coerce.number().int().optional()
 });
 
+
 router.get("/", async (req, res) => {
   const events = await prisma.event.findMany({
     where: isPlatformAdmin(req.user) ? {} : { organizerId: req.user.id },
     include: { _count: { select: { uploads: true, zones: true } } },
     orderBy: { startDate: "desc" }
   });
-  res.json({ events });
+  res.json({
+    events: events.map((event) => ({
+      ...event,
+      latitude: serializeCoordinate(event.latitude),
+      longitude: serializeCoordinate(event.longitude)
+    }))
+  });
 });
 
 router.post("/", async (req, res, next) => {
@@ -189,6 +201,7 @@ router.get("/:eventId/analytics", async (req, res) => {
       orderBy: { displayOrder: "asc" }
     })
   ]);
+
   res.json({
     analytics: {
       uploads,
