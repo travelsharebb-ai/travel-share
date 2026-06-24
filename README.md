@@ -62,6 +62,21 @@ Notes
 
 - Do not modify backend application code, CI logic, or API routes as part of CI changes.
 - When intentionally updating CI workflow logic, update the checksum lock file in the same PR so reviewers can approve the change.
+
+Node version
+------------
+
+This repository targets Node 24. The `package.json` now includes an `engines` field requiring `Node >=24 <25` to document this requirement for contributors. Use a Node version manager to pin your local runtime, for example:
+
+```bash
+# nvm
+nvm install 24 && nvm use 24
+
+# volta
+volta install node@24
+```
+
+If you encounter older `node` references in dependency files (e.g. in `node_modules` comments), those are harmless; make sure your active `node` is v24 when running local scripts and CI-related tasks.
 # Travel Share
 
 Travel Share is a privacy-first travel memory sharing MVP. A tourist creates a trip album, shares a QR code, and scanners can upload photos or videos into a private approval queue. Nothing appears in the album unless the tourist approves it.

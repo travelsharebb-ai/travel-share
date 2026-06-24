@@ -116,7 +116,9 @@ async function main() {
       visibility: 'public',
       status: 'live',
       startDate: now,
-      endDate: tomorrow
+      endDate: tomorrow,
+      latitude: 13.0975,
+      longitude: -59.6167
     },
     create: {
       title: 'Demo Beach Festival',
@@ -127,7 +129,9 @@ async function main() {
       status: 'live',
       qrToken: qrTokenEnv,
       startDate: now,
-      endDate: tomorrow
+      endDate: tomorrow,
+      latitude: 13.0975,
+      longitude: -59.6167
     }
   });
   console.log('Seed complete:', { adminId: admin.id, skinsSeeded: skins.length });
