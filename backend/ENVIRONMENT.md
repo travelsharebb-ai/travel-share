@@ -8,12 +8,18 @@
 - `CORS_ORIGIN`: Comma-separated allowed frontend origins. Example: `https://travelshare.netlify.app,http://localhost:5173`
 - `STORAGE_PROVIDER`: Use `cloudinary` for production.
 - `CLOUDINARY_URL`: Preferred Cloudinary credential format, or set `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, and `CLOUDINARY_API_SECRET`.
+- `FINGERPRINT_SECRET`: Secret used to generate uploader fingerprints and prevent counterfeit sessions.
+- `REDIS_URL`: Recommended for optional Redis-backed rate limiting and caching. If unset, the app falls back to in-memory rate limiting.
+- `PAYMENT_PROVIDER`: Default payment routing provider, for example `planned_stripe`.
+- `GUEST_ACCESS_DAYS`: Number of days a guest session is active before entering grace.
+- `GUEST_DELETION_DAYS`: Number of days after guest creation before expired guest data is eligible for cleanup.
 
 ## Optional / Provider Dependent
 
 - `PORT`: Render provides this automatically.
 - `SESSION_SECRET`: Not currently used because the app relies on JWT plus HttpOnly guest cookies. Keep available if Redis/session middleware is added later.
 - `REDIS_URL`: Optional future managed session/cache store. Current app does not require Redis.
+ - `REDIS_URL`: Optional Redis connection string used for rate limiting when available.
 - `SENDGRID_API_KEY`: Required for password reset and upload notification email delivery.
 - `SENDGRID_FROM_EMAIL`: Sender address for SendGrid.
 - `SUPPORT_EMAIL`: Support contact shown in the app.
