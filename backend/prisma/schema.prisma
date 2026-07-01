@@ -29,6 +29,7 @@ model User {
   activeStoreItem      PurchaseItem?          @relation("ActiveStoreItem", fields: [activeStoreItemId], references: [id])
   preferences          UserPreference?
   purchases            UserPurchase[]
+  skinUnlocks          UserSkinUnlock[]     @relation("UserSkinUnlockUser")
 
   @@index([activeStoreItemId])
 }
@@ -50,9 +51,9 @@ model UserPreference {
 model GuestSession {
   id                String   @id @default(cuid())
   token             String   @unique
-  deviceFingerprint String
-  scopeType         String
-  scopeId           String
+  deviceFingerprint String?
+  scopeType         String?
+  scopeId           String?
   expiresAt         DateTime
   claimedById       String?
   createdAt         DateTime @default(now())
@@ -85,7 +86,7 @@ model Trip {
   blockedUploaders          BlockedUploader[]
   shareLinks                ShareLink[]
   guestSession              GuestSession?      @relation(fields: [guestSessionId], references: [id])
-  user                      User?              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user                      User?              @relation(fields: [userId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   chapters                  TripChapter[]
   uploads                   Upload[]
 
@@ -128,6 +129,7 @@ model Event {
   maps           EventMap[]
   zones          MapZone[]
   uploads        Upload[]
+  shareLinks     ShareLink[]
 
   @@index([organizerId])
   @@index([guestSessionId])
@@ -184,8 +186,8 @@ model Location {
   longitude Float?
   userId    String?
   createdAt DateTime @default(now())
-  updatedAt DateTime @default(now()) @updatedAt
-  user      User?    @relation(fields: [userId], references: [id])
+  updatedAt DateTime @updatedAt
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   uploads   Upload[]
 
   @@index([userId])
@@ -195,7 +197,7 @@ model Upload {
   id                     String                 @id @default(cuid())
   tripId                 String?
   uploaderAnonId         String
-  uploaderFingerprint    String
+  uploaderFingerprint    String?
   fileUrl                String
   filePublicId           String
   fileType               FileType
@@ -220,14 +222,16 @@ model Upload {
   region                 String?
   locationVisibility     LocationVisibility     @default(approximate)
   downloadPurchaseItemId String?
+  skinId                 String?
   locationId             String?
   moderationLogs         AdminModerationLog[]
   downloadAuditLogs      DownloadAuditLog[]
   emailLogs              EmailNotificationLog[]
   downloadPurchaseItem   PurchaseItem?          @relation("UploadDownloadItem", fields: [downloadPurchaseItemId], references: [id])
+  skin                   PurchaseItem?          @relation("UploadSkin", fields: [skinId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   event                  Event?                 @relation(fields: [eventId], references: [id], onDelete: Cascade)
   guestSession           GuestSession?          @relation(fields: [guestSessionId], references: [id])
-  location               Location?              @relation(fields: [locationId], references: [id], onUpdate: NoAction)
+  location               Location?              @relation(fields: [locationId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   trip                   Trip?                  @relation(fields: [tripId], references: [id], onDelete: Cascade)
   zone                   MapZone?               @relation(fields: [zoneId], references: [id])
   uploadState            UploadState?
@@ -254,7 +258,7 @@ model UploadState {
   fingerprint     String?
   uploadId        String?          @unique
   createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @default(now()) @updatedAt
+  updatedAt       DateTime         @updatedAt
   uploadRetryJobs UploadRetryJob[]
   upload          Upload?          @relation(fields: [uploadId], references: [id])
 }
@@ -267,7 +271,7 @@ model UploadRetryJob {
   lastError     String?
   nextAttemptAt DateTime?
   createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @default(now()) @updatedAt
+  updatedAt     DateTime    @updatedAt
   uploadState   UploadState @relation(fields: [uploadStateId], references: [id], onDelete: Cascade)
 
   @@index([uploadStateId])
@@ -276,13 +280,18 @@ model UploadRetryJob {
 
 model ShareLink {
   id        String   @id @default(cuid())
-  tripId    String
+  tripId    String?
+  eventId   String?
   token     String   @unique
   pinHash   String?
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  trip      Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  trip      Trip?    @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  event     Event?   @relation(fields: [eventId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([tripId])
+  @@index([eventId])
 }
 
 model BlockedUploader {
@@ -319,7 +328,7 @@ model EmailNotificationLog {
   errorMessage String?
   createdAt    DateTime @default(now())
   sentAt       DateTime @default(now())
-  updatedAt    DateTime @default(now()) @updatedAt
+  updatedAt    DateTime @updatedAt
   upload       Upload?  @relation(fields: [uploadId], references: [id])
   user         User?    @relation(fields: [userId], references: [id])
 
@@ -336,8 +345,8 @@ model DownloadAuditLog {
   reason    String?
   ip        String?
   createdAt DateTime @default(now())
-  upload    Upload?  @relation(fields: [uploadId], references: [id])
-  user      User?    @relation(fields: [userId], references: [id])
+  upload    Upload?  @relation(fields: [uploadId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull, onUpdate: Cascade)
 
   @@index([userId])
   @@index([uploadId])
@@ -352,7 +361,7 @@ model InternalAd {
   linkUrl        String?
   active         Boolean     @default(true)
   priority       Int         @default(0)
-  displaySeconds Int         @default(12)
+  displaySeconds Int?
   startsAt       DateTime?
   endsAt         DateTime?
   createdById    String?
@@ -379,6 +388,8 @@ model PurchaseItem {
   sku          String?              @unique
   transactions PaymentTransaction[]
   gatedUploads Upload[]             @relation("UploadDownloadItem")
+  skinUploads  Upload[]             @relation("UploadSkin")
+  skinUnlocks  UserSkinUnlock[]     @relation("UserSkinUnlockSkin")
   activeUsers  User[]               @relation("ActiveStoreItem")
   purchases    UserPurchase[]
 
@@ -405,7 +416,6 @@ model PaymentTransaction {
   provider    PaymentProvider
   status      PaymentStatus   @default(pending)
   amountCents Int
-  currency    String          @default("usd")
   providerRef String?
   checkoutUrl String?
   rawResponse Json?
@@ -427,9 +437,21 @@ model PasswordResetToken {
   usedAt    DateTime?
   createdAt DateTime  @default(now())
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-
   @@index([userId])
   @@index([expiresAt])
+}
+
+model UserSkinUnlock {
+  id        String       @id @default(cuid())
+  userId    String
+  skinId    String
+  createdAt DateTime     @default(now())
+  user      User         @relation("UserSkinUnlockUser", fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  skin      PurchaseItem @relation("UserSkinUnlockSkin", fields: [skinId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([userId, skinId])
+  @@index([userId])
+  @@index([skinId])
 }
 
 model PlatformSetting {

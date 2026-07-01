@@ -134,7 +134,7 @@ router.patch("/:eventId", async (req, res, next) => {
 router.get("/:eventId/qr", async (req, res) => {
   const event = await prisma.event.findFirst({ where: eventWhere(req, req.params.eventId) });
   if (!event) return res.status(404).json({ error: "Event not found." });
-  const scanUrl = `${process.env.FRONTEND_URL}/event/${event.qrToken}`;
+  const scanUrl = `${process.env.FRONTEND_URL}/qr/${event.qrToken}`;
   const dataUrl = await QRCode.toDataURL(scanUrl, { margin: 1, width: 720 });
   res.json({ scanUrl, dataUrl, event });
 });

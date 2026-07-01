@@ -91,7 +91,43 @@ export async function publicEvents(req, res, next) {
 
 export async function storePreview(req, res, next) {
   try {
-    res.json({ items: [] });
+    // Return active store items for public preview. Do not expose internal fields.
+    const items = await prisma.purchaseItem.findMany({
+      where: { active: true },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        type: true,
+        priceCents: true,
+        previewUrl: true,
+        metadata: true,
+        createdAt: true
+      }
+    });
+
+    const mapped = items.map((it) => {
+      const metadata = it.metadata || null;
+      // Provide a friendly category and assetUrl for frontend consumption
+      const category = metadata && typeof metadata === 'object' && 'category' in metadata ? metadata.category : null;
+      const assetUrl = metadata && typeof metadata === 'object' && (metadata.frameAssetUrl || metadata.previewImage) ? (metadata.frameAssetUrl || metadata.previewImage) : it.previewUrl || null;
+
+      return {
+        id: it.id,
+        name: it.name,
+        description: it.description || null,
+        type: it.type,
+        category,
+        priceCents: it.priceCents || 0,
+        previewUrl: it.previewUrl || null,
+        assetUrl,
+        metadata: metadata || null,
+        createdAt: it.createdAt
+      };
+    });
+
+    res.json({ items: mapped });
   } catch (err) {
     next(err);
   }

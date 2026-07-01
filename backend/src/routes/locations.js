@@ -35,8 +35,40 @@ router.get("/", async (req, res, next) => {
   try {
     const where = {};
     if (req.query.userId) where.userId = String(req.query.userId);
-    const items = await prisma.location.findMany({ where, orderBy: { createdAt: "desc" }, take: 100 });
-    res.json({ locations: items });
+    const items = await prisma.location.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      take: 100,
+      include: {
+        uploads: {
+          select: {
+            tripId: true,
+            eventId: true,
+            fileType: true
+          }
+        }
+      }
+    });
+    const enriched = items.map((location) => {
+      const tripCount = location.uploads.filter((upload) => upload.tripId).length;
+      const eventCount = location.uploads.filter((upload) => upload.eventId).length;
+      const photoCount = location.uploads.length;
+      return {
+        id: location.id,
+        name: location.name,
+        address: location.address,
+        latitude: location.latitude,
+        longitude: location.longitude,
+        userId: location.userId,
+        createdAt: location.createdAt,
+        mapMeta: {
+          tripCount,
+          eventCount,
+          photoCount
+        }
+      };
+    });
+    res.json({ locations: enriched });
   } catch (error) {
     next(error);
   }

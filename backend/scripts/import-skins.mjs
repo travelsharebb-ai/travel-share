@@ -51,6 +51,13 @@ async function categorize(filename, index) {
   return 'premium';
 }
 
+function inferCategoryFromPath(frameAssetUrl, explicitCategory) {
+  if (!frameAssetUrl || typeof frameAssetUrl !== 'string') return explicitCategory;
+  if (frameAssetUrl.includes('/assets/skins/seasonal/')) return 'seasonal';
+  if (frameAssetUrl.includes('/assets/skins/featured/')) return 'featured';
+  return explicitCategory;
+}
+
 function slugify(value) {
   return String(value || 'travel-frame')
     .toLowerCase()
@@ -96,7 +103,7 @@ async function main() {
     const metadata = {
       frameAssetUrl,
       previewImage,
-      category: cat,
+      category: inferCategoryFromPath(frameAssetUrl, cat),
       isPremium,
       unlockType: isPremium ? 'purchase' : 'included',
       tags

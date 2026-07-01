@@ -47,7 +47,7 @@ router.post(
   publicController.handleEventUpload
 );
 
-// zone fallback
+// zone fallback (LEGACY)
 // router.get("/zone/:qrToken", publicController.zoneGet);
 router.post(
   "/zone/:qrToken/uploads",
