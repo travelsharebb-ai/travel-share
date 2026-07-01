@@ -2,6 +2,34 @@ import { prisma } from "../utils/prisma.js";
 import { secureToken } from "../utils/tokens.js";
 import { get as platformGet } from "./platformService.js";
 
+const DEFAULT_GUEST_ACCESS_DAYS = 3;
+const DEFAULT_GUEST_DELETION_DAYS = 14;
+
+function toDate(value) {
+  return value instanceof Date ? value : new Date(value);
+}
+
+export async function getGuestLifecycle(guestSession, settings = {}) {
+  const guestAccessDays = Number(settings.guestAccessDays ?? await platformGet(settings.platformCache, "guestAccessDays", process.env.GUEST_ACCESS_DAYS || DEFAULT_GUEST_ACCESS_DAYS)) || DEFAULT_GUEST_ACCESS_DAYS;
+  const guestDeletionDays = Number(settings.guestDeletionDays ?? await platformGet(settings.platformCache, "guestDeletionDays", process.env.GUEST_DELETION_DAYS || DEFAULT_GUEST_DELETION_DAYS)) || DEFAULT_GUEST_DELETION_DAYS;
+  const createdAt = toDate(guestSession.createdAt);
+  const activeUntil = new Date(createdAt.getTime() + guestAccessDays * 24 * 60 * 60 * 1000);
+  const impliedExpiresAt = new Date(createdAt.getTime() + guestDeletionDays * 24 * 60 * 60 * 1000);
+  const actualExpiresAt = guestSession.expiresAt ? toDate(guestSession.expiresAt) : impliedExpiresAt;
+  const expiresAt = new Date(Math.max(impliedExpiresAt.getTime(), actualExpiresAt.getTime()));
+  const now = new Date();
+  const state = now < activeUntil ? "active" : now < expiresAt ? "grace" : "expired";
+  const daysRemaining = Math.max(0, Math.ceil((expiresAt.getTime() - now.getTime()) / (24 * 60 * 60 * 1000)));
+  return {
+    state,
+    activeUntil,
+    expiresAt,
+    daysRemaining,
+    shouldPromptRegister: state !== "expired",
+    expired: state === "expired"
+  };
+}
+
 // Pure session service: does not touch req/res or cookies.
 // Controllers must call these and set cookies/headers as needed.
 
@@ -13,12 +41,15 @@ export async function getOrCreateGuestSession({ token, deviceFingerprint, platfo
     console.warn("getOrCreateGuestSession - findUnique failed", err?.message || err);
     existing = null;
   }
-  if (existing && existing.expiresAt > new Date()) {
-    return existing;
+  if (existing) {
+    const lifecycle = await getGuestLifecycle(existing, { platformCache });
+    if (!existing.claimedById && lifecycle.state !== "expired") {
+      return existing;
+    }
   }
 
-  const guestAccessDays = Number(await platformGet(platformCache, "guestAccessDays", process.env.GUEST_ACCESS_DAYS || 3)) || 3;
-  const expiresAt = new Date(Date.now() + guestAccessDays * 24 * 60 * 60 * 1000);
+  const guestDeletionDays = Number(await platformGet(platformCache, "guestDeletionDays", process.env.GUEST_DELETION_DAYS || DEFAULT_GUEST_DELETION_DAYS)) || DEFAULT_GUEST_DELETION_DAYS;
+  const expiresAt = new Date(Date.now() + guestDeletionDays * 24 * 60 * 60 * 1000);
 
   try {
     const session = await prisma.guestSession.create({
@@ -41,17 +72,20 @@ export async function getOrCreateGuestSession({ token, deviceFingerprint, platfo
 
 export async function getOrCreateCreatorSession({ token, deviceFingerprint, platformCache }) {
   let existing = null;
+  const guestDeletionDays = Number(await platformGet(platformCache, "guestDeletionDays", process.env.GUEST_DELETION_DAYS || DEFAULT_GUEST_DELETION_DAYS)) || DEFAULT_GUEST_DELETION_DAYS;
   try {
     if (token) existing = await prisma.guestSession.findUnique({ where: { token } });
   } catch (err) {
     console.warn("getOrCreateCreatorSession - findUnique failed", err?.message || err);
     existing = null;
   }
-  if (existing && existing.expiresAt > new Date() && !existing.claimedById) {
-    return existing;
+  if (existing) {
+    const lifecycle = await getGuestLifecycle(existing, { platformCache });
+    if (!existing.claimedById && lifecycle.state !== "expired") {
+      return existing;
+    }
   }
 
-  const guestAccessDays = Number(await platformGet(platformCache, "guestAccessDays", process.env.GUEST_ACCESS_DAYS || 3)) || 3;
   try {
     const session = await prisma.guestSession.create({
       data: {
@@ -59,7 +93,7 @@ export async function getOrCreateCreatorSession({ token, deviceFingerprint, plat
         deviceFingerprint: deviceFingerprint || null,
         scopeType: "creator",
         scopeId: "creator",
-        expiresAt: new Date(Date.now() + guestAccessDays * 24 * 60 * 60 * 1000)
+        expiresAt: new Date(Date.now() + guestDeletionDays * 24 * 60 * 60 * 1000)
       }
     });
     return session;
@@ -89,7 +123,8 @@ export async function findCreatorSession({ token }) {
       e.status = 401;
       throw e;
     }
-    if (session.expiresAt <= new Date()) {
+    const lifecycle = await getGuestLifecycle(session);
+    if (lifecycle.state === "expired") {
       const e = new Error('Guest creator session expired');
       e.status = 403;
       throw e;

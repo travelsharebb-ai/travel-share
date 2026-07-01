@@ -78,6 +78,17 @@ export default function PublicUpload() {
           ? qrInfo?.qrData?.event?.title || "Share from this event zone"
           : "Share your photo or video";
 
+  const guestState = qrInfo?.guest?.state;
+  const guestDaysRemaining = qrInfo?.guest?.daysRemaining;
+  const shouldPromptRegister = qrInfo?.guest?.shouldPromptRegister;
+  const guestNotice = guestState === "active"
+    ? "Guest access active. Register to save your uploads permanently."
+    : guestState === "grace"
+      ? "Your guest access is in grace period. Register now to keep your uploads."
+      : guestState === "expired"
+        ? "This guest session has expired. Please register or start a new session."
+        : null;
+
   function chooseFile(nextFile) {
     setError(null);
 
@@ -198,7 +209,41 @@ export default function PublicUpload() {
           <h1 className="mt-3 text-3xl font-black font-serif">{title}</h1>
           <p className="mt-2 text-slatebody">{subtitle}</p>
 
+          {guestNotice && (
+            <div className={`mt-4 rounded-3xl border px-4 py-4 ${guestState === 'expired' ? 'border-red-500 bg-red-500/10 text-red-200' : 'border-primary/30 bg-primary/5 text-primary'}`}>
+              <p className="text-sm font-semibold">{guestNotice}</p>
+              {typeof guestDaysRemaining === 'number' && guestDaysRemaining >= 0 && (
+                <p className="mt-1 text-sm text-slatebody">About {guestDaysRemaining} days remaining.</p>
+              )}
+              {shouldPromptRegister && guestState !== 'expired' && (
+                <div className="mt-3 flex flex-wrap gap-3">
+                  <button type="button" onClick={() => navigate('/signup')} className="btn-primary">
+                    Register now
+                  </button>
+                  <button type="button" onClick={() => navigate('/login')} className="btn-ghost">
+                    Sign in
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
           <form onSubmit={handleUpload} className="mt-6 grid gap-5">
+            {guestState === 'expired' ? (
+              <section className="card rounded-3xl border border-red-500 bg-red-500/10 p-6 text-center">
+                <p className="text-lg font-semibold text-red-200">This guest session has expired.</p>
+                <p className="mt-2 text-slatebody">Please register or start a new session to continue uploading.</p>
+                <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:justify-center">
+                  <button type="button" onClick={() => navigate('/signup')} className="btn-primary w-full sm:w-auto">
+                    Register
+                  </button>
+                  <button type="button" onClick={() => navigate('/scan')} className="btn-ghost w-full sm:w-auto">
+                    Start new session
+                  </button>
+                </div>
+              </section>
+            ) : (
+              <>
             <label className="field rounded-[28px] border border-borderline bg-slate-950/70 p-6 text-center cursor-pointer">
               {!previewUrl ? (
                 <>
@@ -250,6 +295,8 @@ export default function PublicUpload() {
             <button type="button" onClick={() => navigate("/scan")} className="btn-ghost w-full">
               Scan another QR
             </button>
+            </>
+            )}
           </form>
         </section>
       </main>

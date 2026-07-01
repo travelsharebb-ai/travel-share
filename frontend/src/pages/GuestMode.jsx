@@ -20,7 +20,7 @@ export default function GuestMode() {
           <HeaderBlock 
             eyebrow="Guest Access" 
             title="Use TravelShare without signing up" 
-            copy="Guests can enter from QR links, public event pages, or shared albums. You can view allowed spaces and upload memories for 3 days, then create an account to keep them." 
+            copy="Guests can enter from QR links, public event pages, or shared albums. You can view allowed spaces and upload memories for 3 days, then stay in a grace period until day 14. Register to keep your uploads permanently." 
           />
         </section>
         
@@ -45,7 +45,7 @@ export default function GuestMode() {
             <Lock className="text-primary" size={32} />
             <h2 className="mt-3 font-serif text-2xl font-black">After 3 Days</h2>
             <p className="mt-2 text-slatebody">
-              Sign in to continue, claim guest uploads, buy add-ons, create albums, host events, or manage business tools.
+              Full guest access lasts for 3 days, then moves to a grace period until day 14. Register to keep uploads, claim your guest memories, and unlock account features.
             </p>
           </div>
         </section>

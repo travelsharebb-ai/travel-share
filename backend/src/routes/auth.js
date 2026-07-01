@@ -6,6 +6,7 @@ import { prisma } from "../utils/prisma.js";
 import { authLimiter } from "../middleware/rateLimits.js";
 import { requireAuth } from "../middleware/auth.js";
 import { hashToken, readCookie, secureToken } from "../utils/tokens.js";
+import { getGuestLifecycle } from "../services/sessionService.js";
 import crypto from "node:crypto";
 import { sendPasswordResetEmail } from "../utils/email.js";
 import { cleanUpload, cleanUser } from "../utils/exportImport.js";
@@ -119,14 +120,17 @@ router.post("/signup", authLimiter, async (req, res, next) => {
     const guestToken = data.guestToken || readCookie(req, "ts_guest");
     if (guestToken) {
       const guest = await prisma.guestSession.findFirst({
-        where: { token: guestToken, claimedById: null, expiresAt: { gt: new Date() } }
+        where: { token: guestToken, claimedById: null }
       });
       if (guest) {
-        await prisma.$transaction([
-          prisma.guestSession.update({ where: { id: guest.id }, data: { claimedById: user.id } }),
-          prisma.trip.updateMany({ where: { guestSessionId: guest.id, userId: null }, data: { userId: user.id } }),
-          prisma.event.updateMany({ where: { guestSessionId: guest.id, organizerId: null }, data: { organizerId: user.id } })
-        ]);
+        const lifecycle = await getGuestLifecycle(guest, { platformCache: req.platformCache });
+        if (lifecycle.state !== "expired") {
+          await prisma.$transaction([
+            prisma.guestSession.update({ where: { id: guest.id }, data: { claimedById: user.id } }),
+            prisma.trip.updateMany({ where: { guestSessionId: guest.id, userId: null }, data: { userId: user.id } }),
+            prisma.event.updateMany({ where: { guestSessionId: guest.id, organizerId: null }, data: { organizerId: user.id } })
+          ]);
+        }
       }
     }
     await ensureBasicSkinUnlocks(user.id).catch((error) => {

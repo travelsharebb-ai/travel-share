@@ -2,7 +2,7 @@ import { prisma } from "../utils/prisma.js";
 import { uploadMedia, deleteMedia } from "../utils/storage.js";
 import { anonId } from "../utils/tokens.js";
 import { extractExifGps } from "../utils/exif.js";
-import { getOrCreateGuestSession } from "../services/sessionService.js";
+import { getOrCreateGuestSession, getGuestLifecycle } from "../services/sessionService.js";
 import { notifyNewUploadSafe } from "../services/notificationService.js";
 import { moderateSafe } from "../services/moderationService.js";
 import { uploadBodySchema, qrTokenParam } from "../utils/validation.js";
@@ -147,7 +147,8 @@ export async function executeUploadPipeline({ file, body = {}, context = {}, ide
 
     const guest = await getOrCreateGuestSession({ token: sessionToken, deviceFingerprint: fingerprint, platformCache, scopeType, scopeId });
     if (!guest) throw Object.assign(new Error('Unable to create guest session.'), { status: 403 });
-    if (guest.expiresAt <= new Date()) throw Object.assign(new Error('Guest access expired.'), { status: 403 });
+    const guestLifecycle = await getGuestLifecycle(guest, { platformCache });
+    if (guestLifecycle.state === 'expired') throw Object.assign(new Error('Guest access expired.'), { status: 403 });
 
     // attach guest info to state object for response
     state = { ...state, guest };

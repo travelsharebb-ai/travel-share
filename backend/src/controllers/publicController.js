@@ -1,6 +1,7 @@
 import { prisma } from "../utils/prisma.js";
 import {
   getOrCreateGuestSession,
+  getGuestLifecycle,
   getOrCreateCreatorSession,
   findCreatorSession
 } from "../services/sessionService.js";
@@ -14,18 +15,34 @@ import { readCookie, setGuestSessionCookie, fingerprintFromRequest, getOrSetUplo
  * =========================
  */
 
-function guestPayload(guest) {
+async function guestPayload(guest, platformCache) {
+  if (!guest) {
+    return {
+      token: null,
+      state: "expired",
+      activeUntil: null,
+      expiresAt: null,
+      daysRemaining: 0,
+      shouldPromptRegister: false,
+      expired: true
+    };
+  }
+  const lifecycle = await getGuestLifecycle(guest, { platformCache });
   return {
-    token: guest?.token,
-    expiresAt: guest?.expiresAt,
-    expired: guest?.expiresAt <= new Date()
+    token: guest.token,
+    state: lifecycle.state,
+    activeUntil: lifecycle.activeUntil,
+    expiresAt: lifecycle.expiresAt,
+    daysRemaining: lifecycle.daysRemaining,
+    shouldPromptRegister: lifecycle.shouldPromptRegister,
+    expired: lifecycle.expired
   };
 }
 
-function qrResponse(type, data, guest) {
+async function qrResponse(type, data, guest, platformCache) {
   return {
     type,
-    guest: guestPayload(guest),
+    guest: await guestPayload(guest, platformCache),
     data
   };
 }
@@ -161,14 +178,15 @@ export async function qrGet(req, res, next) {
       if (guest) setGuestSessionCookie(res, guest.token);
 
       return res.json(
-        qrResponse(
+        await qrResponse(
           "trip",
           {
             id: trip.id,
             title: trip.title,
             destination: trip.destination
           },
-          guest
+          guest,
+          req.platformCache
         )
       );
     }
@@ -190,7 +208,7 @@ export async function qrGet(req, res, next) {
 
       if (guest) setGuestSessionCookie(res, guest.token);
 
-      return res.json(qrResponse("event", event, guest));
+      return res.json(await qrResponse("event", event, guest, req.platformCache));
     }
 
     // 3. ZONE
@@ -210,7 +228,7 @@ export async function qrGet(req, res, next) {
 
       if (guest) setGuestSessionCookie(res, guest.token);
 
-      return res.json(qrResponse("zone", zone, guest));
+      return res.json(await qrResponse("zone", zone, guest, req.platformCache));
     }
 
     return res.status(404).json({ error: "QR not found" });

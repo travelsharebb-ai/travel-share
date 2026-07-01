@@ -57,7 +57,7 @@ export function readCookie(req, name) {
 
 export function setGuestSessionCookie(res, token, opts = {}) {
   const name = opts.name || 'ts_guest';
-  const maxAge = typeof opts.maxAge === 'number' ? opts.maxAge : 60 * 60 * 24 * 3;
+  const maxAge = typeof opts.maxAge === 'number' ? opts.maxAge : 60 * 60 * 24 * 14;
   const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
   res.setHeader("Set-Cookie", `${name}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${secure}`);
 }
