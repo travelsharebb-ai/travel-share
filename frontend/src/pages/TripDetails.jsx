@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { api } from "../lib/api.js";
+import MediaCard from "../components/MediaCard.jsx";
+import { api, currentUser, getToken } from "../lib/api.js";
 
 export default function TripDetails() {
   const { tripId } = useParams();
   const [trip, setTrip] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [skinOptions, setSkinOptions] = useState([]);
+  const [feedback, setFeedback] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -31,6 +34,44 @@ export default function TripDetails() {
     };
   }, [tripId]);
 
+  useEffect(() => {
+    let active = true;
+    api("/api/store")
+      .then((data) => {
+        if (!active) return;
+        const unlockedSkins = (data.items || []).filter((item) => item.type === "image_skin" && item.owned);
+        setSkinOptions(unlockedSkins);
+      })
+      .catch(() => {
+        if (!active) return;
+        setSkinOptions([]);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [tripId]);
+
+  async function handleApplySkin(uploadId, skinId) {
+    setFeedback("");
+    try {
+      const data = await api(`/api/uploads/${uploadId}/skin`, {
+        method: "PATCH",
+        body: JSON.stringify({ skinId })
+      });
+      setTrip((current) => {
+        if (!current) return current;
+        return {
+          ...current,
+          uploads: current.uploads.map((upload) => (upload.id === uploadId ? { ...upload, ...data.upload } : upload))
+        };
+      });
+      setFeedback(skinId ? "Frame applied to this upload." : "Frame removed from this upload.");
+    } catch (err) {
+      setFeedback(err.message || "Unable to update frame.");
+    }
+  }
+
   const stats = useMemo(() => {
     if (!trip) return { uploads: 0, chapters: 0, locations: 0, shares: 0 };
     const locations = trip.uploads.filter((upload) => upload.latitude || upload.approximateLatitude).length;
@@ -46,6 +87,8 @@ export default function TripDetails() {
   const timeline = trip?.chapters || [];
   const locationSample = trip?.uploads.find((upload) => upload.locationName || upload.region) || null;
   const shareLink = trip?.shareLinks?.[0] || null;
+  const user = currentUser();
+  const canApplySkin = Boolean(getToken()) && user?.role !== "guest";
 
   return (
     <main className="page-shell space-y-6">
@@ -91,22 +134,19 @@ export default function TripDetails() {
         <div className="lg:col-span-3 grid gap-4">
           <div className="card p-5">
             <p className="text-sm uppercase tracking-[0.32em] text-primary">Gallery preview</p>
+            {feedback ? <p className="mt-3 text-sm text-emerald-300">{feedback}</p> : null}
             {loading ? (
               <p className="mt-4 text-slatebody">Loading gallery…</p>
             ) : gallery.length ? (
-              <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-2">
                 {gallery.map((upload) => (
-                  <div key={upload.id} className="rounded-3xl overflow-hidden border border-borderline bg-slate-950/70">
-                    {upload.fileType?.startsWith("image") ? (
-                      <img src={upload.fileUrl} alt={upload.caption || "Memory"} className="h-40 w-full object-cover" />
-                    ) : (
-                      <div className="flex h-40 items-center justify-center bg-slate-900 text-slatebody">Video</div>
-                    )}
-                    <div className="p-3 text-sm text-slatebody">
-                      <p className="truncate font-semibold">{upload.caption || "Untitled memory"}</p>
-                      <p className="mt-2 text-xs">{new Date(upload.createdAt).toLocaleDateString()}</p>
-                    </div>
-                  </div>
+                  <MediaCard
+                    key={upload.id}
+                    upload={upload}
+                    skinOptions={skinOptions}
+                    onApplySkin={handleApplySkin}
+                    canApplySkin={canApplySkin}
+                  />
                 ))}
               </div>
             ) : (
