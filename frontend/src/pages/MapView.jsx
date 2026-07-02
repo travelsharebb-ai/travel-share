@@ -11,6 +11,49 @@ const FILTER_OPTIONS = [
   { id: 'nearby', label: 'Nearby', icon: '📍' }
 ];
 
+// Barbados bounding box for preferring local results
+const BARBADOS_BOUNDS = {
+  minLat: 13.04,
+  maxLat: 13.33,
+  minLng: -59.65,
+  maxLng: -59.43
+};
+
+// Mapbox style definitions
+const MAP_STYLES = {
+  streets: {
+    id: 'streets',
+    label: 'Streets',
+    url: 'mapbox://styles/mapbox/streets-v12',
+    icon: '🗺️'
+  },
+  satellite: {
+    id: 'satellite',
+    label: 'Satellite',
+    url: 'mapbox://styles/mapbox/satellite-streets-v12',
+    icon: '🛰️'
+  },
+  terrain: {
+    id: 'terrain',
+    label: 'Terrain',
+    url: 'mapbox://styles/mapbox/outdoors-v12',
+    icon: '🏔️'
+  },
+  navigation: {
+    id: 'navigation',
+    label: 'Navigation',
+    url: 'mapbox://styles/mapbox/navigation-day-v1',
+    icon: '🧭'
+  }
+};
+
+const DEFAULT_MAP_STYLE = 'streets';
+const STORAGE_KEY_MAP_STYLE = 'travelshare_map_style';
+
+// Traffic layer is available via Mapbox but deferred for Phase 3C.5
+// Future implementation could add: map.addSource('mapbox-traffic', { type: 'vector', url: 'mapbox://mapbox.mapbox-traffic-v1' })
+// And layers for traffic visualization when needed.
+
 export default function MapView() {
 
   // Utility: escape user-provided strings used in popup HTML
@@ -32,7 +75,163 @@ export default function MapView() {
       return 'Recently shared';
     }
   }
-  const navigate = useNavigate();
+
+  // Derive country from location coordinates and address
+  function deriveCountry(lat, lng, address) {
+    if (!lat || !lng) return null;
+    
+    // Check if coordinates are in Barbados bounds
+    if (
+      lat >= BARBADOS_BOUNDS.minLat &&
+      lat <= BARBADOS_BOUNDS.maxLat &&
+      lng >= BARBADOS_BOUNDS.minLng &&
+      lng <= BARBADOS_BOUNDS.maxLng
+    ) {
+      return 'Barbados';
+    }
+
+    // Check if address mentions Barbados
+    if (address && address.toLowerCase().includes('barbados')) {
+      return 'Barbados';
+    }
+
+    return null;
+  }
+
+  // Build country and region options from loaded locations
+  function updateFilterOptions(locs) {
+    const countries = new Set();
+    const regions = new Set();
+
+    locs.forEach((loc) => {
+      const country = loc.country || deriveCountry(loc.lat, loc.lng, loc.description);
+      if (country) {
+        countries.add(country);
+      }
+
+      if (loc.raw?.uploads && Array.isArray(loc.raw.uploads)) {
+        loc.raw.uploads.forEach((upload) => {
+          if (upload.region) {
+            regions.add(upload.region);
+          }
+        });
+      }
+    });
+
+    setCountryOptions(Array.from(countries).sort());
+    setRegionOptions(Array.from(regions).sort());
+  }
+
+  // Mapbox Geocoding API search with debounce
+  function performMapboxSearch(query) {
+    if (!query || query.trim().length < 3) {
+      setSearchSuggestions([]);
+      setShowSearchSuggestions(false);
+      return;
+    }
+
+    const token = import.meta.env.VITE_MAPBOX_TOKEN;
+    if (!token) {
+      // No token, fall back to local search only
+      setSearchSuggestions([]);
+      return;
+    }
+
+    const proximity = userLocation ? `${userLocation.lng},${userLocation.lat}` : '-59.54,13.19'; // Barbados center as a soft ranking hint only
+    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${token}&autocomplete=true&proximity=${proximity}&limit=5`;
+
+    fetch(url)
+      .then((response) => {
+        if (!response.ok) throw new Error('Geocoding request failed');
+        return response.json();
+      })
+      .then((data) => {
+        const suggestions = (data.features || []).map((feature) => ({
+          id: feature.id,
+          name: feature.place_name,
+          center: feature.center,
+          bbox: feature.bbox,
+          placeType: feature.place_type || []
+        }));
+        setSearchSuggestions(suggestions);
+        setShowSearchSuggestions(suggestions.length > 0);
+      })
+      .catch((err) => {
+        // Geocoding failed, but don't crash - just hide suggestions
+        setSearchSuggestions([]);
+      });
+  }
+
+  // Handle search input with debouncing
+  function handleSearchChange(value) {
+    setSearchText(value);
+    setLocalSearchText(value);
+
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current);
+    }
+
+    searchDebounceRef.current = setTimeout(() => {
+      performMapboxSearch(value);
+    }, 300);
+  }
+
+  // Handle selecting a Mapbox search suggestion
+  function handleSelectSuggestion(suggestion) {
+    setSearchText(suggestion.name);
+    setShowSearchSuggestions(false);
+
+    if (!mapRef.current) return;
+
+    const [lng, lat] = suggestion.center;
+
+    // Remove previous search result marker if it exists
+    if (searchResultMarkerRef.current) {
+      try {
+        searchResultMarkerRef.current.remove();
+      } catch (e) {
+        console.error('Error removing search result marker:', e);
+      }
+      searchResultMarkerRef.current = null;
+    }
+
+    // Create a temporary search result marker
+    const el = document.createElement('div');
+    el.style.width = '32px';
+    el.style.height = '32px';
+    el.style.backgroundImage = 'url(data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"></path><circle cx="12" cy="12" r="2"></circle></svg>)';
+    el.style.backgroundSize = 'contain';
+    el.style.backgroundRepeat = 'no-repeat';
+    el.style.backgroundPosition = 'center';
+    el.style.color = '#ef4444';
+
+    searchResultMarkerRef.current = new mapboxgl.Marker({ element: el })
+      .setLngLat([lng, lat])
+      .setPopup(new mapboxgl.Popup({ offset: 25 }).setHTML(`<strong>${escapeHtml(suggestion.name)}</strong>`))
+      .addTo(mapRef.current);
+
+    const placeType = Array.isArray(suggestion.placeType) ? suggestion.placeType[0] : suggestion.placeType;
+    let zoom = 12;
+    if (placeType === 'country') zoom = 5;
+    else if (placeType === 'region' || placeType === 'district' || placeType === 'postcode') zoom = 6;
+    else if (placeType === 'place' || placeType === 'locality' || placeType === 'neighborhood' || placeType === 'town') zoom = 11;
+    else if (placeType === 'address' || placeType === 'poi' || placeType === 'street') zoom = 15;
+
+    if (suggestion.bbox && suggestion.bbox.length === 4) {
+      const [minLng, minLat, maxLng, maxLat] = suggestion.bbox;
+      mapRef.current.fitBounds([[minLng, minLat], [maxLng, maxLat]], {
+        padding: 80,
+        duration: 1000
+      });
+    } else {
+      mapRef.current.flyTo({
+        center: [lng, lat],
+        zoom,
+        essential: true,
+        duration: 1000
+      });
+    }
+  }
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const normalMarkersRef = useRef([]);
@@ -40,6 +239,7 @@ export default function MapView() {
   const clustersRef = useRef({ added: false, handlers: {} });
   
   const [searchText, setSearchText] = useState('');
+  const [localSearchText, setLocalSearchText] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
   const [locations, setLocations] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -48,8 +248,31 @@ export default function MapView() {
   const [isLocating, setIsLocating] = useState(false);
   const [geolocationError, setGeolocationError] = useState('');
   const [mapError, setMapError] = useState('');
+  const [searchSuggestions, setSearchSuggestions] = useState([]);
+  const [showSearchSuggestions, setShowSearchSuggestions] = useState(false);
+  const [countryFilter, setCountryFilter] = useState('');
+  const [regionFilter, setRegionFilter] = useState('');
+  const [countryOptions, setCountryOptions] = useState([]);
+  const [regionOptions, setRegionOptions] = useState([]);
+  const [mapStyle, setMapStyle] = useState(DEFAULT_MAP_STYLE);
+  const [showLayerControl, setShowLayerControl] = useState(false);
   const mapLoadedRef = useRef(false);
   const locatingTimerRef = useRef(null);
+  const searchDebounceRef = useRef(null);
+  const searchResultMarkerRef = useRef(null);
+  const styleLoadingRef = useRef(false);
+  const [styleLoading, setStyleLoading] = useState(false);
+  const controlsAddedRef = useRef(false);
+
+  const navigate = useNavigate();
+
+  // Load map style from localStorage on mount
+  useEffect(() => {
+    const savedStyle = localStorage.getItem(STORAGE_KEY_MAP_STYLE);
+    if (savedStyle && MAP_STYLES[savedStyle]) {
+      setMapStyle(savedStyle);
+    }
+  }, [mapStyle]);
 
   const createUserMarker = ({ lat, lng, accuracy, source }) => {
     if (lat == null || lng == null || !mapRef.current) return;
@@ -101,23 +324,183 @@ export default function MapView() {
     const markerEl = userMarkerRef.current.getElement();
     markerEl.style.zIndex = '999999';
     markerEl.style.pointerEvents = 'auto';
-    console.log('USER_MARKER_ELEMENT_CONNECTED', markerEl.isConnected);
-    console.log('USER_MARKER_ELEMENT_RECT', markerEl.getBoundingClientRect());
-    console.log('USER_MARKER_COUNT', document.querySelectorAll('.user-location-dot').length);
 
     if (mapRef.current) {
       try {
-        mapRef.current.flyTo({
-          center: [lng, lat],
-          zoom: 17,
-          essential: true
-        });
+        if (source === 'geolocation') {
+          mapRef.current.flyTo({
+            center: [lng, lat],
+            zoom: 17,
+            essential: true
+          });
+        }
       } catch (flyError) {
         console.error('Error centering map on user marker:', flyError);
       }
     }
-    console.log('USER_LOCATION_MARKER_ADDED', { lat, lng, accuracy, source });
   };
+
+  // Add standard Mapbox controls to the map
+  function addMapControls(map) {
+    try {
+      if (controlsAddedRef.current) return;
+      // Remove existing controls
+      document.querySelectorAll('.mapboxgl-ctrl').forEach((ctrl) => {
+        if (ctrl.parentElement) {
+          ctrl.parentElement.removeChild(ctrl);
+        }
+      });
+
+      // Add navigation control
+      map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+
+      // Add scale control
+      map.addControl(new mapboxgl.ScaleControl(), 'bottom-left');
+
+      // Add fullscreen control
+      map.addControl(new mapboxgl.FullscreenControl(), 'top-right');
+      controlsAddedRef.current = true;
+    } catch (err) {
+      console.error('Error adding Mapbox controls:', err);
+    }
+  }
+
+  function cleanupClusterHandlers(map) {
+    if (!map || !clustersRef.current.added) return;
+    try {
+      const { onClusterClick, onUnclusteredClick, onMouseEnter, onMouseLeave } = clustersRef.current.handlers;
+      if (onClusterClick) map.off('click', 'clusters', onClusterClick);
+      if (onUnclusteredClick) map.off('click', 'unclustered-point', onUnclusteredClick);
+      if (onMouseEnter) map.off('mouseenter', 'clusters', onMouseEnter);
+      if (onMouseLeave) map.off('mouseleave', 'clusters', onMouseLeave);
+      if (onMouseEnter) map.off('mouseenter', 'unclustered-point', onMouseEnter);
+      if (onMouseLeave) map.off('mouseleave', 'unclustered-point', onMouseLeave);
+    } catch (err) {
+      console.error('Error cleaning up cluster handlers:', err);
+    }
+    clustersRef.current = { added: false, handlers: {} };
+  }
+
+  // Re-initialize clustering layers and handlers after style change
+  function reinitializeClustering(map, data) {
+    try {
+      if (!map || !map.isStyleLoaded || !map.isStyleLoaded()) return;
+
+      // Remove old layers if they exist
+      ['clusters', 'cluster-count', 'unclustered-point'].forEach((layerId) => {
+        if (map.getLayer(layerId)) {
+          try {
+            map.removeLayer(layerId);
+          } catch (e) {
+            // ignore
+          }
+        }
+      });
+
+      // Remove old source if it exists
+      if (map.getSource('locations')) {
+        try {
+          map.removeSource('locations');
+        } catch (e) {
+          // ignore
+        }
+      }
+
+      // Re-add source
+      map.addSource('locations', {
+        type: 'geojson',
+        data,
+        cluster: true,
+        clusterMaxZoom: 14,
+        clusterRadius: 50
+      });
+
+      // Re-add layers
+      map.addLayer({
+        id: 'clusters',
+        type: 'circle',
+        source: 'locations',
+        filter: ['has', 'point_count'],
+        paint: {
+          'circle-color': ['step', ['get', 'point_count'], '#51bbd6', 10, '#f1f075', 50, '#f28cb1'],
+          'circle-radius': ['step', ['get', 'point_count'], 18, 10, 26, 50, 36],
+          'circle-stroke-width': 2,
+          'circle-stroke-color': '#fff'
+        }
+      });
+
+      map.addLayer({
+        id: 'cluster-count',
+        type: 'symbol',
+        source: 'locations',
+        filter: ['has', 'point_count'],
+        layout: {
+          'text-field': '{point_count_abbreviated}',
+          'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+          'text-size': 12
+        },
+        paint: { 'text-color': '#000' }
+      });
+
+      map.addLayer({
+        id: 'unclustered-point',
+        type: 'circle',
+        source: 'locations',
+        filter: ['!', ['has', 'point_count']],
+        paint: {
+          'circle-color': '#4f46e5',
+          'circle-radius': 12,
+          'circle-stroke-width': 2,
+          'circle-stroke-color': '#ffffff'
+        }
+      });
+
+      // Re-attach event handlers
+      const onClusterClick = (e) => {
+        const features = map.queryRenderedFeatures(e.point, { layers: ['clusters'] });
+        if (!features.length) return;
+        const clusterId = features[0].properties.cluster_id;
+        const coordinates = features[0].geometry.coordinates;
+        map.getSource('locations').getClusterExpansionZoom(clusterId, (err, zoom) => {
+          if (err) return;
+          map.easeTo({ center: coordinates, zoom, duration: 500 });
+        });
+      };
+
+      const onUnclusteredClick = (e) => {
+        const feature = e.features && e.features[0];
+        if (!feature) return;
+        const coords = feature.geometry.coordinates.slice();
+        const props = feature.properties || {};
+
+        const previewImage = props.previewImage ? `<div style="margin-bottom:8px;"><img src="${props.previewImage}" alt="preview" style="width:220px;height:120px;object-fit:cover;border-radius:6px;display:block;"/></div>` : '';
+        const previewTitle = props.previewTitle || props.title || 'Community post';
+        const previewUser = props.previewUser ? `<small style="color:#444;">by ${escapeHtml(props.previewUser)}</small>` : `<small style="color:#444;">Community post</small>`;
+        const previewTime = props.previewCreatedAt ? `<div style="color:#666;font-size:12px;margin-top:6px;">${formatPreviewTime(new Date(props.previewCreatedAt))}</div>` : `<div style="color:#666;font-size:12px;margin-top:6px;">Recently shared</div>`;
+
+        const html = `<div style="padding:8px;font-size:14px;max-width:260px;">${previewImage}<strong>${escapeHtml(previewTitle)}</strong><br/><small>${escapeHtml(props.description || 'No address')}</small><br/>${previewUser}${previewTime}</div>`;
+
+        new mapboxgl.Popup({ offset: 25 }).setLngLat(coords).setHTML(html).addTo(map);
+      };
+
+      const onMouseEnter = () => map.getCanvas().style.cursor = 'pointer';
+      const onMouseLeave = () => map.getCanvas().style.cursor = '';
+
+      map.on('click', 'clusters', onClusterClick);
+      map.on('click', 'unclustered-point', onUnclusteredClick);
+      map.on('mouseenter', 'clusters', onMouseEnter);
+      map.on('mouseleave', 'clusters', onMouseLeave);
+      map.on('mouseenter', 'unclustered-point', onMouseEnter);
+      map.on('mouseleave', 'unclustered-point', onMouseLeave);
+
+      clustersRef.current = {
+        added: true,
+        handlers: { onClusterClick, onUnclusteredClick, onMouseEnter, onMouseLeave }
+      };
+    } catch (err) {
+      console.error('Failed to reinitialize clustering after style change:', err);
+    }
+  }
 
   useEffect(() => {
     const apiBase = import.meta.env.VITE_API_URL || '';
@@ -169,6 +552,7 @@ export default function MapView() {
         });
 
         setLocations(normalizedLocations);
+        updateFilterOptions(normalizedLocations);
       } catch (loadError) {
         console.error('Failed to load locations', loadError);
         setError('Unable to load locations right now.');
@@ -183,7 +567,7 @@ export default function MapView() {
 
   // Define filteredLocations early, before any effects that use it
   const filteredLocations = locations.filter((location) => {
-    const searchValue = searchText.trim().toLowerCase();
+    const searchValue = localSearchText.trim().toLowerCase();
     const searchableText = [
       location.title,
       location.description,
@@ -197,6 +581,18 @@ export default function MapView() {
 
     const matchesSearch = !searchValue || searchableText.includes(searchValue);
     if (!matchesSearch) return false;
+
+    // Filter by country if selected
+    if (countryFilter) {
+      const locationCountry = location.country || deriveCountry(location.lat, location.lng, location.description);
+      if (locationCountry !== countryFilter) return false;
+    }
+
+    // Filter by region if selected
+    if (regionFilter && location.raw?.uploads) {
+      const hasRegion = location.raw.uploads.some((upload) => upload.region === regionFilter);
+      if (!hasRegion) return false;
+    }
 
     if (activeFilter === 'all') return true;
     if (activeFilter === 'events') return location.type === 'event' || Boolean(location.raw?.mapMeta?.eventCount);
@@ -225,6 +621,93 @@ export default function MapView() {
     ? `Location accuracy: about ${Math.round(userLocation.accuracy)} meters`
     : '';
 
+  // Handle map style change
+  function handleChangeMapStyle(newStyleId) {
+    if (!mapRef.current || styleLoadingRef.current) return;
+
+    const newStyle = MAP_STYLES[newStyleId];
+    if (!newStyle) return;
+
+    if (newStyleId === mapStyle) return;
+
+    styleLoadingRef.current = true;
+    setStyleLoading(true);
+    setMapStyle(newStyleId);
+    localStorage.setItem(STORAGE_KEY_MAP_STYLE, newStyleId);
+    setShowLayerControl(false);
+
+    const map = mapRef.current;
+
+    // Store current map state before style change
+    const currentCenter = map.getCenter();
+    const currentZoom = map.getZoom();
+    const currentBearing = map.getBearing();
+    const currentPitch = map.getPitch();
+
+    cleanupClusterHandlers(map);
+    controlsAddedRef.current = false;
+    // Set new style with stable reload
+    map.setStyle(newStyle.url, { diff: false });
+
+    // Wait for style to load, then reinitialize clustering
+    const handleStyleLoad = () => {
+      // Build GeoJSON data from current filtered locations
+      const features = (filteredLocations || locations)
+        .filter((loc) => loc.lat != null && loc.lng != null)
+        .map((loc) => ({
+          type: 'Feature',
+          geometry: { type: 'Point', coordinates: [loc.lng, loc.lat] },
+          properties: {
+            id: loc.id,
+            title: loc.title || '',
+            description: loc.description || '',
+            type: loc.type || '',
+            previewImage: loc.imageUrl || '',
+            previewTitle: loc.previewTitle || '',
+            previewUser: loc.previewUser || '',
+            previewCreatedAt: loc.previewCreatedAt ? loc.previewCreatedAt.toISOString() : ''
+          }
+        }));
+
+      const data = { type: 'FeatureCollection', features };
+
+      // Reinitialize clustering
+      reinitializeClustering(map, data);
+
+      // Restore map position
+      try {
+        map.setCenter(currentCenter);
+        map.setZoom(currentZoom);
+        map.setBearing(currentBearing);
+        map.setPitch(currentPitch);
+      } catch (err) {
+        console.error('Error restoring map position after style change:', err);
+      }
+
+      // Restore user marker if it exists
+      if (userLocation) {
+        try {
+          if (userMarkerRef.current) {
+            userMarkerRef.current.remove();
+            userMarkerRef.current = null;
+          }
+        } catch (e) {
+          // ignore
+        }
+        createUserMarker({ ...userLocation, source: 'style-switch' });
+      }
+
+      // Re-add standard controls if needed
+      addMapControls(map);
+
+      map.off('style.load', handleStyleLoad);
+      styleLoadingRef.current = false;
+      setStyleLoading(false);
+    };
+
+    map.once('style.load', handleStyleLoad);
+  }
+
   // Initialize Mapbox map
   useEffect(() => {
     const token = import.meta.env.VITE_MAPBOX_TOKEN;
@@ -241,15 +724,17 @@ export default function MapView() {
       
       // Create map if not already created
       if (!mapRef.current) {
+        const currentStyle = MAP_STYLES[mapStyle] || MAP_STYLES[DEFAULT_MAP_STYLE];
         const map = new mapboxgl.Map({
           container: containerRef.current,
-          style: 'mapbox://styles/mapbox/streets-v11',
+          style: currentStyle.url,
           center: [-95.7129, 37.0902], // Default center (USA center)
           zoom: 3
         });
 
         map.on('load', () => {
           mapLoadedRef.current = true;
+          addMapControls(map);
           if (userLocation) {
             // Marker will be created from userLocation useEffect once map is loaded
           }
@@ -308,11 +793,6 @@ export default function MapView() {
     const createMarker = () => {
       if (!userLocation) return;
       createUserMarker({ ...userLocation, source: 'effect' });
-      console.log('USER_LOCATION_MARKER_ADDED_FROM_EFFECT', {
-        lat: userLocation.lat,
-        lng: userLocation.lng,
-        accuracy: userLocation.accuracy
-      });
     };
 
     if (!map.loaded()) {
@@ -320,7 +800,6 @@ export default function MapView() {
         createMarker();
         map.off('load', handleLoad);
       };
-      console.log('USER_MARKER_WAITING_FOR_MAP');
       map.on('load', handleLoad);
       return () => {
         map.off('load', handleLoad);
@@ -378,7 +857,6 @@ export default function MapView() {
         if (map.getSource && map.getSource('locations')) {
           try {
             map.getSource('locations').setData(data);
-            console.log('CLUSTER_DATA_UPDATED', data.features.length);
           } catch (err) {
             console.error('Failed to set data on locations source', err);
           }
@@ -390,8 +868,6 @@ export default function MapView() {
         if (!map.getSource('locations')) {
           map.addSource('locations', { type: 'geojson', data, cluster: true, clusterMaxZoom: 14, clusterRadius: 50 });
         }
-
-        console.log('CLUSTER_SOURCE_READY');
 
         // Add layers only if they don't already exist
         if (!map.getLayer('clusters')) {
@@ -485,7 +961,6 @@ export default function MapView() {
         try {
           if (map.getSource && map.getSource('locations')) {
             map.getSource('locations').setData(data);
-            console.log('CLUSTER_DATA_UPDATED', data.features.length);
           }
         } catch (err) {
           console.error('Failed to set data on locations source after creation', err);
@@ -499,7 +974,7 @@ export default function MapView() {
     if (map.isStyleLoaded && map.isStyleLoaded()) {
       setupClusters();
     } else {
-      map.once('load', setupClusters);
+      map.once('style.load', setupClusters);
     }
 
     // Cleanup: remove layers and source on unmount
@@ -527,8 +1002,6 @@ export default function MapView() {
   }, [filteredLocations]);
 
   const handleCenterOnMe = () => {
-    console.log('CENTER_ON_ME_CLICKED');
-    console.log('REQUESTING_GEOLOCATION');
     setIsLocating(true);
     setGeolocationError('');
     if (!navigator.geolocation) {
@@ -548,14 +1021,12 @@ export default function MapView() {
         clearTimeout(locatingTimerRef.current);
         const { latitude, longitude } = position.coords;
         const accuracy = position.coords.accuracy;
-        console.log('GEOLOCATION_SUCCESS', { latitude, longitude, accuracy });
         const nextLocation = {
           lat: latitude,
           lng: longitude,
           ...(accuracy != null ? { accuracy } : {})
         };
         setUserLocation(nextLocation);
-        console.log('CENTER_ON_ME_LOCATION_SET', nextLocation);
         setGeolocationError('');
         setIsLocating(false);
         // Automatically switch to Nearby filter when location is obtained
@@ -563,13 +1034,10 @@ export default function MapView() {
         
         if (mapRef.current && mapRef.current.loaded()) {
           createUserMarker({ ...nextLocation, source: 'geolocation' });
-        } else if (mapRef.current) {
-          console.log('USER_MARKER_WAITING_FOR_MAP');
         }
       },
       (error) => {
         clearTimeout(locatingTimerRef.current);
-        console.log('GEOLOCATION_ERROR', error);
         setIsLocating(false);
         let errorMsg = 'Unable to retrieve your location.';
         if (error.code === error.PERMISSION_DENIED) {
@@ -606,13 +1074,30 @@ export default function MapView() {
           <p className="text-slatebody mb-6">Discover events, trips, and photos from around the world</p>
 
           <div className="mb-6">
-            <input
-              type="text"
-              placeholder="Search locations..."
-              value={searchText}
-              onChange={(event) => setSearchText(event.target.value)}
-              className="field w-full"
-            />
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search locations or addresses..."
+                value={searchText}
+                onChange={(event) => handleSearchChange(event.target.value)}
+                onBlur={() => setTimeout(() => setShowSearchSuggestions(false), 200)}
+                onFocus={() => searchSuggestions.length > 0 && setShowSearchSuggestions(true)}
+                className="field w-full"
+              />
+              {showSearchSuggestions && searchSuggestions.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-slate-800 border border-slate-600 rounded-lg shadow-lg z-50">
+                  {searchSuggestions.map((suggestion) => (
+                    <button
+                      key={suggestion.id}
+                      onClick={() => handleSelectSuggestion(suggestion)}
+                      className="w-full text-left px-4 py-2 hover:bg-slate-700 text-sm text-slate-200 first:rounded-t-lg last:rounded-b-lg"
+                    >
+                      📍 {suggestion.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="flex flex-wrap gap-2 mb-6">
@@ -632,6 +1117,53 @@ export default function MapView() {
               </button>
             ))}
           </div>
+
+          <div className="flex gap-4 mb-6">
+            <div className="flex-1">
+              <label className="block text-sm font-semibold text-slate-300 mb-2">Country</label>
+              <select
+                value={countryFilter}
+                onChange={(e) => {
+                  setCountryFilter(e.target.value);
+                  setRegionFilter('');
+                }}
+                className="field w-full"
+              >
+                <option value="">All Countries</option>
+                {countryOptions.length > 0 ? (
+                  countryOptions.map((country) => (
+                    <option key={country} value={country}>
+                      {country}
+                    </option>
+                  ))
+                ) : (
+                  <option disabled>No country data available</option>
+                )}
+              </select>
+            </div>
+            <div className="flex-1">
+              <label className="block text-sm font-semibold text-slate-300 mb-2">Region</label>
+              <select
+                value={regionFilter}
+                onChange={(e) => setRegionFilter(e.target.value)}
+                className="field w-full"
+              >
+                <option value="">All Regions</option>
+                {regionOptions.length > 0 ? (
+                  regionOptions.map((region) => (
+                    <option key={region} value={region}>
+                      {region}
+                    </option>
+                  ))
+                ) : (
+                  <option disabled>No region data available</option>
+                )}
+              </select>
+            </div>
+          </div>
+          <div className="text-xs text-slate-400 mb-6">
+            Country and region filters apply to loaded Travel Share posts only.
+          </div>
         </div>
       </div>
 
@@ -650,7 +1182,6 @@ export default function MapView() {
               </div>
             ) : (
               <div
-                ref={containerRef}
                 style={{
                   position: 'relative',
                   minHeight: '420px',
@@ -659,7 +1190,116 @@ export default function MapView() {
                   overflow: 'hidden',
                   zIndex: 1
                 }}
-              />
+              >
+                <div
+                  ref={containerRef}
+                  style={{
+                    position: 'absolute',
+                    width: '100%',
+                    height: '100%',
+                    borderRadius: '12px',
+                    overflow: 'hidden'
+                  }}
+                />
+                
+                {/* Layer Control Panel */}
+                <div
+                  style={{
+                    position: 'absolute',
+                    bottom: '20px',
+                    left: '20px',
+                    zIndex: 10,
+                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                    borderRadius: '8px',
+                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)',
+                    overflow: 'hidden'
+                  }}
+                >
+                  {!showLayerControl ? (
+                    <button
+                      onClick={() => setShowLayerControl(true)}
+                      style={{
+                        backgroundColor: 'transparent',
+                        border: 'none',
+                        padding: '10px 14px',
+                        cursor: 'pointer',
+                        fontSize: '18px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        minWidth: '44px',
+                        minHeight: '44px',
+                        color: '#333'
+                      }}
+                      title="Map Layers"
+                    >
+                      🗺️
+                    </button>
+                  ) : (
+                    <div style={{ padding: '8px' }}>
+                      {Object.values(MAP_STYLES).map((style) => (
+                        <button
+                          key={style.id}
+                          onClick={() => handleChangeMapStyle(style.id)}
+                          disabled={styleLoading || mapStyle === style.id}
+                          style={{
+                            display: 'block',
+                            width: '100%',
+                            padding: '10px 16px',
+                            textAlign: 'left',
+                            border: 'none',
+                            backgroundColor: mapStyle === style.id ? '#e5e7eb' : 'transparent',
+                            cursor: styleLoading || mapStyle === style.id ? 'not-allowed' : 'pointer',
+                            fontSize: '14px',
+                            color: '#333',
+                            fontWeight: mapStyle === style.id ? '600' : 'normal',
+                            transition: 'background-color 0.2s',
+                            whiteSpace: 'nowrap'
+                          }}
+                          onMouseEnter={(e) => {
+                            e.target.style.backgroundColor = mapStyle === style.id ? '#d1d5db' : '#f3f4f6';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.target.style.backgroundColor = mapStyle === style.id ? '#e5e7eb' : 'transparent';
+                          }}
+                        >
+                          <span style={{ marginRight: '8px' }}>{style.icon}</span>
+                          {style.label}
+                        </button>
+                      ))}
+                      {styleLoading ? (
+                        <div style={{ marginTop: '8px', fontSize: '12px', color: '#444' }}>
+                          Switching map view…
+                        </div>
+                      ) : null}
+                      <button
+                        onClick={() => setShowLayerControl(false)}
+                        style={{
+                          display: 'block',
+                          width: '100%',
+                          padding: '10px 16px',
+                          textAlign: 'center',
+                          border: 'none',
+                          backgroundColor: 'transparent',
+                          cursor: 'pointer',
+                          fontSize: '12px',
+                          color: '#666',
+                          borderTop: '1px solid #e5e7eb',
+                          transition: 'background-color 0.2s'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.target.style.backgroundColor = '#f3f4f6';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.style.backgroundColor = 'transparent';
+                        }}
+                      >
+                        Close
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
             )}
           </div>
         </div>
@@ -723,7 +1363,7 @@ export default function MapView() {
                 ))
               ) : (
                 <div className="card p-4 text-center">
-                  <p className="text-slatebody">No locations match this filter.</p>
+                  <p className="text-slatebody">No Travel Share posts found here yet.</p>
                 </div>
               )}
             </div>
