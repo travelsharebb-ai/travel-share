@@ -39,7 +39,7 @@ const profileSettingsSchema = z.object({
   currentPassword: z.string().min(8).optional(),
   newPassword: z.string().min(8).optional(),
   preferences: z.object({
-    defaultLocationVisibility: z.enum(["exact", "approximate", "hidden"]).optional(),
+    defaultLocationVisibility: z.enum(["exact", "approximate", "city", "hidden"]).optional(),
     emailNotifications: z.boolean().optional(),
     uploadAlerts: z.boolean().optional(),
     promotionalEmails: z.boolean().optional()

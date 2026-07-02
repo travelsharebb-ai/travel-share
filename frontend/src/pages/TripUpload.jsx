@@ -9,6 +9,14 @@ export default function TripUpload() {
   const [file, setFile] = useState(null);
   const [caption, setCaption] = useState("");
 
+  const locationPrivacy = mapLocation?.locationVisibility || 'approximate';
+
+  const privacyLabel = locationPrivacy === 'exact'
+    ? 'Exact Location'
+    : locationPrivacy === 'city'
+      ? 'City-Level Only'
+      : 'Approximate Location';
+
   return (
     <main className="page-shell space-y-6">
       <section className="hero-copy-panel">
@@ -30,6 +38,7 @@ export default function TripUpload() {
                 <div><strong>City:</strong> {mapLocation.city || 'Unknown'}</div>
                 <div><strong>Region:</strong> {mapLocation.region || 'Unknown'}</div>
                 <div><strong>Country:</strong> {mapLocation.country || 'Unknown'}</div>
+                <div><strong>Privacy:</strong> {privacyLabel}</div>
                 <div><strong>Latitude:</strong> {mapLocation.latitude != null ? mapLocation.latitude.toFixed(5) : 'Unknown'}</div>
                 <div><strong>Longitude:</strong> {mapLocation.longitude != null ? mapLocation.longitude.toFixed(5) : 'Unknown'}</div>
                 <div><strong>Source:</strong> {mapLocation.source}</div>

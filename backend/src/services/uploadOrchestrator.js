@@ -16,7 +16,7 @@ function parseOptionalFloat(value) {
 function locationData(body = {}) {
   const latitude = parseOptionalFloat(body.latitude);
   const longitude = parseOptionalFloat(body.longitude);
-  const visibility = ["exact", "approximate", "hidden"].includes(body.locationVisibility) ? body.locationVisibility : "approximate";
+  const visibility = ["exact", "approximate", "city", "hidden"].includes(body.locationVisibility) ? body.locationVisibility : "approximate";
   return {
     caption: body.caption?.slice?.(0, 240) || null,
     latitude: visibility === "hidden" ? null : latitude,

@@ -266,6 +266,7 @@ export default function MapView() {
   const [isAddPostMode, setIsAddPostMode] = useState(false);
   const [pendingPostLocation, setPendingPostLocation] = useState(null);
   const [pendingPostAddress, setPendingPostAddress] = useState(null);
+  const [pendingLocationPrivacy, setPendingLocationPrivacy] = useState('approximate');
   const [isReverseGeocoding, setIsReverseGeocoding] = useState(false);
   const [reverseGeocodeError, setReverseGeocodeError] = useState('');
   const pendingPostMarkerRef = useRef(null);
@@ -477,6 +478,7 @@ export default function MapView() {
     setIsAddPostMode(false);
     setPendingPostLocation(null);
     setPendingPostAddress(null);
+    setPendingLocationPrivacy('approximate');
     setReverseGeocodeError('');
     if (pendingPostMarkerRef.current) {
       try {
@@ -1200,6 +1202,7 @@ export default function MapView() {
     setIsAddPostMode(true);
     setPendingPostLocation(null);
     setPendingPostAddress(null);
+    setPendingLocationPrivacy('approximate');
     setReverseGeocodeError('');
   };
 
@@ -1216,6 +1219,7 @@ export default function MapView() {
       city: pendingPostAddress?.city || null,
       region: pendingPostAddress?.region || null,
       country: pendingPostAddress?.country || null,
+      locationVisibility: pendingLocationPrivacy,
       source: 'map'
     };
 
@@ -1502,13 +1506,57 @@ export default function MapView() {
                     <div>
                       <strong>Address:</strong> {pendingPostAddress?.address || 'Coordinates only'}
                     </div>
-                    <div className="text-xs text-slate-400">
-                      Privacy options will be available in Phase 3E.
+                    <div className="space-y-3">
+                      <label className="block text-sm font-semibold text-white">Location privacy</label>
+                      <div className="space-y-2">
+                        <label className="flex items-start gap-3 rounded-2xl border border-slate-700 bg-slate-900 p-3">
+                          <input
+                            type="radio"
+                            name="post-privacy"
+                            value="exact"
+                            checked={pendingLocationPrivacy === 'exact'}
+                            onChange={() => setPendingLocationPrivacy('exact')}
+                            className="mt-1"
+                          />
+                          <div>
+                            <div className="font-semibold text-white">Exact Location</div>
+                            <div className="text-slatebody text-sm">Shows your selected spot on the map.</div>
+                          </div>
+                        </label>
+                        <label className="flex items-start gap-3 rounded-2xl border border-slate-700 bg-slate-900 p-3">
+                          <input
+                            type="radio"
+                            name="post-privacy"
+                            value="approximate"
+                            checked={pendingLocationPrivacy === 'approximate'}
+                            onChange={() => setPendingLocationPrivacy('approximate')}
+                            className="mt-1"
+                          />
+                          <div>
+                            <div className="font-semibold text-white">Approximate Location</div>
+                            <div className="text-slatebody text-sm">Shows a nearby general area, not the exact spot.</div>
+                          </div>
+                        </label>
+                        <label className="flex items-start gap-3 rounded-2xl border border-slate-700 bg-slate-900 p-3">
+                          <input
+                            type="radio"
+                            name="post-privacy"
+                            value="city"
+                            checked={pendingLocationPrivacy === 'city'}
+                            onChange={() => setPendingLocationPrivacy('city')}
+                            className="mt-1"
+                          />
+                          <div>
+                            <div className="font-semibold text-white">City-Level Only</div>
+                            <div className="text-slatebody text-sm">Shows only the city/place area.</div>
+                          </div>
+                        </label>
+                      </div>
                     </div>
                     {reverseGeocodeError ? (
                       <p className="text-xs text-red-400">{reverseGeocodeError}</p>
                     ) : null}
-                    <button onClick={handleConfirmAddPost} className="btn-primary w-full mt-2" disabled={!pendingPostLocation}>
+                    <button onClick={handleConfirmAddPost} className="btn-primary w-full mt-2" disabled={!pendingPostLocation || !pendingLocationPrivacy}>
                       Confirm Location
                     </button>
                     <button onClick={handleCancelAddPost} className="btn-ghost w-full">
