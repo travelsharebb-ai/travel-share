@@ -182,9 +182,10 @@ export default function MapView() {
     setSearchText(suggestion.name);
     setShowSearchSuggestions(false);
 
-    if (!mapRef.current) return;
+      const map = mapRef.current;
+      if (!map) return;
 
-    const [lng, lat] = suggestion.center;
+      const [lng, lat] = suggestion.center;
 
     // Remove previous search result marker if it exists
     if (searchResultMarkerRef.current) {
@@ -206,33 +207,51 @@ export default function MapView() {
     el.style.backgroundPosition = 'center';
     el.style.color = '#ef4444';
 
-    searchResultMarkerRef.current = new mapboxgl.Marker({ element: el })
-      .setLngLat([lng, lat])
-      .setPopup(new mapboxgl.Popup({ offset: 25 }).setHTML(`<strong>${escapeHtml(suggestion.name)}</strong>`))
-      .addTo(mapRef.current);
+      const addSearchResultMarker = () => {
+        searchResultMarkerRef.current = new mapboxgl.Marker({ element: el })
+          .setLngLat([lng, lat])
+          .setPopup(new mapboxgl.Popup({ offset: 25 }).setHTML(`<strong>${escapeHtml(suggestion.name)}</strong>`))
+          .addTo(map);
 
-    const placeType = Array.isArray(suggestion.placeType) ? suggestion.placeType[0] : suggestion.placeType;
-    let zoom = 12;
-    if (placeType === 'country') zoom = 5;
-    else if (placeType === 'region' || placeType === 'district' || placeType === 'postcode') zoom = 6;
-    else if (placeType === 'place' || placeType === 'locality' || placeType === 'neighborhood' || placeType === 'town') zoom = 11;
-    else if (placeType === 'address' || placeType === 'poi' || placeType === 'street') zoom = 15;
+        const placeType = Array.isArray(suggestion.placeType) ? suggestion.placeType[0] : suggestion.placeType;
+        let zoom = 12;
+        if (placeType === 'country') zoom = 5;
+        else if (placeType === 'region' || placeType === 'district' || placeType === 'postcode') zoom = 6;
+        else if (placeType === 'place' || placeType === 'locality' || placeType === 'neighborhood' || placeType === 'town') zoom = 11;
+        else if (placeType === 'address' || placeType === 'poi' || placeType === 'street') zoom = 15;
 
-    if (suggestion.bbox && suggestion.bbox.length === 4) {
-      const [minLng, minLat, maxLng, maxLat] = suggestion.bbox;
-      mapRef.current.fitBounds([[minLng, minLat], [maxLng, maxLat]], {
-        padding: 80,
-        duration: 1000
-      });
-    } else {
-      mapRef.current.flyTo({
-        center: [lng, lat],
-        zoom,
-        essential: true,
-        duration: 1000
-      });
+        if (suggestion.bbox && suggestion.bbox.length === 4) {
+          const [minLng, minLat, maxLng, maxLat] = suggestion.bbox;
+          map.fitBounds([[minLng, minLat], [maxLng, maxLat]], {
+            padding: 80,
+            duration: 1000
+          });
+        } else {
+          map.flyTo({
+            center: [lng, lat],
+            zoom,
+            essential: true,
+            duration: 1000
+          });
+        }
+      };
+
+      if (map.loaded && !map.loaded()) {
+        const handleLoad = () => {
+          addSearchResultMarker();
+          if (typeof map.off === 'function') {
+            try {
+              map.off('load', handleLoad);
+            } catch {
+              // ignore cleanup failures
+            }
+          }
+        };
+        map.on('load', handleLoad);
+      } else {
+        addSearchResultMarker();
+      }
     }
-  }
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const normalMarkersRef = useRef([]);
@@ -411,19 +430,85 @@ export default function MapView() {
   }
 
   function cleanupClusterHandlers(map) {
-    if (!map || !clustersRef.current.added) return;
+    if (!isMapUsable(map) || !clustersRef.current.added) return;
     try {
       const { onClusterClick, onUnclusteredClick, onMouseEnter, onMouseLeave } = clustersRef.current.handlers;
-      if (onClusterClick) map.off('click', 'clusters', onClusterClick);
-      if (onUnclusteredClick) map.off('click', 'unclustered-point', onUnclusteredClick);
-      if (onMouseEnter) map.off('mouseenter', 'clusters', onMouseEnter);
-      if (onMouseLeave) map.off('mouseleave', 'clusters', onMouseLeave);
-      if (onMouseEnter) map.off('mouseenter', 'unclustered-point', onMouseEnter);
-      if (onMouseLeave) map.off('mouseleave', 'unclustered-point', onMouseLeave);
-    } catch (err) {
-      console.error('Error cleaning up cluster handlers:', err);
+      if (onClusterClick) {
+        try {
+          map.off('click', 'clusters', onClusterClick);
+        } catch (err) {
+          // ignore cleanup failures
+        }
+      }
+      if (onUnclusteredClick) {
+        try {
+          map.off('click', 'unclustered-point', onUnclusteredClick);
+        } catch (err) {
+          // ignore cleanup failures
+        }
+      }
+      if (onMouseEnter) {
+        try {
+          map.off('mouseenter', 'clusters', onMouseEnter);
+        } catch (err) {
+          // ignore cleanup failures
+        }
+      }
+      if (onMouseLeave) {
+        try {
+          map.off('mouseleave', 'clusters', onMouseLeave);
+        } catch (err) {
+          // ignore cleanup failures
+        }
+      }
+      if (onMouseEnter) {
+        try {
+          map.off('mouseenter', 'unclustered-point', onMouseEnter);
+        } catch (err) {
+          // ignore cleanup failures
+        }
+      }
+      if (onMouseLeave) {
+        try {
+          map.off('mouseleave', 'unclustered-point', onMouseLeave);
+        } catch (err) {
+          // ignore cleanup failures
+        }
+      }
+    } catch {
+      // ignore cleanup failures
     }
     clustersRef.current = { added: false, handlers: {} };
+  }
+
+  function isMapUsable(map) {
+    return (
+      map &&
+      typeof map.getStyle === 'function' &&
+      typeof map.removeLayer === 'function' &&
+      typeof map.removeSource === 'function' &&
+      typeof map.off === 'function' &&
+      !map._removed
+    );
+  }
+
+  function getSafeStyle(map) {
+    try {
+      if (!isMapUsable(map)) return null;
+      return map.getStyle?.() || null;
+    } catch {
+      return null;
+    }
+  }
+
+  function safeLayerExists(map, layerId) {
+    const style = getSafeStyle(map);
+    return Boolean(style?.layers?.some((layer) => layer.id === layerId));
+  }
+
+  function safeSourceExists(map, sourceId) {
+    const style = getSafeStyle(map);
+    return Boolean(style?.sources?.[sourceId]);
   }
 
   async function reverseGeocodeCoordinates(lat, lng) {
@@ -534,7 +619,7 @@ export default function MapView() {
 
       // Remove old layers if they exist
       ['clusters', 'cluster-count', 'unclustered-point'].forEach((layerId) => {
-        if (map.getLayer(layerId)) {
+        if (safeLayerExists(map, layerId)) {
           try {
             map.removeLayer(layerId);
           } catch (e) {
@@ -544,7 +629,7 @@ export default function MapView() {
       });
 
       // Remove old source if it exists
-      if (map.getSource('locations')) {
+      if (safeSourceExists(map, 'locations')) {
         try {
           map.removeSource('locations');
         } catch (e) {
@@ -886,7 +971,13 @@ export default function MapView() {
       // Re-add standard controls if needed
       addMapControls(map);
 
-      map.off('style.load', handleStyleLoad);
+        if (map && typeof map.off === 'function') {
+          try {
+            map.off('style.load', handleStyleLoad);
+          } catch {
+            // ignore cleanup failures
+          }
+        }
       styleLoadingRef.current = false;
       setStyleLoading(false);
     };
@@ -980,7 +1071,13 @@ export default function MapView() {
 
     map.on('click', handleMapClick);
     return () => {
-      map.off('click', handleMapClick);
+      if (map && typeof map.off === 'function') {
+        try {
+          map.off('click', handleMapClick);
+        } catch {
+          // ignore cleanup failures
+        }
+      }
     };
   }, [isAddPostMode]);
 
@@ -996,7 +1093,13 @@ export default function MapView() {
     map.getCanvas().style.cursor = 'crosshair';
     map.once('click', handleAdminMoveClick);
     return () => {
-      map.off('click', handleAdminMoveClick);
+      if (map && typeof map.off === 'function') {
+        try {
+          map.off('click', handleAdminMoveClick);
+        } catch {
+          // ignore cleanup failures
+        }
+      }
       if (map.getCanvas) map.getCanvas().style.cursor = '';
     };
   }, [adminMoveMode, selectedAdminLocationId]);
@@ -1025,11 +1128,23 @@ export default function MapView() {
     if (!map.loaded()) {
       const handleLoad = () => {
         createMarker();
-        map.off('load', handleLoad);
+        if (map && typeof map.off === 'function') {
+          try {
+            map.off('load', handleLoad);
+          } catch {
+            // ignore cleanup failures
+          }
+        }
       };
       map.on('load', handleLoad);
       return () => {
-        map.off('load', handleLoad);
+        if (map && typeof map.off === 'function') {
+          try {
+            map.off('load', handleLoad);
+          } catch {
+            // ignore cleanup failures
+          }
+        }
       };
     }
 
@@ -1206,25 +1321,65 @@ export default function MapView() {
 
     // Cleanup: remove layers and source on unmount
     return () => {
-      if (!map || !map.getStyle) return;
-      try {
-        if (clustersRef.current.added) {
-          map.off('click', 'clusters', clustersRef.current.handlers.onClusterClick);
-          map.off('click', 'unclustered-point', clustersRef.current.handlers.onUnclusteredClick);
-          map.off('mouseenter', 'clusters', clustersRef.current.handlers.onMouseEnter);
-          map.off('mouseleave', 'clusters', clustersRef.current.handlers.onMouseLeave);
-          map.off('mouseenter', 'unclustered-point', clustersRef.current.handlers.onMouseEnter);
-          map.off('mouseleave', 'unclustered-point', clustersRef.current.handlers.onMouseLeave);
-
-          if (map.getLayer('clusters')) map.removeLayer('clusters');
-          if (map.getLayer('cluster-count')) map.removeLayer('cluster-count');
-          if (map.getLayer('unclustered-point')) map.removeLayer('unclustered-point');
-          if (map.getSource('locations')) map.removeSource('locations');
-          clustersRef.current = { added: false, handlers: {} };
-        }
-      } catch (cleanupErr) {
-        console.error('Error cleaning up clustering layers', cleanupErr);
+      if (!isMapUsable(map)) {
+        clustersRef.current = { added: false, handlers: {} };
+        return;
       }
+
+      if (clustersRef.current.added) {
+        const { onClusterClick, onUnclusteredClick, onMouseEnter, onMouseLeave } = clustersRef.current.handlers;
+        if (onClusterClick) {
+          try {
+            map.off('click', 'clusters', onClusterClick);
+          } catch {}
+        }
+        if (onUnclusteredClick) {
+          try {
+            map.off('click', 'unclustered-point', onUnclusteredClick);
+          } catch {}
+        }
+        if (onMouseEnter) {
+          try {
+            map.off('mouseenter', 'clusters', onMouseEnter);
+          } catch {}
+        }
+        if (onMouseLeave) {
+          try {
+            map.off('mouseleave', 'clusters', onMouseLeave);
+          } catch {}
+        }
+        if (onMouseEnter) {
+          try {
+            map.off('mouseenter', 'unclustered-point', onMouseEnter);
+          } catch {}
+        }
+        if (onMouseLeave) {
+          try {
+            map.off('mouseleave', 'unclustered-point', onMouseLeave);
+          } catch {}
+        }
+      }
+
+      const layerIds = ['clusters', 'cluster-count', 'unclustered-point'];
+      for (const layerId of layerIds) {
+        try {
+          if (safeLayerExists(map, layerId)) {
+            map.removeLayer(layerId);
+          }
+        } catch {
+          // ignore cleanup failures
+        }
+      }
+
+      try {
+        if (safeSourceExists(map, 'locations')) {
+          map.removeSource('locations');
+        }
+      } catch {
+        // ignore cleanup failures
+      }
+
+      clustersRef.current = { added: false, handlers: {} };
     };
   }, [filteredLocations]);
 
@@ -1258,9 +1413,27 @@ export default function MapView() {
         setIsLocating(false);
         // Automatically switch to Nearby filter when location is obtained
         setActiveFilter('nearby');
-        
-        if (mapRef.current && mapRef.current.loaded()) {
-          createUserMarker({ ...nextLocation, source: 'geolocation' });
+        const map = mapRef.current;
+        if (map) {
+          const addLocationMarker = () => {
+            createUserMarker({ ...nextLocation, source: 'geolocation' });
+          };
+
+          if (map.loaded && !map.loaded()) {
+            const handleLoad = () => {
+              addLocationMarker();
+              if (typeof map.off === 'function') {
+                try {
+                  map.off('load', handleLoad);
+                } catch {
+                  // ignore cleanup failures
+                }
+              }
+            };
+            map.on('load', handleLoad);
+          } else {
+            addLocationMarker();
+          }
         }
       },
       (error) => {
