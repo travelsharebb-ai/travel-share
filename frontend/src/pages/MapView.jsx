@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { currentUser } from '../lib/api.js';
+import { api, currentUser } from '../lib/api.js';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
@@ -255,6 +255,43 @@ export default function MapView() {
   const [regionFilter, setRegionFilter] = useState('');
   const [countryOptions, setCountryOptions] = useState([]);
   const [regionOptions, setRegionOptions] = useState([]);
+  const [isAdminView, setIsAdminView] = useState(false);
+  const [adminLocations, setAdminLocations] = useState([]);
+  const [adminLoading, setAdminLoading] = useState(false);
+  const [adminError, setAdminError] = useState('');
+  const [selectedAdminLocationId, setSelectedAdminLocationId] = useState(null);
+  const [selectedAdminLocation, setSelectedAdminLocation] = useState(null);
+  const [adminMoveMode, setAdminMoveMode] = useState(false);
+  const [adminPendingMove, setAdminPendingMove] = useState(null);
+  const [adminActionError, setAdminActionError] = useState('');
+
+  const isAdminUser = ["admin", "platform_admin"].includes(currentUser()?.role);
+
+  function normalizeAdminLocation(item) {
+    const preview = Array.isArray(item.uploads) && item.uploads.length ? item.uploads[0] : null;
+    const eventCount = preview?.eventId ? 1 : 0;
+    const tripCount = preview?.tripId ? 1 : 0;
+    const photoCount = item._count?.uploads || 0;
+    const normalizedType = eventCount ? 'event' : tripCount ? 'trip' : photoCount ? 'photo' : null;
+    return {
+      id: item.id,
+      title: item.name,
+      description: item.address,
+      type: normalizedType,
+      lat: item.latitude,
+      lng: item.longitude,
+      country: null,
+      city: null,
+      imageUrl: preview?.fileUrl || null,
+      previewTitle: preview?.caption || null,
+      previewUser: null,
+      previewCreatedAt: preview?.createdAt ? new Date(preview.createdAt) : null,
+      hasPhoto: photoCount > 0,
+      raw: item,
+      featured: item.featured,
+      hidden: item.hidden
+    };
+  }
   const [mapStyle, setMapStyle] = useState(DEFAULT_MAP_STYLE);
   const [showLayerControl, setShowLayerControl] = useState(false);
   const mapLoadedRef = useRef(false);
@@ -653,6 +690,7 @@ export default function MapView() {
             previewTitle,
             previewUser,
             previewCreatedAt,
+            featured: item?.featured || false,
             eventId: eventCount > 0 ? null : null,
             tripId: tripCount > 0 ? null : null,
             hasPhoto: photoCount > 0,
@@ -674,8 +712,47 @@ export default function MapView() {
     loadLocations();
   }, []);
 
+  useEffect(() => {
+    if (!isAdminUser || !isAdminView) return;
+    async function loadAdminLocations() {
+      setAdminLoading(true);
+      setAdminError('');
+      try {
+        const data = await api('/api/admin/map/locations');
+        setAdminLocations(Array.isArray(data.locations) ? data.locations.map(normalizeAdminLocation) : []);
+      } catch (err) {
+        console.error('Failed to load admin map locations', err);
+        setAdminError('Unable to load admin map locations.');
+        setAdminLocations([]);
+      } finally {
+        setAdminLoading(false);
+      }
+    }
+    loadAdminLocations();
+  }, [isAdminUser, isAdminView]);
+
+  useEffect(() => {
+    if (!selectedAdminLocationId) {
+      setSelectedAdminLocation(null);
+      return;
+    }
+    async function loadLocationDetails() {
+      setAdminError('');
+      try {
+        const data = await api(`/api/admin/map/locations/${selectedAdminLocationId}`);
+        setSelectedAdminLocation(data.location || null);
+      } catch (err) {
+        console.error('Failed to load selected admin location', err);
+        setAdminError('Unable to load selected location details.');
+        setSelectedAdminLocation(null);
+      }
+    }
+    loadLocationDetails();
+  }, [selectedAdminLocationId]);
+
   // Define filteredLocations early, before any effects that use it
-  const filteredLocations = locations.filter((location) => {
+  const effectiveLocations = isAdminView ? adminLocations : locations;
+  const filteredLocations = effectiveLocations.filter((location) => {
     const searchValue = localSearchText.trim().toLowerCase();
     const searchableText = [
       location.title,
@@ -906,6 +983,23 @@ export default function MapView() {
       map.off('click', handleMapClick);
     };
   }, [isAddPostMode]);
+
+  useEffect(() => {
+    if (!mapRef.current || !adminMoveMode || !selectedAdminLocationId) return;
+    const map = mapRef.current;
+    setAdminActionError('');
+    const handleAdminMoveClick = (e) => {
+      if (!e.lngLat) return;
+      setAdminPendingMove({ lat: e.lngLat.lat, lng: e.lngLat.lng });
+      setAdminMoveMode(false);
+    };
+    map.getCanvas().style.cursor = 'crosshair';
+    map.once('click', handleAdminMoveClick);
+    return () => {
+      map.off('click', handleAdminMoveClick);
+      if (map.getCanvas) map.getCanvas().style.cursor = '';
+    };
+  }, [adminMoveMode, selectedAdminLocationId]);
 
   useEffect(() => {
     return () => {
@@ -1198,6 +1292,70 @@ export default function MapView() {
     navigate('/scan');
   };
 
+  const refreshAdminLocations = async () => {
+    if (!isAdminUser) return;
+    setAdminError('');
+    setAdminLoading(true);
+    try {
+      const data = await api('/api/admin/map/locations');
+      setAdminLocations(Array.isArray(data.locations) ? data.locations.map(normalizeAdminLocation) : []);
+    } catch (err) {
+      console.error('Failed to refresh admin map locations', err);
+      setAdminError('Unable to refresh admin locations.');
+    } finally {
+      setAdminLoading(false);
+    }
+  };
+
+  const handleAdminUpdateLocation = async (patchData) => {
+    if (!selectedAdminLocationId) return;
+    setAdminError('');
+    try {
+      await api(`/api/admin/map/locations/${selectedAdminLocationId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(patchData)
+      });
+      await refreshAdminLocations();
+      const refreshed = await api(`/api/admin/map/locations/${selectedAdminLocationId}`);
+      setSelectedAdminLocation(refreshed.location || null);
+    } catch (err) {
+      console.error('Admin location update failed', err);
+      setAdminError(err.message || 'Location update failed.');
+    }
+  };
+
+  const handleAdminDeleteLocation = async () => {
+    if (!selectedAdminLocationId) return;
+    setAdminError('');
+    try {
+      await api(`/api/admin/map/locations/${selectedAdminLocationId}`, { method: 'DELETE' });
+      await refreshAdminLocations();
+      setSelectedAdminLocationId(null);
+      setSelectedAdminLocation(null);
+    } catch (err) {
+      console.error('Admin delete failed', err);
+      setAdminError(err.message || 'Location hide failed.');
+    }
+  };
+
+  const handleAdminUploadAction = async (uploadId, action, locationVisibility) => {
+    setAdminError('');
+    try {
+      await api(`/api/admin/map/uploads/${uploadId}/moderation`, {
+        method: 'PATCH',
+        body: JSON.stringify({ action, locationVisibility })
+      });
+      if (selectedAdminLocationId) {
+        const refreshed = await api(`/api/admin/map/locations/${selectedAdminLocationId}`);
+        setSelectedAdminLocation(refreshed.location || null);
+      }
+      await refreshAdminLocations();
+    } catch (err) {
+      console.error('Admin upload moderation action failed', err);
+      setAdminError(err.message || 'Upload moderation failed.');
+    }
+  };
+
   const handleStartAddPost = () => {
     setIsAddPostMode(true);
     setPendingPostLocation(null);
@@ -1483,6 +1641,140 @@ export default function MapView() {
             <button onClick={handleDiscoverEvents} className="btn-indigo w-full">🎯 Discover Events</button>
             <button onClick={handleScanQR} className="btn-ghost w-full">📱 Scan QR</button>
 
+            {isAdminUser ? (
+              <div className="card p-4 bg-slate-950/90 border border-slate-800">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <p className="text-sm uppercase tracking-wide text-primary">Admin Tools</p>
+                    <p className="text-xs text-slatebody">Manage map pins and moderation.</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setIsAdminView(!isAdminView);
+                      setSelectedAdminLocationId(null);
+                      setSelectedAdminLocation(null);
+                      setAdminPendingMove(null);
+                      setAdminActionError('');
+                    }}
+                    className={`px-3 py-2 rounded-full text-xs font-semibold ${isAdminView ? 'bg-primary text-slate-950' : 'bg-slate-700 text-white'}`}
+                  >
+                    {isAdminView ? 'Active' : 'Activate'}
+                  </button>
+                </div>
+                {isAdminView ? (
+                  <div className="space-y-3">
+                    {adminError ? <div className="text-sm text-red-400">{adminError}</div> : null}
+                    <div>
+                      <label className="block text-sm font-semibold text-white mb-2">Select pin</label>
+                      <select
+                        value={selectedAdminLocationId || ''}
+                        onChange={(e) => setSelectedAdminLocationId(e.target.value || null)}
+                        className="field w-full"
+                      >
+                        <option value="">Choose a location</option>
+                        {adminLocations.map((loc) => (
+                          <option key={loc.id} value={loc.id}>
+                            {loc.title || 'Untitled'} {loc.hidden ? '(hidden)' : ''} {loc.featured ? '★' : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    {selectedAdminLocation ? (
+                      <div className="space-y-3">
+                        <div className="text-sm text-slatebody">
+                          <div><strong>Name:</strong> {selectedAdminLocation.name}</div>
+                          <div><strong>Address:</strong> {selectedAdminLocation.address || 'None'}</div>
+                          <div><strong>Coordinates:</strong> {selectedAdminLocation.latitude?.toFixed(5) ?? 'N/A'}, {selectedAdminLocation.longitude?.toFixed(5) ?? 'N/A'}</div>
+                          <div><strong>Status:</strong> {selectedAdminLocation.hidden ? 'Hidden' : 'Visible'}{selectedAdminLocation.featured ? ' · Featured' : ''}</div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            onClick={() => handleAdminUpdateLocation({ hidden: !selectedAdminLocation.hidden })}
+                            className="btn-ghost w-full"
+                          >
+                            {selectedAdminLocation.hidden ? 'Unhide pin' : 'Hide pin'}
+                          </button>
+                          <button
+                            onClick={() => handleAdminUpdateLocation({ featured: !selectedAdminLocation.featured })}
+                            className="btn-ghost w-full"
+                          >
+                            {selectedAdminLocation.featured ? 'Unfeature pin' : 'Feature pin'}
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            onClick={() => setAdminMoveMode(true)}
+                            disabled={!selectedAdminLocation}
+                            className="btn-primary w-full"
+                          >
+                            Move pin
+                          </button>
+                          <button
+                            onClick={handleAdminDeleteLocation}
+                            className="btn-danger w-full"
+                          >
+                            Hide from map
+                          </button>
+                        </div>
+                        {adminMoveMode ? (
+                          <div className="text-sm text-slatebody">
+                            Click a new location on the map to move the selected pin.
+                            {adminPendingMove ? (
+                              <div className="mt-2 text-white">
+                                New coordinates: {adminPendingMove.lat.toFixed(5)}, {adminPendingMove.lng.toFixed(5)}
+                                <button
+                                  onClick={() => handleAdminUpdateLocation({ latitude: adminPendingMove.lat, longitude: adminPendingMove.lng })}
+                                  className="btn-ghost w-full mt-2"
+                                >
+                                  Confirm move
+                                </button>
+                                <button
+                                  onClick={() => setAdminPendingMove(null)}
+                                  className="btn-ghost w-full"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            ) : null}
+                          </div>
+                        ) : null}
+                        {selectedAdminLocation.uploads && selectedAdminLocation.uploads.length > 0 ? (
+                          <div className="space-y-2 pt-3 border-t border-slate-700">
+                            <div className="text-sm font-semibold text-white">Recent uploads</div>
+                            {selectedAdminLocation.uploads.slice(0, 5).map((upload) => (
+                              <div key={upload.id} className="rounded-lg border border-slate-700 p-3 bg-slate-900">
+                                <div className="text-sm mb-1">{upload.caption || upload.fileType || 'Upload'}</div>
+                                <div className="text-xs text-slatebody mb-2">{upload.status} • {upload.locationVisibility}</div>
+                                <div className="grid grid-cols-2 gap-2">
+                                  <button
+                                    onClick={() => handleAdminUploadAction(upload.id, 'approve')}
+                                    className="btn-ghost w-full"
+                                  >Approve</button>
+                                  <button
+                                    onClick={() => handleAdminUploadAction(upload.id, 'reject')}
+                                    className="btn-ghost w-full"
+                                  >Reject</button>
+                                  <button
+                                    onClick={() => handleAdminUploadAction(upload.id, upload.locationVisibility === 'hidden' ? 'unhide' : 'hide')}
+                                    className="btn-ghost w-full"
+                                  >{upload.locationVisibility === 'hidden' ? 'Unhide' : 'Hide'}</button>
+                                  <button
+                                    onClick={() => handleAdminUploadAction(upload.id, upload.locationId ? 'feature' : 'unfeature')}
+                                    className="btn-ghost w-full"
+                                    disabled={!upload.locationId}
+                                  >Feature</button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
             {isLocating && (
               <div className="card p-4 text-center">
                 <p className="text-slatebody text-sm">Finding your location…</p>
@@ -1596,9 +1888,14 @@ export default function MapView() {
                   <div key={location.id ?? `${location.title}-${location.type}`} className="card p-4">
                     <div className="flex items-center justify-between mb-2">
                       <h3 className="font-semibold text-white">{location.title || 'Untitled location'}</h3>
-                      <span className="text-xs uppercase tracking-wide text-primary">
+                          <span className="text-xs uppercase tracking-wide text-primary">
                         {location.type || 'location'}
                       </span>
+                          {location.featured ? (
+                            <span className="ml-2 text-xs uppercase tracking-wide text-amber-300">
+                              ★ Featured
+                            </span>
+                          ) : null}
                     </div>
                     {location.imageUrl ? (
                       <div className="mb-3">

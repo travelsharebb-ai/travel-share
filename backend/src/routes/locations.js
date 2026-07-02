@@ -35,6 +35,7 @@ router.get("/", async (req, res, next) => {
   try {
     const where = {};
     if (req.query.userId) where.userId = String(req.query.userId);
+    where.hidden = false;
     const items = await prisma.location.findMany({
       where,
       orderBy: { createdAt: "desc" },
@@ -146,7 +147,7 @@ router.get("/:id", async (req, res, next) => {
   try {
     const id = req.params.id;
     const location = await prisma.location.findUnique({ where: { id } });
-    if (!location) return res.status(404).json({ error: "Location not found." });
+    if (!location || location.hidden) return res.status(404).json({ error: "Location not found." });
     const publicUpload = await prisma.upload.findFirst({
       where: {
         locationId: id,
