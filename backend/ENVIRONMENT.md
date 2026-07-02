@@ -11,8 +11,8 @@
 - `FINGERPRINT_SECRET`: Secret used to generate uploader fingerprints and prevent counterfeit sessions.
 - `REDIS_URL`: Recommended for optional Redis-backed rate limiting and caching. If unset, the app falls back to in-memory rate limiting.
 - `PAYMENT_PROVIDER`: Default payment routing provider, for example `planned_stripe`.
-- `GUEST_ACCESS_DAYS`: Number of days a guest session is active before entering grace.
-- `GUEST_DELETION_DAYS`: Number of days after guest creation before expired guest data is eligible for cleanup.
+ - `GUEST_ACCESS_DAYS`: Number of days a guest session is active before entering the grace period.
+ - `GUEST_DELETION_DAYS`: Total number of days after guest session creation before the guest is considered expired and eligible for cleanup. Example: with `GUEST_ACCESS_DAYS=3` and `GUEST_DELETION_DAYS=14` the guest is active on days 0–3, in a grace period on days 3–14, and eligible for cleanup after day 14.
 
 ## Optional / Provider Dependent
 
@@ -34,7 +34,7 @@
 - `MODERATION_PROVIDER`: Optional moderation provider switch.
 - `MAX_UPLOAD_SIZE_MB`: Upload limit. Default: `50`.
 - `BACKGROUND_VIDEO_URL`: Default public landing/auth background video URL.
- - `GUEST_DELETION_DAYS`: Number of days after guest expiry to permanently remove guest-owned data. Default: `14`.
+ - `GUEST_DELETION_DAYS`: Total number of days after guest session creation (active + grace) before guest-owned data may be permanently removed. Default: `14`.
 - `BACKUP_S3_BUCKET`: S3 bucket used by `scripts/db-backup.sh`.
 - `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`: Required by AWS CLI for backups/restores.
 - `S3_BUCKET`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_ENDPOINT`, `S3_PUBLIC_BASE_URL`: Required only when `STORAGE_PROVIDER=s3`.
@@ -149,11 +149,13 @@ To remove expired guest sessions and their guest-owned data (albums, uploads, QR
 
 ```bash
 cd backend
-# optional: set custom deletion window in days
+# optional: set custom total guest lifetime (in days) used as the cleanup cutoff
+# this value represents days since guest session creation; guests older than this
+# value are eligible for purge
 GUEST_DELETION_DAYS=14 npm run cleanup:guests
 ```
 
-The script uses the environment variable `GUEST_DELETION_DAYS` (or the `guestDeletionDays` `PlatformSetting`) to decide which guest sessions to purge. It will not remove public map aggregates or non-guest-owned data.
+The script uses the environment variable `GUEST_DELETION_DAYS` (or the `guestDeletionDays` `PlatformSetting`) as the total guest lifetime (days since session creation) to decide which guest sessions to purge. It will not remove public map aggregates or non-guest-owned data.
 
 You can also update these via the admin API (authenticated admin) with `PATCH /api/admin/settings` sending JSON with key/value pairs, for example:
 
