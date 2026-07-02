@@ -4,6 +4,51 @@ import { prisma } from "../utils/prisma.js";
 
 const router = Router();
 
+function normalizeSafeCoordinates(upload) {
+  if (!upload || upload.locationVisibility === 'hidden') return { latitude: null, longitude: null };
+  const hasExact = upload.locationVisibility === 'exact';
+  const hasApproximate = upload.locationVisibility === 'approximate';
+  const hasCity = upload.locationVisibility === 'city';
+  const baseLat = upload.latitude ?? upload.approximateLatitude ?? null;
+  const baseLng = upload.longitude ?? upload.approximateLongitude ?? null;
+
+  if (hasExact) {
+    return { latitude: upload.latitude, longitude: upload.longitude };
+  }
+  if (hasApproximate) {
+    return {
+      latitude: upload.approximateLatitude ?? (baseLat !== null ? Math.round(baseLat * 100) / 100 : null),
+      longitude: upload.approximateLongitude ?? (baseLng !== null ? Math.round(baseLng * 100) / 100 : null)
+    };
+  }
+  if (hasCity) {
+    return {
+      latitude: baseLat !== null ? Math.round(baseLat * 10) / 10 : null,
+      longitude: baseLng !== null ? Math.round(baseLng * 10) / 10 : null
+    };
+  }
+
+  return {
+    latitude: upload.approximateLatitude ?? upload.latitude ?? null,
+    longitude: upload.approximateLongitude ?? upload.longitude ?? null
+  };
+}
+
+function sanitizeReplayTitle(upload) {
+  if (upload.caption) return upload.caption;
+  if (upload.locationName) return upload.locationName;
+  if (upload.region && upload.country) return `${upload.region}, ${upload.country}`;
+  if (upload.region) return upload.region;
+  if (upload.country) return upload.country;
+  return "Travel memory";
+}
+
+function clampLimit(value) {
+  const limit = Number(value ?? 200);
+  if (!Number.isFinite(limit) || limit <= 0) return 200;
+  return Math.min(1000, Math.max(1, Math.trunc(limit)));
+}
+
 // Create a location
 router.post("/", async (req, res, next) => {
   try {
@@ -141,6 +186,105 @@ router.get("/", async (req, res, next) => {
     next(error);
   }
 });
+
+  router.get("/heatmap", async (req, res, next) => {
+    try {
+      const limit = clampLimit(req.query.limit);
+      const uploads = await prisma.upload.findMany({
+        where: {
+          status: 'approved',
+          locationVisibility: { not: 'hidden' }
+        },
+        select: {
+          locationVisibility: true,
+          locationName: true,
+          region: true,
+          country: true,
+          latitude: true,
+          longitude: true,
+          approximateLatitude: true,
+          approximateLongitude: true
+        },
+        orderBy: { createdAt: 'desc' },
+        take: limit
+      });
+
+      const groups = new Map();
+      for (const upload of uploads) {
+        const coords = normalizeSafeCoordinates(upload);
+        if (coords.latitude === null || coords.longitude === null) continue;
+        const key = `${coords.latitude}:${coords.longitude}`;
+        const existing = groups.get(key) || {
+          latitude: coords.latitude,
+          longitude: coords.longitude,
+          weight: 0,
+          count: 0,
+          city: upload.locationName || null,
+          region: upload.region || null,
+          country: null
+        };
+        existing.weight += 1;
+        existing.count += 1;
+        groups.set(key, existing);
+      }
+
+      res.json({ heatmap: Array.from(groups.values()) });
+    } catch (error) {
+      console.error('Heatmap endpoint error:', error);
+      res.status(200).json({ heatmap: [] });
+    }
+  });
+
+  router.get("/replay", async (req, res, next) => {
+    try {
+      const limit = clampLimit(req.query.limit);
+      const uploads = await prisma.upload.findMany({
+        where: {
+          status: 'approved',
+          locationVisibility: { not: 'hidden' }
+        },
+        select: {
+          id: true,
+          createdAt: true,
+          fileType: true,
+          caption: true,
+          locationName: true,
+          region: true,
+          country: true,
+          latitude: true,
+          longitude: true,
+          approximateLatitude: true,
+          approximateLongitude: true,
+          locationVisibility: true
+        },
+        orderBy: { createdAt: 'asc' },
+        take: limit
+      });
+
+      const replay = uploads
+        .map((upload) => {
+          const coords = normalizeSafeCoordinates(upload);
+          if (coords.latitude === null || coords.longitude === null) return null;
+          return {
+            id: upload.id,
+            latitude: coords.latitude,
+            longitude: coords.longitude,
+            timestamp: upload.createdAt,
+            type: upload.fileType || 'photo',
+            title: sanitizeReplayTitle(upload),
+            city: upload.locationName || null,
+            region: upload.region || null,
+            country: null
+          };
+        })
+        .filter(Boolean);
+
+      res.json({ replay });
+    } catch (error) {
+      console.error('Replay endpoint error:', error);
+      res.status(200).json({ replay: [] });
+    }
+  });
 
 // Get a single location and its photos
 router.get("/:id", async (req, res, next) => {

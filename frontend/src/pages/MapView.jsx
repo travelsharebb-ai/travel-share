@@ -138,7 +138,7 @@ export default function MapView() {
       return;
     }
 
-    const proximity = userLocation ? `${userLocation.lng},${userLocation.lat}` : '-59.54,13.19'; // Barbados center as a soft ranking hint only
+    const proximity = userLocation ? `${userLocation.longitude},${userLocation.latitude}` : '-59.54,13.19'; // Barbados center as a soft ranking hint only
     const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${token}&autocomplete=true&proximity=${proximity}&limit=5`;
 
     fetch(url)
@@ -267,6 +267,7 @@ export default function MapView() {
   const [userLocation, setUserLocation] = useState(null);
   const [isLocating, setIsLocating] = useState(false);
   const [geolocationError, setGeolocationError] = useState('');
+  const [locationStatusMessage, setLocationStatusMessage] = useState('');
   const [mapError, setMapError] = useState('');
   const [searchSuggestions, setSearchSuggestions] = useState([]);
   const [showSearchSuggestions, setShowSearchSuggestions] = useState(false);
@@ -319,6 +320,14 @@ export default function MapView() {
   const searchResultMarkerRef = useRef(null);
   const styleLoadingRef = useRef(false);
   const [styleLoading, setStyleLoading] = useState(false);
+  const replayTimerRef = useRef(null);
+  const [mapMode, setMapMode] = useState('pins');
+  const [heatmapPoints, setHeatmapPoints] = useState([]);
+  const [replayPoints, setReplayPoints] = useState([]);
+  const [overlayError, setOverlayError] = useState('');
+  const [replayIndex, setReplayIndex] = useState(0);
+  const [replayPlaying, setReplayPlaying] = useState(false);
+  const [replaySpeed, setReplaySpeed] = useState(1);
   const [isAddPostMode, setIsAddPostMode] = useState(false);
   const [pendingPostLocation, setPendingPostLocation] = useState(null);
   const [pendingPostAddress, setPendingPostAddress] = useState(null);
@@ -338,8 +347,10 @@ export default function MapView() {
     }
   }, [mapStyle]);
 
-  const createUserMarker = ({ lat, lng, accuracy, source }) => {
-    if (lat == null || lng == null || !mapRef.current) return;
+  const createUserMarker = ({ lat, lng, latitude, longitude, accuracy, source }) => {
+    const markerLat = latitude ?? lat;
+    const markerLng = longitude ?? lng;
+    if (markerLat == null || markerLng == null || !mapRef.current) return;
     if (userMarkerRef.current) {
       try {
         userMarkerRef.current.remove();
@@ -377,7 +388,7 @@ export default function MapView() {
       anchor: 'center',
       offset: [0, 0]
     })
-      .setLngLat([lng, lat])
+      .setLngLat([markerLng, markerLat])
       .setPopup(
         new mapboxgl.Popup({ offset: 20 }).setHTML(
           `<strong>You are here</strong><br/>Accuracy: about ${Math.round(accuracy || 0)} meters`
@@ -391,10 +402,10 @@ export default function MapView() {
 
     if (mapRef.current) {
       try {
-        if (source === 'geolocation') {
+        if (source === 'geolocation' || source === 'saved') {
           mapRef.current.flyTo({
-            center: [lng, lat],
-            zoom: 17,
+            center: [markerLng, markerLat],
+            zoom: 14,
             essential: true
           });
         }
@@ -509,6 +520,186 @@ export default function MapView() {
   function safeSourceExists(map, sourceId) {
     const style = getSafeStyle(map);
     return Boolean(style?.sources?.[sourceId]);
+  }
+
+  function buildHeatmapGeoJSON(points) {
+    return {
+      type: 'FeatureCollection',
+      features: points
+        .filter((point) => point.latitude != null && point.longitude != null)
+        .map((point, index) => ({
+          type: 'Feature',
+          geometry: { type: 'Point', coordinates: [point.longitude, point.latitude] },
+          properties: {
+            id: point.id || index,
+            weight: point.weight || point.count || 1
+          }
+        }))
+    };
+  }
+
+  function buildReplayTrailGeoJSON(index) {
+    return {
+      type: 'FeatureCollection',
+      features: replayPoints
+        .slice(0, index + 1)
+        .filter((point) => point.latitude != null && point.longitude != null)
+        .map((point, idx) => ({
+          type: 'Feature',
+          geometry: { type: 'Point', coordinates: [point.longitude, point.latitude] },
+          properties: {
+            id: point.id || idx
+          }
+        }))
+    };
+  }
+
+  function buildReplayCurrentGeoJSON(index) {
+    const point = replayPoints[index];
+    if (!point || point.latitude == null || point.longitude == null) {
+      return { type: 'FeatureCollection', features: [] };
+    }
+    return {
+      type: 'FeatureCollection',
+      features: [{
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [point.longitude, point.latitude] },
+        properties: { id: point.id }
+      }]
+    };
+  }
+
+  function removeHeatmapOverlay(map) {
+    if (!isMapUsable(map)) return;
+    if (safeLayerExists(map, 'heatmap-layer')) {
+      try { map.removeLayer('heatmap-layer'); } catch {}
+    }
+    if (safeSourceExists(map, 'heatmap-points')) {
+      try { map.removeSource('heatmap-points'); } catch {}
+    }
+  }
+
+  function removeReplayOverlay(map) {
+    if (!isMapUsable(map)) return;
+    ['replay-trail', 'replay-current'].forEach((layerId) => {
+      if (safeLayerExists(map, layerId)) {
+        try { map.removeLayer(layerId); } catch {}
+      }
+    });
+    ['replay-trail-source', 'replay-current-source'].forEach((sourceId) => {
+      if (safeSourceExists(map, sourceId)) {
+        try { map.removeSource(sourceId); } catch {}
+      }
+    });
+  }
+
+  function addHeatmapOverlay(map) {
+    if (!isMapUsable(map) || !heatmapPoints.length) return;
+    const data = buildHeatmapGeoJSON(heatmapPoints);
+    if (safeSourceExists(map, 'heatmap-points')) {
+      try { map.getSource('heatmap-points').setData(data); } catch {}
+    } else {
+      try {
+        map.addSource('heatmap-points', { type: 'geojson', data });
+      } catch (err) {
+        console.error('Failed to add heatmap source:', err);
+      }
+    }
+    if (!safeLayerExists(map, 'heatmap-layer')) {
+      try {
+        map.addLayer({
+          id: 'heatmap-layer',
+          type: 'heatmap',
+          source: 'heatmap-points',
+          maxzoom: 15,
+          paint: {
+            'heatmap-weight': ['interpolate', ['linear'], ['get', 'weight'], 0, 0, 10, 1],
+            'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 0, 1, 9, 3],
+            'heatmap-color': [
+              'interpolate',
+              ['linear'],
+              ['heatmap-density'],
+              0, 'rgba(59, 130, 246, 0)',
+              0.2, 'rgba(59, 130, 246, 0.25)',
+              0.4, 'rgba(37, 99, 235, 0.45)',
+              0.6, 'rgba(79, 70, 229, 0.6)',
+              1, 'rgba(124, 58, 237, 0.8)'
+            ],
+            'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 0, 12, 9, 40],
+            'heatmap-opacity': 0.7
+          }
+        });
+      } catch (err) {
+        console.error('Failed to add heatmap layer:', err);
+      }
+    }
+  }
+
+  function addReplayOverlay(map) {
+    if (!isMapUsable(map) || !replayPoints.length) return;
+    const trailData = buildReplayTrailGeoJSON(replayIndex);
+    const currentData = buildReplayCurrentGeoJSON(replayIndex);
+    if (safeSourceExists(map, 'replay-trail-source')) {
+      try { map.getSource('replay-trail-source').setData(trailData); } catch {}
+    } else {
+      try { map.addSource('replay-trail-source', { type: 'geojson', data: trailData }); } catch (err) { console.error('Failed to add replay trail source:', err); }
+    }
+    if (safeSourceExists(map, 'replay-current-source')) {
+      try { map.getSource('replay-current-source').setData(currentData); } catch {}
+    } else {
+      try { map.addSource('replay-current-source', { type: 'geojson', data: currentData }); } catch (err) { console.error('Failed to add replay current source:', err); }
+    }
+    if (!safeLayerExists(map, 'replay-trail')) {
+      try {
+        map.addLayer({
+          id: 'replay-trail',
+          type: 'line',
+          source: 'replay-trail-source',
+          layout: { 'line-join': 'round', 'line-cap': 'round' },
+          paint: {
+            'line-color': '#60a5fa',
+            'line-opacity': 0.85,
+            'line-width': 4
+          }
+        });
+      } catch (err) {
+        console.error('Failed to add replay trail layer:', err);
+      }
+    }
+    if (!safeLayerExists(map, 'replay-current')) {
+      try {
+        map.addLayer({
+          id: 'replay-current',
+          type: 'circle',
+          source: 'replay-current-source',
+          paint: {
+            'circle-radius': 10,
+            'circle-color': '#38bdf8',
+            'circle-stroke-color': '#ffffff',
+            'circle-stroke-width': 2
+          }
+        });
+      } catch (err) {
+        console.error('Failed to add replay current layer:', err);
+      }
+    }
+  }
+
+  function restoreActiveOverlay(map) {
+    if (!isMapUsable(map)) return;
+    if (mapMode === 'heatmap') {
+      addHeatmapOverlay(map);
+    } else if (mapMode === 'replay') {
+      addReplayOverlay(map);
+    }
+  }
+
+  function handleMapModeChange(newMode) {
+    setMapMode(newMode);
+    if (newMode !== 'replay') {
+      setReplayPlaying(false);
+      setReplayIndex(0);
+    }
   }
 
   async function reverseGeocodeCoordinates(lat, lng) {
@@ -817,6 +1008,105 @@ export default function MapView() {
   }, [isAdminUser, isAdminView]);
 
   useEffect(() => {
+    const apiBase = import.meta.env.VITE_API_URL || '';
+
+    async function loadOverlayData() {
+      try {
+        const results = await Promise.allSettled([
+          fetch(`${apiBase}/api/locations/heatmap?limit=500`),
+          fetch(`${apiBase}/api/locations/replay?limit=500`)
+        ]);
+
+        let hadOverlayError = false;
+
+        if (results[0].status === 'fulfilled' && results[0].value.ok) {
+          try {
+            const heatmapBody = await results[0].value.json();
+            setHeatmapPoints(Array.isArray(heatmapBody.heatmap) ? heatmapBody.heatmap : []);
+          } catch (heatmapParseError) {
+            console.error('Failed to parse heatmap overlay response:', heatmapParseError);
+            setHeatmapPoints([]);
+            hadOverlayError = true;
+          }
+        } else {
+          console.error('Failed to load heatmap overlay data:', results[0].status === 'rejected' ? results[0].reason : results[0].value);
+          setHeatmapPoints([]);
+          hadOverlayError = true;
+        }
+
+        if (results[1].status === 'fulfilled' && results[1].value.ok) {
+          try {
+            const replayBody = await results[1].value.json();
+            setReplayPoints(Array.isArray(replayBody.replay) ? replayBody.replay : []);
+          } catch (replayParseError) {
+            console.error('Failed to parse replay overlay response:', replayParseError);
+            setReplayPoints([]);
+            hadOverlayError = true;
+          }
+        } else {
+          console.error('Failed to load replay overlay data:', results[1].status === 'rejected' ? results[1].reason : results[1].value);
+          setReplayPoints([]);
+          hadOverlayError = true;
+        }
+
+        setOverlayError(hadOverlayError ? 'Heatmap/replay data is unavailable right now.' : '');
+      } catch (err) {
+        console.error('Failed to load heatmap/replay data:', err);
+        setHeatmapPoints([]);
+        setReplayPoints([]);
+        setOverlayError('Heatmap/replay data is unavailable right now.');
+      }
+    }
+    loadOverlayData();
+  }, []);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !isMapUsable(map) || !map.isStyleLoaded?.()) return;
+    if (mapMode === 'heatmap') {
+      removeReplayOverlay(map);
+      addHeatmapOverlay(map);
+    } else if (mapMode === 'replay') {
+      removeHeatmapOverlay(map);
+      addReplayOverlay(map);
+    } else {
+      removeHeatmapOverlay(map);
+      removeReplayOverlay(map);
+    }
+  }, [mapMode, heatmapPoints, replayPoints, replayIndex]);
+
+  useEffect(() => {
+    if (!replayPlaying || mapMode !== 'replay' || replayPoints.length === 0) {
+      if (replayTimerRef.current) {
+        window.clearInterval(replayTimerRef.current);
+        replayTimerRef.current = null;
+      }
+      return;
+    }
+    if (replayIndex >= replayPoints.length - 1) {
+      setReplayPlaying(false);
+      return;
+    }
+    const intervalMs = 1200 / Math.max(replaySpeed, 1);
+    replayTimerRef.current = window.setInterval(() => {
+      setReplayIndex((current) => {
+        if (current >= replayPoints.length - 1) {
+          window.clearInterval(replayTimerRef.current);
+          replayTimerRef.current = null;
+          return current;
+        }
+        return current + 1;
+      });
+    }, intervalMs);
+    return () => {
+      if (replayTimerRef.current) {
+        window.clearInterval(replayTimerRef.current);
+        replayTimerRef.current = null;
+      }
+    };
+  }, [replayPlaying, replaySpeed, replayPoints.length, mapMode]);
+
+  useEffect(() => {
     if (!selectedAdminLocationId) {
       setSelectedAdminLocation(null);
       return;
@@ -917,6 +1207,8 @@ export default function MapView() {
 
     cleanupClusterHandlers(map);
     controlsAddedRef.current = false;
+    removeHeatmapOverlay(map);
+    removeReplayOverlay(map);
     // Set new style with stable reload
     map.setStyle(newStyle.url, { diff: false });
 
@@ -970,6 +1262,7 @@ export default function MapView() {
 
       // Re-add standard controls if needed
       addMapControls(map);
+      restoreActiveOverlay(map);
 
         if (map && typeof map.off === 'function') {
           try {
@@ -1384,12 +1677,76 @@ export default function MapView() {
   }, [filteredLocations]);
 
   const handleCenterOnMe = () => {
+    const map = mapRef.current;
+    if (!map) {
+      clearTimeout(locatingTimerRef.current);
+      setIsLocating(false);
+      setLocationStatusMessage('');
+      setGeolocationError('Map is not ready yet.');
+      return;
+    }
+
+    if (userLocation && userLocation.latitude != null && userLocation.longitude != null) {
+      const { latitude, longitude } = userLocation;
+      try {
+        map.flyTo({
+          center: [longitude, latitude],
+          zoom: Math.max(map.getZoom?.() || 0, 14),
+          essential: true
+        });
+      } catch (flyError) {
+        console.error('Error flying to saved user location:', flyError);
+      }
+      createUserMarker({ ...userLocation, source: 'saved' });
+      setGeolocationError('');
+      setLocationStatusMessage('Centered on your location.');
+      setIsLocating(false);
+
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const { latitude, longitude } = position.coords;
+            const accuracy = position.coords.accuracy;
+            const nextLocation = {
+              latitude,
+              longitude,
+              ...(accuracy != null ? { accuracy } : {}),
+              source: 'geolocation'
+            };
+            setUserLocation(nextLocation);
+            setGeolocationError('');
+            setLocationStatusMessage('Location found');
+            createUserMarker(nextLocation);
+          },
+          (error) => {
+            let errorMsg = 'Unable to retrieve your location.';
+            if (error.code === error.PERMISSION_DENIED) {
+              errorMsg = 'Location permission was denied. Enable location access in your browser.';
+            } else if (error.code === error.POSITION_UNAVAILABLE) {
+              errorMsg = 'Location information is currently unavailable.';
+            } else if (error.code === error.TIMEOUT) {
+              errorMsg = 'The request to get your location timed out. Please try again.';
+            }
+            setGeolocationError(errorMsg);
+          },
+          {
+            enableHighAccuracy: true,
+            timeout: 12000,
+            maximumAge: 0
+          }
+        );
+      }
+      return;
+    }
+
     setIsLocating(true);
     setGeolocationError('');
+    setLocationStatusMessage('Getting your location...');
     if (!navigator.geolocation) {
       clearTimeout(locatingTimerRef.current);
-      setGeolocationError('Geolocation is not supported by your browser.');
+      setGeolocationError('Location is not available in this browser.');
       setIsLocating(false);
+      setLocationStatusMessage('');
       return;
     }
 
@@ -1404,16 +1761,16 @@ export default function MapView() {
         const { latitude, longitude } = position.coords;
         const accuracy = position.coords.accuracy;
         const nextLocation = {
-          lat: latitude,
-          lng: longitude,
-          ...(accuracy != null ? { accuracy } : {})
+          latitude,
+          longitude,
+          ...(accuracy != null ? { accuracy } : {}),
+          source: 'geolocation'
         };
         setUserLocation(nextLocation);
         setGeolocationError('');
+        setLocationStatusMessage('Location found');
         setIsLocating(false);
-        // Automatically switch to Nearby filter when location is obtained
         setActiveFilter('nearby');
-        const map = mapRef.current;
         if (map) {
           const addLocationMarker = () => {
             createUserMarker({ ...nextLocation, source: 'geolocation' });
@@ -1439,9 +1796,10 @@ export default function MapView() {
       (error) => {
         clearTimeout(locatingTimerRef.current);
         setIsLocating(false);
+        setLocationStatusMessage('');
         let errorMsg = 'Unable to retrieve your location.';
         if (error.code === error.PERMISSION_DENIED) {
-          errorMsg = 'Location permission was denied. Please enable location access in Chrome and macOS settings.';
+          errorMsg = 'Location permission was denied. Enable location access in your browser.';
         } else if (error.code === error.POSITION_UNAVAILABLE) {
           errorMsg = 'Location information is currently unavailable.';
         } else if (error.code === error.TIMEOUT) {
@@ -1699,6 +2057,62 @@ export default function MapView() {
                     overflow: 'hidden'
                   }}
                 />
+                {overlayError && (mapMode === 'heatmap' || mapMode === 'replay') ? (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: 20,
+                      right: 20,
+                      zIndex: 15,
+                      backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                      color: '#fff',
+                      padding: '10px 14px',
+                      borderRadius: '10px',
+                      maxWidth: '260px',
+                      fontSize: '13px'
+                    }}
+                  >
+                    {overlayError}
+                  </div>
+                ) : null}
+                {!overlayError && mapMode === 'heatmap' && !heatmapPoints.length ? (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: 20,
+                      right: 20,
+                      zIndex: 15,
+                      backgroundColor: 'rgba(255, 255, 255, 0.92)',
+                      color: '#111827',
+                      padding: '10px 14px',
+                      borderRadius: '10px',
+                      maxWidth: '260px',
+                      fontSize: '13px',
+                      boxShadow: '0 2px 10px rgba(0,0,0,0.12)'
+                    }}
+                  >
+                    No heatmap data yet.
+                  </div>
+                ) : null}
+                {!overlayError && mapMode === 'replay' && !replayPoints.length ? (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: 20,
+                      right: 20,
+                      zIndex: 15,
+                      backgroundColor: 'rgba(255, 255, 255, 0.92)',
+                      color: '#111827',
+                      padding: '10px 14px',
+                      borderRadius: '10px',
+                      maxWidth: '260px',
+                      fontSize: '13px',
+                      boxShadow: '0 2px 10px rgba(0,0,0,0.12)'
+                    }}
+                  >
+                    No replay data yet.
+                  </div>
+                ) : null}
                 
                 {/* Layer Control Panel */}
                 <div
@@ -1735,6 +2149,67 @@ export default function MapView() {
                     </button>
                   ) : (
                     <div style={{ padding: '8px' }}>
+                        <div style={{ marginBottom: '10px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                          {['pins', 'heatmap', 'replay'].map((mode) => (
+                            <button
+                              key={mode}
+                              type="button"
+                              onClick={() => handleMapModeChange(mode)}
+                              style={{
+                                padding: '8px 12px',
+                                border: 'none',
+                                backgroundColor: mapMode === mode ? '#2563eb' : 'transparent',
+                                color: mapMode === mode ? '#ffffff' : '#333',
+                                cursor: 'pointer',
+                                borderRadius: '9999px',
+                                fontSize: '13px',
+                                transition: 'background-color 0.2s, color 0.2s'
+                              }}
+                            >
+                              {mode === 'pins' ? 'Pins' : mode === 'heatmap' ? 'Heatmap' : 'Replay'}
+                            </button>
+                          ))}
+                        </div>
+                        {mapMode === 'replay' ? (
+                          <div style={{ marginBottom: '10px', display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                            <button
+                              type="button"
+                              onClick={() => setReplayPlaying((current) => !current)}
+                              style={{
+                                padding: '8px 12px',
+                                border: 'none',
+                                backgroundColor: '#f3f4f6',
+                                cursor: replayPoints.length === 0 ? 'not-allowed' : 'pointer',
+                                opacity: replayPoints.length === 0 ? 0.5 : 1,
+                                borderRadius: '9999px',
+                                fontSize: '13px'
+                              }}
+                              disabled={replayPoints.length === 0}
+                            >
+                              {replayPlaying ? 'Pause' : 'Play'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setReplayPlaying(false);
+                                setReplayIndex(0);
+                              }}
+                              style={{
+                                padding: '8px 12px',
+                                border: 'none',
+                                backgroundColor: '#f3f4f6',
+                                cursor: 'pointer',
+                                borderRadius: '9999px',
+                                fontSize: '13px'
+                              }}
+                            >
+                              Reset
+                            </button>
+                            <div style={{ fontSize: '12px', color: '#444' }}>
+                              Step {Math.min(replayIndex + 1, replayPoints.length)} / {replayPoints.length}
+                            </div>
+                          </div>
+                        ) : null}
                       {Object.values(MAP_STYLES).map((style) => (
                         <button
                           key={style.id}
@@ -1794,6 +2269,16 @@ export default function MapView() {
                       >
                         Close
                       </button>
+                      {mapMode === 'heatmap' && !heatmapPoints.length ? (
+                        <div style={{ marginTop: '10px', fontSize: '13px', color: '#444' }}>
+                          No heatmap data yet.
+                        </div>
+                      ) : null}
+                      {mapMode === 'replay' && !replayPoints.length ? (
+                        <div style={{ marginTop: '10px', fontSize: '13px', color: '#444' }}>
+                          No replay data yet.
+                        </div>
+                      ) : null}
                     </div>
                   )}
                 </div>
@@ -1953,6 +2438,12 @@ export default function MapView() {
                 <p className="text-slatebody text-sm">Finding your location…</p>
               </div>
             )}
+
+            {!isLocating && locationStatusMessage ? (
+              <div className="card p-4 text-center">
+                <p className="text-slatebody text-sm">{locationStatusMessage}</p>
+              </div>
+            ) : null}
 
             {isAddPostMode ? (
               <div className="card p-4 bg-slate-950/90 border border-slate-800">
