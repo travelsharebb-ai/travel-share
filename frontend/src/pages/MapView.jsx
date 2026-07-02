@@ -37,6 +37,7 @@ export default function MapView() {
   const mapRef = useRef(null);
   const normalMarkersRef = useRef([]);
   const userMarkerRef = useRef(null);
+  const clustersRef = useRef({ added: false, handlers: {} });
   
   const [searchText, setSearchText] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
@@ -341,81 +342,188 @@ export default function MapView() {
     };
   }, [userLocation]);
 
-  // Update markers when filtered locations or map changes
+  // Use a GeoJSON source with Mapbox clustering for filtered locations
   useEffect(() => {
     if (!mapRef.current) return;
+    const map = mapRef.current;
 
-    // Clear existing markers
-    normalMarkersRef.current.forEach((marker) => {
+    // Build GeoJSON from filteredLocations
+    const features = filteredLocations
+      .filter((loc) => loc.lat != null && loc.lng != null)
+      .map((loc) => ({
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [loc.lng, loc.lat] },
+        properties: {
+          id: loc.id,
+          title: loc.title || '',
+          description: loc.description || '',
+          type: loc.type || '',
+          previewImage: loc.imageUrl || '',
+          previewTitle: loc.previewTitle || '',
+          previewUser: loc.previewUser || '',
+          previewCreatedAt: loc.previewCreatedAt ? loc.previewCreatedAt.toISOString() : ''
+        }
+      }));
+
+    const data = { type: 'FeatureCollection', features };
+
+    const setupClusters = () => {
       try {
-        marker.remove();
-      } catch (e) {
-        console.error('Error removing marker:', e);
-      }
-    });
-    normalMarkersRef.current = [];
-
-    // Add new markers for filtered locations
-    filteredLocations.forEach((location) => {
-      if (location.lat == null || location.lng == null) return;
-
-      try {
-        const el = document.createElement('div');
-        el.className = 'mapbox-marker';
-        el.style.width = '32px';
-        el.style.height = '32px';
-        el.style.backgroundColor = '#4f46e5';
-        el.style.borderRadius = '50%';
-        el.style.display = 'flex';
-        el.style.alignItems = 'center';
-        el.style.justifyContent = 'center';
-        el.style.color = 'white';
-        el.style.fontSize = '16px';
-        el.style.fontWeight = 'bold';
-        el.style.cursor = 'pointer';
-        el.style.border = '2px solid white';
-        el.style.boxShadow = '0 2px 4px rgba(0,0,0,0.3)';
-        
-        // Icon based on type
-        if (location.type === 'event') {
-          el.innerHTML = '🎯';
-          el.style.backgroundColor = '#f59e0b';
-        } else if (location.type === 'trip') {
-          el.innerHTML = '✈️';
-          el.style.backgroundColor = '#06b6d4';
-        } else if (location.type === 'photo') {
-          el.innerHTML = '📸';
-          el.style.backgroundColor = '#8b5cf6';
-        } else {
-          el.innerHTML = '📍';
+        if (!map.isStyleLoaded || !map.isStyleLoaded()) {
+          // Style not ready yet
+          return;
         }
 
-        const preview = location.raw?.preview || null;
-        const previewImage = preview?.imageUrl ? `<div style="margin-bottom:8px;"><img src="${preview.imageUrl}" alt="preview" style="width:180px;height:100px;object-fit:cover;border-radius:6px;display:block;"/></div>` : '';
-        const previewTitle = preview?.title || location.title || 'Community post';
-        const previewUser = preview?.userDisplayName ? `<small style="color:#444;">by ${preview.userDisplayName}</small>` : `<small style="color:#444;">Community post</small>`;
-        const previewTime = preview?.createdAt ? `<div style="color:#666;font-size:12px;margin-top:6px;">${new Date(preview.createdAt).toLocaleString()}</div>` : `<div style="color:#666;font-size:12px;margin-top:6px;">Recently shared</div>`;
+        // If source exists, just update data
+        if (map.getSource && map.getSource('locations')) {
+          try {
+            map.getSource('locations').setData(data);
+            console.log('CLUSTER_DATA_UPDATED', data.features.length);
+          } catch (err) {
+            console.error('Failed to set data on locations source', err);
+          }
+          return;
+        }
 
-        const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(
-          `<div style="padding: 8px; font-size: 14px; max-width:220px;">
-            ${previewImage}
-            <strong>${escapeHtml(previewTitle)}</strong><br/>
-            <small>${escapeHtml(location.description || 'No address')}</small><br/>
-            ${previewUser}
-            ${previewTime}
-          </div>`
-        );
+        // Add clustered GeoJSON source if missing
+        if (!map.getSource || !map.addSource) return;
+        if (!map.getSource('locations')) {
+          map.addSource('locations', { type: 'geojson', data, cluster: true, clusterMaxZoom: 14, clusterRadius: 50 });
+        }
 
-        const marker = new mapboxgl.Marker(el)
-          .setLngLat([location.lng, location.lat])
-          .setPopup(popup)
-          .addTo(mapRef.current);
+        console.log('CLUSTER_SOURCE_READY');
 
-        normalMarkersRef.current.push(marker);
-      } catch (markerError) {
-        console.error('Error adding marker:', markerError);
+        // Add layers only if they don't already exist
+        if (!map.getLayer('clusters')) {
+          map.addLayer({
+            id: 'clusters',
+            type: 'circle',
+            source: 'locations',
+            filter: ['has', 'point_count'],
+            paint: {
+              'circle-color': ['step', ['get', 'point_count'], '#51bbd6', 10, '#f1f075', 50, '#f28cb1'],
+              'circle-radius': ['step', ['get', 'point_count'], 18, 10, 26, 50, 36],
+              'circle-stroke-width': 2,
+              'circle-stroke-color': '#fff'
+            }
+          });
+        }
+
+        if (!map.getLayer('cluster-count')) {
+          map.addLayer({
+            id: 'cluster-count',
+            type: 'symbol',
+            source: 'locations',
+            filter: ['has', 'point_count'],
+            layout: {
+              'text-field': '{point_count_abbreviated}',
+              'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+              'text-size': 12
+            },
+            paint: { 'text-color': '#000' }
+          });
+        }
+
+        if (!map.getLayer('unclustered-point')) {
+          map.addLayer({
+            id: 'unclustered-point',
+            type: 'circle',
+            source: 'locations',
+            filter: ['!',['has','point_count']],
+            paint: {
+              'circle-color': '#4f46e5',
+              'circle-radius': 12,
+              'circle-stroke-width': 2,
+              'circle-stroke-color': '#ffffff'
+            }
+          });
+        }
+
+        // Only attach handlers once
+        if (!clustersRef.current.added) {
+          const onClusterClick = (e) => {
+            const features = map.queryRenderedFeatures(e.point, { layers: ['clusters'] });
+            if (!features.length) return;
+            const clusterId = features[0].properties.cluster_id;
+            const coordinates = features[0].geometry.coordinates;
+            map.getSource('locations').getClusterExpansionZoom(clusterId, (err, zoom) => {
+              if (err) return;
+              map.easeTo({ center: coordinates, zoom, duration: 500 });
+            });
+          };
+
+          const onUnclusteredClick = (e) => {
+            const feature = e.features && e.features[0];
+            if (!feature) return;
+            const coords = feature.geometry.coordinates.slice();
+            const props = feature.properties || {};
+
+            const previewImage = props.previewImage ? `<div style="margin-bottom:8px;"><img src="${props.previewImage}" alt="preview" style="width:220px;height:120px;object-fit:cover;border-radius:6px;display:block;"/></div>` : '';
+            const previewTitle = props.previewTitle || props.title || 'Community post';
+            const previewUser = props.previewUser ? `<small style="color:#444;">by ${escapeHtml(props.previewUser)}</small>` : `<small style="color:#444;">Community post</small>`;
+            const previewTime = props.previewCreatedAt ? `<div style="color:#666;font-size:12px;margin-top:6px;">${formatPreviewTime(new Date(props.previewCreatedAt))}</div>` : `<div style="color:#666;font-size:12px;margin-top:6px;">Recently shared</div>`;
+
+            const html = `<div style="padding:8px;font-size:14px;max-width:260px;">${previewImage}<strong>${escapeHtml(previewTitle)}</strong><br/><small>${escapeHtml(props.description || 'No address')}</small><br/>${previewUser}${previewTime}</div>`;
+
+            new mapboxgl.Popup({ offset: 25 }).setLngLat(coords).setHTML(html).addTo(map);
+          };
+
+          const onMouseEnter = () => map.getCanvas().style.cursor = 'pointer';
+          const onMouseLeave = () => map.getCanvas().style.cursor = '';
+
+          map.on('click', 'clusters', onClusterClick);
+          map.on('click', 'unclustered-point', onUnclusteredClick);
+          map.on('mouseenter', 'clusters', onMouseEnter);
+          map.on('mouseleave', 'clusters', onMouseLeave);
+          map.on('mouseenter', 'unclustered-point', onMouseEnter);
+          map.on('mouseleave', 'unclustered-point', onMouseLeave);
+
+          clustersRef.current = { added: true, handlers: { onClusterClick, onUnclusteredClick, onMouseEnter, onMouseLeave } };
+        }
+
+        // Set data in case source was just created
+        try {
+          if (map.getSource && map.getSource('locations')) {
+            map.getSource('locations').setData(data);
+            console.log('CLUSTER_DATA_UPDATED', data.features.length);
+          }
+        } catch (err) {
+          console.error('Failed to set data on locations source after creation', err);
+        }
+      } catch (err) {
+        console.error('Failed to add clustering layers', err);
       }
-    });
+    };
+
+    // If style loaded, run setup immediately; otherwise wait for load once
+    if (map.isStyleLoaded && map.isStyleLoaded()) {
+      setupClusters();
+    } else {
+      map.once('load', setupClusters);
+    }
+
+    // Cleanup: remove layers and source on unmount
+    return () => {
+      if (!map || !map.getStyle) return;
+      try {
+        if (clustersRef.current.added) {
+          map.off('click', 'clusters', clustersRef.current.handlers.onClusterClick);
+          map.off('click', 'unclustered-point', clustersRef.current.handlers.onUnclusteredClick);
+          map.off('mouseenter', 'clusters', clustersRef.current.handlers.onMouseEnter);
+          map.off('mouseleave', 'clusters', clustersRef.current.handlers.onMouseLeave);
+          map.off('mouseenter', 'unclustered-point', clustersRef.current.handlers.onMouseEnter);
+          map.off('mouseleave', 'unclustered-point', clustersRef.current.handlers.onMouseLeave);
+
+          if (map.getLayer('clusters')) map.removeLayer('clusters');
+          if (map.getLayer('cluster-count')) map.removeLayer('cluster-count');
+          if (map.getLayer('unclustered-point')) map.removeLayer('unclustered-point');
+          if (map.getSource('locations')) map.removeSource('locations');
+          clustersRef.current = { added: false, handlers: {} };
+        }
+      } catch (cleanupErr) {
+        console.error('Error cleaning up clustering layers', cleanupErr);
+      }
+    };
   }, [filteredLocations]);
 
   const handleCenterOnMe = () => {
