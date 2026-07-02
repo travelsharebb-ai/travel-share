@@ -12,6 +12,26 @@ const FILTER_OPTIONS = [
 ];
 
 export default function MapView() {
+
+  // Utility: escape user-provided strings used in popup HTML
+  function escapeHtml(str) {
+    if (!str && str !== 0) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/\"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function formatPreviewTime(d) {
+    if (!d) return 'Recently shared';
+    try {
+      return d.toLocaleString();
+    } catch (e) {
+      return 'Recently shared';
+    }
+  }
   const navigate = useNavigate();
   const containerRef = useRef(null);
   const mapRef = useRef(null);
@@ -121,6 +141,12 @@ export default function MapView() {
 
           const normalizedType = eventCount > 0 ? 'event' : tripCount > 0 ? 'trip' : photoCount > 0 ? 'photo' : null;
 
+          const preview = item?.preview || null;
+          const imageUrl = preview?.imageUrl || null;
+          const previewTitle = preview?.title || null;
+          const previewUser = preview?.userDisplayName || null;
+          const previewCreatedAt = preview?.createdAt ? new Date(preview.createdAt) : null;
+
           return {
             id: item?.id ?? null,
             title: item?.name ?? null,
@@ -130,7 +156,10 @@ export default function MapView() {
             lng: item?.longitude ?? null,
             country: null,
             city: null,
-            imageUrl: null,
+            imageUrl,
+            previewTitle,
+            previewUser,
+            previewCreatedAt,
             eventId: eventCount > 0 ? null : null,
             tripId: tripCount > 0 ? null : null,
             hasPhoto: photoCount > 0,
@@ -361,11 +390,19 @@ export default function MapView() {
           el.innerHTML = '📍';
         }
 
+        const preview = location.raw?.preview || null;
+        const previewImage = preview?.imageUrl ? `<div style="margin-bottom:8px;"><img src="${preview.imageUrl}" alt="preview" style="width:180px;height:100px;object-fit:cover;border-radius:6px;display:block;"/></div>` : '';
+        const previewTitle = preview?.title || location.title || 'Community post';
+        const previewUser = preview?.userDisplayName ? `<small style="color:#444;">by ${preview.userDisplayName}</small>` : `<small style="color:#444;">Community post</small>`;
+        const previewTime = preview?.createdAt ? `<div style="color:#666;font-size:12px;margin-top:6px;">${new Date(preview.createdAt).toLocaleString()}</div>` : `<div style="color:#666;font-size:12px;margin-top:6px;">Recently shared</div>`;
+
         const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(
-          `<div style="padding: 8px; font-size: 14px;">
-            <strong>${location.title || 'Untitled'}</strong><br/>
-            <small>${location.description || 'No address'}</small><br/>
-            <small style="color: #666;">${location.type || 'location'}</small>
+          `<div style="padding: 8px; font-size: 14px; max-width:220px;">
+            ${previewImage}
+            <strong>${escapeHtml(previewTitle)}</strong><br/>
+            <small>${escapeHtml(location.description || 'No address')}</small><br/>
+            ${previewUser}
+            ${previewTime}
           </div>`
         );
 
@@ -562,7 +599,18 @@ export default function MapView() {
                         {location.type || 'location'}
                       </span>
                     </div>
+                    {location.imageUrl ? (
+                      <div className="mb-3">
+                        <img src={location.imageUrl} alt={location.previewTitle || location.title || 'preview'} style={{ width: '100%', height: '140px', objectFit: 'cover', borderRadius: 8 }} />
+                      </div>
+                    ) : null}
                     <p className="text-slatebody text-sm">{location.description || 'No description available.'}</p>
+                    <div className="mt-3 text-sm text-slatebody">
+                      <div>{location.previewTitle || 'Community post'}</div>
+                      <div className="text-xs text-muted">
+                        {location.previewUser ? `by ${location.previewUser}` : 'Community post'} • {location.previewCreatedAt ? formatPreviewTime(location.previewCreatedAt) : 'Recently shared'}
+                      </div>
+                    </div>
                   </div>
                 ))
               ) : (

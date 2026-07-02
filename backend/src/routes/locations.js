@@ -41,10 +41,28 @@ router.get("/", async (req, res, next) => {
       take: 100,
       include: {
         uploads: {
+          where: {
+            status: 'approved',
+            locationVisibility: { not: 'hidden' }
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
           select: {
+            id: true,
+            fileUrl: true,
+            fileType: true,
+            createdAt: true,
+            caption: true,
             tripId: true,
             eventId: true,
-            fileType: true
+            trip: {
+              select: {
+                id: true,
+                title: true,
+                user: { select: { id: true, name: true } }
+              }
+            },
+            event: { select: { id: true, title: true } }
           }
         }
       }
@@ -53,6 +71,22 @@ router.get("/", async (req, res, next) => {
       const tripCount = location.uploads.filter((upload) => upload.tripId).length;
       const eventCount = location.uploads.filter((upload) => upload.eventId).length;
       const photoCount = location.uploads.length;
+
+      const latest = Array.isArray(location.uploads) && location.uploads.length ? location.uploads[0] : null;
+      const preview = latest
+        ? {
+            id: latest.id,
+            imageUrl: latest.fileUrl,
+            fileType: latest.fileType,
+            createdAt: latest.createdAt,
+            title: latest.caption || latest.trip?.title || latest.event?.title || null,
+            tripId: latest.tripId || null,
+            eventId: latest.eventId || null,
+            userDisplayName: latest.trip?.user?.name || null,
+            type: latest.fileType
+          }
+        : null;
+
       return {
         id: location.id,
         name: location.name,
@@ -65,7 +99,8 @@ router.get("/", async (req, res, next) => {
           tripCount,
           eventCount,
           photoCount
-        }
+        },
+        preview
       };
     });
     res.json({ locations: enriched });
