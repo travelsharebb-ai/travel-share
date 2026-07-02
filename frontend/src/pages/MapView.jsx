@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { currentUser } from '../lib/api.js';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
@@ -262,6 +263,12 @@ export default function MapView() {
   const searchResultMarkerRef = useRef(null);
   const styleLoadingRef = useRef(false);
   const [styleLoading, setStyleLoading] = useState(false);
+  const [isAddPostMode, setIsAddPostMode] = useState(false);
+  const [pendingPostLocation, setPendingPostLocation] = useState(null);
+  const [pendingPostAddress, setPendingPostAddress] = useState(null);
+  const [isReverseGeocoding, setIsReverseGeocoding] = useState(false);
+  const [reverseGeocodeError, setReverseGeocodeError] = useState('');
+  const pendingPostMarkerRef = useRef(null);
   const controlsAddedRef = useRef(false);
 
   const navigate = useNavigate();
@@ -379,6 +386,106 @@ export default function MapView() {
       console.error('Error cleaning up cluster handlers:', err);
     }
     clustersRef.current = { added: false, handlers: {} };
+  }
+
+  async function reverseGeocodeCoordinates(lat, lng) {
+    const token = import.meta.env.VITE_MAPBOX_TOKEN;
+    if (!token) {
+      return null;
+    }
+
+    setIsReverseGeocoding(true);
+    setReverseGeocodeError('');
+    try {
+      const response = await fetch(
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(lng)},${encodeURIComponent(lat)}.json?access_token=${token}&limit=1`
+      );
+      if (!response.ok) {
+        throw new Error('Geocoding request failed');
+      }
+      const data = await response.json();
+      const feature = Array.isArray(data.features) ? data.features[0] : null;
+      if (!feature) return null;
+
+      let city = null;
+      let region = null;
+      let country = null;
+
+      (feature.context || []).forEach((contextItem) => {
+        if (!contextItem || !contextItem.id) return;
+        if (!city && contextItem.id.startsWith('place')) city = contextItem.text;
+        if (!region && contextItem.id.startsWith('region')) region = contextItem.text;
+        if (!country && contextItem.id.startsWith('country')) country = contextItem.text;
+      });
+
+      if (!city && Array.isArray(feature.place_type) && feature.place_type.includes('place')) {
+        city = feature.text;
+      }
+
+      return {
+        address: feature.place_name || `${lat.toFixed(5)}, ${lng.toFixed(5)}`,
+        city,
+        region,
+        country
+      };
+    } catch (err) {
+      console.error('Reverse geocoding failed:', err);
+      setReverseGeocodeError('Unable to resolve address for this location. Showing coordinates only.');
+      return null;
+    } finally {
+      setIsReverseGeocoding(false);
+    }
+  }
+
+  async function updatePendingPostLocation(lat, lng) {
+    if (!mapRef.current) return;
+    const nextLocation = { lat, lng };
+    setPendingPostLocation(nextLocation);
+    setPendingPostAddress(null);
+
+    if (!pendingPostMarkerRef.current) {
+      const markerEl = document.createElement('div');
+      markerEl.style.width = '30px';
+      markerEl.style.height = '30px';
+      markerEl.style.borderRadius = '50%';
+      markerEl.style.background = '#2563eb';
+      markerEl.style.border = '3px solid white';
+      markerEl.style.boxShadow = '0 0 0 8px rgba(37, 99, 235, 0.25)';
+      markerEl.style.cursor = 'grab';
+
+      const marker = new mapboxgl.Marker({ element: markerEl, draggable: true })
+        .setLngLat([lng, lat])
+        .addTo(mapRef.current);
+
+      marker.on('dragend', async () => {
+        const position = marker.getLngLat();
+        setPendingPostLocation({ lat: position.lat, lng: position.lng });
+        const result = await reverseGeocodeCoordinates(position.lat, position.lng);
+        setPendingPostAddress(result);
+      });
+
+      pendingPostMarkerRef.current = marker;
+    } else {
+      pendingPostMarkerRef.current.setLngLat([lng, lat]);
+    }
+
+    const addressResult = await reverseGeocodeCoordinates(lat, lng);
+    setPendingPostAddress(addressResult);
+  }
+
+  function clearPendingPostSelection() {
+    setIsAddPostMode(false);
+    setPendingPostLocation(null);
+    setPendingPostAddress(null);
+    setReverseGeocodeError('');
+    if (pendingPostMarkerRef.current) {
+      try {
+        pendingPostMarkerRef.current.remove();
+      } catch (e) {
+        console.error('Error removing pending post marker:', e);
+      }
+      pendingPostMarkerRef.current = null;
+    }
   }
 
   // Re-initialize clustering layers and handlers after style change
@@ -767,12 +874,36 @@ export default function MapView() {
             }
             userMarkerRef.current = null;
           }
+            if (pendingPostMarkerRef.current) {
+              try {
+                pendingPostMarkerRef.current.remove();
+              } catch (removeError) {
+                console.error('Error removing pending post marker on cleanup:', removeError);
+              }
+              pendingPostMarkerRef.current = null;
+            }
         } catch (e) {
           console.error('Error cleaning up map:', e);
         }
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!mapRef.current) return;
+    const map = mapRef.current;
+
+    const handleMapClick = (e) => {
+      if (!isAddPostMode) return;
+      if (!e.lngLat) return;
+      updatePendingPostLocation(e.lngLat.lat, e.lngLat.lng);
+    };
+
+    map.on('click', handleMapClick);
+    return () => {
+      map.off('click', handleMapClick);
+    };
+  }, [isAddPostMode]);
 
   useEffect(() => {
     return () => {
@@ -1065,6 +1196,38 @@ export default function MapView() {
     navigate('/scan');
   };
 
+  const handleStartAddPost = () => {
+    setIsAddPostMode(true);
+    setPendingPostLocation(null);
+    setPendingPostAddress(null);
+    setReverseGeocodeError('');
+  };
+
+  const handleCancelAddPost = () => {
+    clearPendingPostSelection();
+  };
+
+  const handleConfirmAddPost = () => {
+    if (!pendingPostLocation) return;
+    const mapLocation = {
+      latitude: pendingPostLocation.lat,
+      longitude: pendingPostLocation.lng,
+      address: pendingPostAddress?.address || null,
+      city: pendingPostAddress?.city || null,
+      region: pendingPostAddress?.region || null,
+      country: pendingPostAddress?.country || null,
+      source: 'map'
+    };
+
+    const user = currentUser();
+    const tripId = user?.trips?.[0]?.id;
+    if (tripId) {
+      navigate(`/trips/${tripId}/upload`, { state: { mapLocation } });
+    } else {
+      navigate('/dashboard', { state: { mapLocation, fromMap: true } });
+    }
+  };
+
   return (
     <div className="page-shell min-h-screen pb-8">
       <div className="mb-8">
@@ -1307,6 +1470,12 @@ export default function MapView() {
         <div className="lg:col-span-1">
           <div className="space-y-4">
             <button onClick={handleCenterOnMe} className="btn-primary w-full">📍 Center on Me</button>
+            <button
+              onClick={isAddPostMode ? handleCancelAddPost : handleStartAddPost}
+              className="btn-ghost w-full"
+            >
+              {isAddPostMode ? 'Exit Add Post' : '➕ Add Post'}
+            </button>
             <button onClick={handleDiscoverEvents} className="btn-indigo w-full">🎯 Discover Events</button>
             <button onClick={handleScanQR} className="btn-ghost w-full">📱 Scan QR</button>
 
@@ -1315,6 +1484,42 @@ export default function MapView() {
                 <p className="text-slatebody text-sm">Finding your location…</p>
               </div>
             )}
+
+            {isAddPostMode ? (
+              <div className="card p-4 bg-slate-950/90 border border-slate-800">
+                <p className="font-semibold text-white mb-2">Add Post mode active</p>
+                <p className="text-slatebody text-sm mb-3">
+                  Click or tap the map to choose where to add your post. Drag the marker to adjust the pin.
+                </p>
+                {pendingPostLocation ? (
+                  <div className="space-y-2 text-sm text-slatebody">
+                    <div>
+                      <strong>Latitude:</strong> {pendingPostLocation.lat.toFixed(5)}
+                    </div>
+                    <div>
+                      <strong>Longitude:</strong> {pendingPostLocation.lng.toFixed(5)}
+                    </div>
+                    <div>
+                      <strong>Address:</strong> {pendingPostAddress?.address || 'Coordinates only'}
+                    </div>
+                    <div className="text-xs text-slate-400">
+                      Privacy options will be available in Phase 3E.
+                    </div>
+                    {reverseGeocodeError ? (
+                      <p className="text-xs text-red-400">{reverseGeocodeError}</p>
+                    ) : null}
+                    <button onClick={handleConfirmAddPost} className="btn-primary w-full mt-2" disabled={!pendingPostLocation}>
+                      Confirm Location
+                    </button>
+                    <button onClick={handleCancelAddPost} className="btn-ghost w-full">
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <div className="text-slatebody text-sm">Tap the map to place a draggable post marker.</div>
+                )}
+              </div>
+            ) : null}
 
             <div className="space-y-3">
               {accuracyMessage && !geolocationError ? (

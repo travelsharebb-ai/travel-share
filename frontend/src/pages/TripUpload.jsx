@@ -1,8 +1,10 @@
 import { useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 
 export default function TripUpload() {
   const { tripId } = useParams();
+  const location = useLocation();
+  const mapLocation = location.state?.mapLocation || null;
   const navigate = useNavigate();
   const [file, setFile] = useState(null);
   const [caption, setCaption] = useState("");
@@ -20,6 +22,20 @@ export default function TripUpload() {
       </section>
 
       <section className="card p-5 space-y-5">
+          {mapLocation ? (
+            <div className="card rounded-3xl border border-borderline bg-slate-950/70 p-5 text-sm text-slatebody">
+              <p className="font-semibold text-white mb-2">Selected map location</p>
+              <div className="grid gap-2">
+                <div><strong>Address:</strong> {mapLocation.address || 'Coordinates only'}</div>
+                <div><strong>City:</strong> {mapLocation.city || 'Unknown'}</div>
+                <div><strong>Region:</strong> {mapLocation.region || 'Unknown'}</div>
+                <div><strong>Country:</strong> {mapLocation.country || 'Unknown'}</div>
+                <div><strong>Latitude:</strong> {mapLocation.latitude != null ? mapLocation.latitude.toFixed(5) : 'Unknown'}</div>
+                <div><strong>Longitude:</strong> {mapLocation.longitude != null ? mapLocation.longitude.toFixed(5) : 'Unknown'}</div>
+                <div><strong>Source:</strong> {mapLocation.source}</div>
+              </div>
+            </div>
+          ) : null}
         <label className="field block rounded-3xl border border-borderline bg-slate-950/70 p-5 text-center cursor-pointer">
           <span className="block text-xl font-black text-primary">
             {file ? file.name : "Choose photo or video"}
