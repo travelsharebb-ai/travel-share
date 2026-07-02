@@ -182,6 +182,14 @@ export default function MapView() {
     setSearchText(suggestion.name);
     setShowSearchSuggestions(false);
 
+    // Track this location for Street View
+    setLastStreetViewTarget({
+      latitude: suggestion.center[1],
+      longitude: suggestion.center[0],
+      label: suggestion.name,
+      source: 'search'
+    });
+
       const map = mapRef.current;
       if (!map) return;
 
@@ -314,6 +322,11 @@ export default function MapView() {
   }
   const [mapStyle, setMapStyle] = useState(DEFAULT_MAP_STYLE);
   const [showLayerControl, setShowLayerControl] = useState(false);
+  const [streetViewOpen, setStreetViewOpen] = useState(false);
+  const [streetViewLocation, setStreetViewLocation] = useState(null);
+  const [streetViewError, setStreetViewError] = useState('');
+  const [streetViewUrl, setStreetViewUrl] = useState('');
+  const [lastStreetViewTarget, setLastStreetViewTarget] = useState(null);
   const mapLoadedRef = useRef(false);
   const locatingTimerRef = useRef(null);
   const searchDebounceRef = useRef(null);
@@ -438,6 +451,123 @@ export default function MapView() {
     } catch (err) {
       console.error('Error adding Mapbox controls:', err);
     }
+  }
+
+  function getStreetViewCenterLocation() {
+    const map = mapRef.current;
+    if (!map || !map.getCenter) return null;
+    try {
+      const center = map.getCenter();
+      if (!center || typeof center.lat !== 'number' || typeof center.lng !== 'number') return null;
+      return { lat: center.lat, lng: center.lng };
+    } catch (err) {
+      return null;
+    }
+  }
+
+  function getBestStreetViewLocation() {
+    // Priority:
+    // 1. pending add-post selected location, if exists
+    if (pendingPostLocation) {
+      return {
+        latitude: Number(pendingPostLocation.lat),
+        longitude: Number(pendingPostLocation.lng),
+        label: pendingPostAddress?.address || 'Add Post location',
+        source: 'addPost'
+      };
+    }
+
+    // 2. selected search result, if tracked
+    if (lastStreetViewTarget) {
+      return lastStreetViewTarget;
+    }
+
+    // 3. user location, if exists
+    if (userLocation) {
+      return {
+        latitude: Number(userLocation.latitude),
+        longitude: Number(userLocation.longitude),
+        label: 'Your location',
+        source: 'userLocation'
+      };
+    }
+
+    // 4. current map center, but only if zoom is close enough
+    const map = mapRef.current;
+    if (map && typeof map.getZoom === 'function' && typeof map.getCenter === 'function') {
+      try {
+        const zoom = map.getZoom();
+        if (zoom >= 12) {
+          const center = map.getCenter();
+          if (center && typeof center.lat === 'number' && typeof center.lng === 'number') {
+            return {
+              latitude: Number(center.lat),
+              longitude: Number(center.lng),
+              label: 'Map center',
+              source: 'mapCenter'
+            };
+          }
+        }
+      } catch (err) {
+        // ignore
+      }
+    }
+
+    return null;
+  }
+
+  function buildStreetViewUrl(location) {
+    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY?.trim();
+    if (!apiKey || !location) return '';
+
+    const latitude = Number(location.latitude);
+    const longitude = Number(location.longitude);
+
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      return '';
+    }
+
+    const params = new URLSearchParams({
+      key: apiKey,
+      location: `${latitude},${longitude}`,
+      heading: '0',
+      pitch: '0',
+      fov: '80',
+      radius: '1000',
+      source: 'default'
+    });
+
+    return `https://www.google.com/maps/embed/v1/streetview?${params.toString()}`;
+  }
+  function handleOpenStreetViewFromCenter() {
+    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY?.trim();
+    if (!apiKey) {
+      setStreetViewLocation(null);
+      setStreetViewError('Street View needs a Google Maps API key.');
+      setStreetViewUrl('');
+      setStreetViewOpen(true);
+      return;
+    }
+
+    const location = getBestStreetViewLocation();
+    if (!location) {
+      setStreetViewLocation(null);
+      setStreetViewError('Zoom in closer or search/select a specific place first.');
+      setStreetViewUrl('');
+      setStreetViewOpen(true);
+      return;
+    }
+
+    setStreetViewError('');
+    setStreetViewLocation(location);
+    const url = buildStreetViewUrl(location);
+    setStreetViewUrl(url);
+    console.log('Street View open', {
+      hasKey: Boolean(apiKey),
+      location,
+      urlReady: Boolean(url)
+    });
+    setStreetViewOpen(true);
   }
 
   function cleanupClusterHandlers(map) {
@@ -1767,6 +1897,12 @@ export default function MapView() {
           source: 'geolocation'
         };
         setUserLocation(nextLocation);
+        setLastStreetViewTarget({
+          latitude: Number(latitude),
+          longitude: Number(longitude),
+          label: 'Your location',
+          source: 'userLocation'
+        });
         setGeolocationError('');
         setLocationStatusMessage('Location found');
         setIsLocating(false);
@@ -2240,6 +2376,29 @@ export default function MapView() {
                           {style.label}
                         </button>
                       ))}
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          handleOpenStreetViewFromCenter();
+                        }}
+                        style={{
+                          display: 'block',
+                          width: '100%',
+                          padding: '10px 16px',
+                          textAlign: 'left',
+                          border: '1px solid #d1d5db',
+                          backgroundColor: '#f8fafc',
+                          cursor: 'pointer',
+                          borderRadius: '12px',
+                          fontSize: '14px',
+                          color: '#111827',
+                          marginTop: '10px'
+                        }}
+                      >
+                        🧭 Street View
+                      </button>
                       {styleLoading ? (
                         <div style={{ marginTop: '8px', fontSize: '12px', color: '#444' }}>
                           Switching map view…
@@ -2286,6 +2445,104 @@ export default function MapView() {
             )}
           </div>
         </div>
+        {streetViewOpen ? (
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 9999,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: 'rgba(0,0,0,0.75)',
+              padding: '24px'
+            }}
+          >
+            <div
+              style={{
+                width: '90vw',
+                maxWidth: '900px',
+                height: '70vh',
+                backgroundColor: '#000',
+                borderRadius: '16px',
+                overflow: 'hidden',
+                boxShadow: '0 24px 80px rgba(0,0,0,0.35)',
+                display: 'flex',
+                flexDirection: 'column'
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '16px 20px',
+                  background: '#111827',
+                  color: '#ffffff'
+                }}
+              >
+                <div>
+                  <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700 }}>Street View</h2>
+                  <p style={{ margin: '6px 0 0', color: '#cbd5e1', fontSize: '0.95rem' }}>
+                    Street View availability depends on Google coverage.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setStreetViewOpen(false)}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    fontSize: '1.5rem',
+                    cursor: 'pointer',
+                    color: '#ffffff'
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                <div style={{ padding: '12px 16px', background: '#0f172a', color: '#e2e8f0', fontSize: '0.95rem' }}>
+                  {streetViewError || 'Opening Street View...'}
+                </div>
+                <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+                  {streetViewError ? (
+                    <div style={{ padding: '16px', color: '#ef5350', fontSize: '0.95rem' }}>
+                      {streetViewError}
+                    </div>
+                  ) : streetViewUrl ? (
+                    <>
+                      <iframe
+                        title="Street View preview"
+                        src={streetViewUrl}
+                        width="100%"
+                        height="100%"
+                        style={{ border: 0, flex: 1 }}
+                        allowFullScreen
+                        loading="lazy"
+                        referrerPolicy="no-referrer-when-downgrade"
+                      />
+                      <div style={{ padding: '12px 16px', background: '#0f172a', color: '#94a3b8', fontSize: '0.85rem', borderTop: '1px solid #1e293b' }}>
+                        Street View may be blank if Google has no panorama near this location.
+                      </div>
+                    </>
+                  ) : (
+                    <div style={{ padding: '16px', color: '#94a3b8', fontSize: '0.95rem', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      Preparing Street View...
+                    </div>
+                  )}
+                </div>
+                <div style={{ padding: '12px 16px', background: '#0f172a', color: '#64748b', fontSize: '0.85rem', borderTop: '1px solid #1e293b' }}>
+                  <div>API key: {import.meta.env.VITE_GOOGLE_MAPS_API_KEY ? 'present' : 'missing'}</div>
+                  <div>Latitude: {streetViewLocation?.latitude ?? 'N/A'}</div>
+                  <div>Longitude: {streetViewLocation?.longitude ?? 'N/A'}</div>
+                  <div>URL ready: {streetViewUrl ? 'yes' : 'no'}</div>
+                  {streetViewLocation?.source && <div>Source: {streetViewLocation.source}</div>}
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : null}
 
         <div className="lg:col-span-1">
           <div className="space-y-4">
