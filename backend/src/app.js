@@ -11,6 +11,7 @@ import eventRoutes from "./routes/events.js";
 import storeRoutes from "./routes/store.js";
 import downloadRoutes from "./routes/downloads.js";
 import skinRoutes from "./routes/skins.js";
+import notificationsRoutes from "./routes/notifications.js";
 import { requireAdmin, requireAuth, requireOrganizerOrAdmin } from "./middleware/auth.js";
 import requestLogger from "./middleware/requestLogger.js";
 import diagnostics from "./utils/diagnostics.js";
@@ -64,6 +65,7 @@ export function createApp() {
   app.use("/api/locations", locationRoutes);
   app.use("/api/store", requireAuth, storeRoutes);
   app.use("/api/downloads", downloadRoutes);
+  app.use("/api/notifications", requireAuth, notificationsRoutes);
   app.use("/api", requireAuth, uploadRoutes);
   app.use("/api/admin", requireAuth, requireAdmin, adminRoutes);
 

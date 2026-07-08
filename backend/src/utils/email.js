@@ -100,3 +100,14 @@ export async function sendPasswordResetEmail({ user, resetUrl }) {
     html: `<p>We received a request to reset your Travel Share password.</p><p><a href="${resetUrl}">Reset password</a></p><p>This link expires in 30 minutes.</p>`
   });
 }
+
+export async function sendEmailChangeRequest({ user, toEmail, verificationUrl }) {
+  return sendEmail({
+    userId: user.id,
+    toEmail,
+    template: "email-change",
+    subject: "Confirm your new Travel Share email",
+    text: `Please confirm your new email for Travel Share by visiting: ${verificationUrl}`,
+    html: `<p>Please confirm your new email for Travel Share.</p><p><a href="${verificationUrl}">Confirm email</a></p><p>This link expires in one hour.</p>`
+  });
+}

@@ -6,6 +6,7 @@ import { secureToken } from "../utils/tokens.js";
 import { uploadMedia } from "../utils/storage.js";
 import orchestrator from "../services/uploadOrchestrator.js";
 import { cleanUpload, cleanUser } from "../utils/exportImport.js";
+import { createNotification } from "../services/notifications.js";
 
 const router = Router();
 const maxMb = Number(process.env.MAX_UPLOAD_SIZE_MB || 50);
@@ -406,11 +407,27 @@ router.patch("/users/:userId", async (req, res, next) => {
       name: z.string().min(2).max(80).optional()
     });
     const data = schema.parse(req.body);
-    const user = await prisma.user.update({
-      where: { id: req.params.userId },
-      data,
-      select: { id: true, name: true, email: true, role: true }
-    });
+    // fetch existing to detect role changes
+    const existing = await prisma.user.findUnique({ where: { id: req.params.userId }, select: { id: true, role: true, name: true } });
+    if (!existing) return res.status(404).json({ error: "User not found." });
+    const user = await prisma.user.update({ where: { id: req.params.userId }, data, select: { id: true, name: true, email: true, role: true } });
+
+    // If role changed, notify the affected user
+    if (data.role && data.role !== existing.role) {
+      // Prevent demoting the last platform_admin
+      if (existing.role === 'platform_admin' && data.role !== 'platform_admin') {
+        const otherAdmins = await prisma.user.count({ where: { role: 'platform_admin', id: { not: existing.id } } });
+        if (otherAdmins === 0) {
+          return res.status(400).json({ error: "Cannot demote the last platform_admin." });
+        }
+      }
+      try {
+        await createNotification(user.id, "Account role changed", `Your account role was changed to ${user.role}.`, "info", null);
+      } catch (err) {
+        console.error('notify role change failed', err?.message || err);
+      }
+    }
+
     res.json({ user });
   } catch (error) {
     next(error);
@@ -464,6 +481,8 @@ router.get("/settings", async (_req, res) => {
   const mapProvider = await settingValue("mapProvider", "mapbox");
   const paymentProvider = await settingValue("paymentProvider", process.env.PAYMENT_PROVIDER || "planned_stripe");
   const backgroundVideoUrl = await settingValue("backgroundVideoUrl", process.env.BACKGROUND_VIDEO_URL || "/videos/come-to-barbados.mp4");
+  const backgroundMediaUrl = await settingValue("backgroundMediaUrl", backgroundVideoUrl);
+  const backgroundMediaType = await settingValue("backgroundMediaType", inferBackgroundMediaType(backgroundMediaUrl, "video"));
 
   res.json({
     settings: {
@@ -474,7 +493,9 @@ router.get("/settings", async (_req, res) => {
       moderationProvider,
       mapProvider,
       paymentProvider,
-      backgroundVideoUrl
+      backgroundVideoUrl,
+      backgroundMediaUrl,
+      backgroundMediaType
     }
   });
 });
@@ -490,7 +511,9 @@ router.patch("/settings", async (req, res, next) => {
       "moderationProvider",
       "mapProvider",
       "paymentProvider",
-      "backgroundVideoUrl"
+      "backgroundVideoUrl",
+      "backgroundMediaUrl",
+      "backgroundMediaType"
     ];
 
     // Accept a simple key/value object in the request body. Validate basic types.
@@ -516,6 +539,8 @@ router.patch("/settings", async (req, res, next) => {
     const mapProvider = await settingValue("mapProvider", "mapbox");
     const paymentProvider = await settingValue("paymentProvider", process.env.PAYMENT_PROVIDER || "planned_stripe");
     const backgroundVideoUrl = await settingValue("backgroundVideoUrl", process.env.BACKGROUND_VIDEO_URL || "/videos/come-to-barbados.mp4");
+    const backgroundMediaUrl = await settingValue("backgroundMediaUrl", backgroundVideoUrl);
+    const backgroundMediaType = await settingValue("backgroundMediaType", inferBackgroundMediaType(backgroundMediaUrl, "video"));
 
     res.json({
       settings: {
@@ -526,7 +551,9 @@ router.patch("/settings", async (req, res, next) => {
         moderationProvider,
         mapProvider,
         paymentProvider,
-        backgroundVideoUrl
+        backgroundVideoUrl,
+        backgroundMediaUrl,
+        backgroundMediaType
       }
     });
   } catch (error) {
@@ -835,6 +862,55 @@ router.delete("/ads/:adId", async (req, res) => {
   if (!existing) return res.status(404).json({ error: "Ad not found." });
   await prisma.internalAd.delete({ where: { id: existing.id } });
   res.status(204).end();
+});
+
+// Background media upload for admin settings
+const allowedBackgroundMediaMimeTypes = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "video/mp4",
+  "video/webm"
+]);
+
+const allowedBackgroundMediaExtensions = new Set(["jpg", "jpeg", "png", "webp", "mp4", "webm"]);
+
+function inferBackgroundMediaType(value, fallback = "video") {
+  if (!value || typeof value !== "string") return fallback;
+  const normalizedValue = value.toLowerCase();
+  const extension = normalizedValue.match(/\.([a-z0-9]{2,5})(?:[?#].*)?$/)?.[1];
+  if (["mp4", "webm", "mov", "m4v"].includes(extension)) return "video";
+  if (["jpg", "jpeg", "png", "webp", "gif", "avif"].includes(extension)) return "image";
+  return fallback;
+}
+
+router.post("/settings/background-media", upload.single("file"), async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: "A file is required." });
+    }
+
+    const mimeType = req.file.mimetype || "";
+    const extension = (req.file.originalname || "").split(".").pop()?.toLowerCase() || "";
+
+    if (!allowedBackgroundMediaMimeTypes.has(mimeType) && !allowedBackgroundMediaExtensions.has(extension)) {
+      return res.status(400).json({ error: "Only JPG, PNG, WEBP, MP4, and WEBM files are allowed." });
+    }
+
+    if (req.file.size > maxMb * 1024 * 1024) {
+      return res.status(413).json({ error: "File is too large." });
+    }
+
+    const mediaType = mimeType.startsWith("video/") ? "video" : "image";
+    const stored = await uploadMedia(req.file, { key: `background-media/${secureToken(12)}.${extension || (mediaType === "video" ? "mp4" : "jpg")}` });
+
+    res.json({
+      mediaUrl: stored?.fileUrl,
+      mediaType: stored?.fileType || mediaType
+    });
+  } catch (error) {
+    next(error);
+  }
 });
 
 export default router;

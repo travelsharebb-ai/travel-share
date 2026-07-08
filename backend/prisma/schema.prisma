@@ -11,6 +11,10 @@ model User {
   id                   String                 @id @default(cuid())
   name                 String
   email                String                 @unique
+  pendingEmail         String?
+  emailChangeTokenHash String?                @unique
+  emailChangeTokenExpiresAt DateTime?
+  emailVerifiedAt      DateTime?
   passwordHash         String
   role                 UserRole               @default(tourist)
   createdAt            DateTime               @default(now())
@@ -30,6 +34,7 @@ model User {
   preferences          UserPreference?
   purchases            UserPurchase[]
   skinUnlocks          UserSkinUnlock[]     @relation("UserSkinUnlockUser")
+  notifications         Notification[]
 
   @@index([activeStoreItemId])
 }
@@ -54,6 +59,12 @@ model GuestSession {
   deviceFingerprint String?
   scopeType         String?
   scopeId           String?
+  displayName       String?
+  resumeTokenHash   String?  @unique
+  resumeCode        String?  @unique
+  passcodeHash      String?
+  passcodeSetAt     DateTime?
+  lastGuestAccessAt DateTime?
   expiresAt         DateTime
   claimedById       String?
   createdAt         DateTime @default(now())
@@ -556,4 +567,20 @@ enum PaymentStatus {
   paid
   canceled
   failed
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  title     String
+  message   String
+  type      String   @default("info")
+  targetUrl String?
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([userId, readAt])
 }

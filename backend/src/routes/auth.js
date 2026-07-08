@@ -8,8 +8,9 @@ import { requireAuth } from "../middleware/auth.js";
 import { hashToken, readCookie, secureToken } from "../utils/tokens.js";
 import { getGuestLifecycle } from "../services/sessionService.js";
 import crypto from "node:crypto";
-import { sendPasswordResetEmail } from "../utils/email.js";
+import { sendPasswordResetEmail, sendEmailChangeRequest } from "../utils/email.js";
 import { cleanUpload, cleanUser } from "../utils/exportImport.js";
+import { createNotification } from "../services/notifications.js";
 import { ensureBasicSkinUnlocks } from "../utils/skins.js";
 
 const router = Router();
@@ -319,6 +320,8 @@ router.get("/me", requireAuth, async (req, res, next) => {
       select: {
         id: true,
         name: true,
+        pendingEmail: true,
+        emailVerifiedAt: true,
         email: true,
         role: true,
         preferences: true,
@@ -338,13 +341,39 @@ router.get("/me", requireAuth, async (req, res, next) => {
 router.patch("/me", requireAuth, async (req, res, next) => {
   try {
     const data = profileSettingsSchema.parse(req.body);
+    if (req.user.role === "guest") {
+      return res.status(403).json({ error: "Guest accounts cannot update profile settings." });
+    }
     const update = {};
     if (data.name !== undefined) update.name = data.name;
+    let devVerificationUrl = null;
     if (data.email !== undefined) {
       const email = data.email.toLowerCase();
-      const existing = await prisma.user.findFirst({ where: { email, id: { not: req.user.id } } });
-      if (existing) return res.status(409).json({ error: "Email already exists." });
-      update.email = email;
+      if (email === req.user.email) {
+        // no-op
+      } else {
+        const existing = await prisma.user.findFirst({ where: { email, id: { not: req.user.id } } });
+        if (existing) return res.status(409).json({ error: "Email already exists." });
+
+        // create pending email change
+        const token = secureToken(32);
+        const tokenHash = hashToken(token);
+        const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+        await prisma.user.update({ where: { id: req.user.id }, data: { pendingEmail: email, emailChangeTokenHash: tokenHash, emailChangeTokenExpiresAt: expiresAt } });
+
+        const frontendBase = process.env.FRONTEND_URL || process.env.BACKEND_URL || process.env.API_URL || "http://localhost:10000";
+        const verificationUrl = `${frontendBase.replace(/\/$/, "")}/verify-email-change?token=${token}`;
+        // send verification email
+        await sendEmailChangeRequest({ user: { id: req.user.id, name: req.user.name }, toEmail: email, verificationUrl });
+
+        // notify user in-app about the pending email change request
+        createNotification(req.user.id, "Email change requested", `A request to change your email to ${email} was started. Check your email to confirm.`, "info", null).catch?.(() => {});
+        // In development or when email provider is console, surface a dev URL for testing
+        if (process.env.NODE_ENV !== "production" || !process.env.SENDGRID_API_KEY) {
+          devVerificationUrl = verificationUrl;
+        }
+      }
     }
     if (data.newPassword) {
       if (!data.currentPassword) return res.status(400).json({ error: "Current password is required to change password." });
@@ -356,6 +385,12 @@ router.patch("/me", requireAuth, async (req, res, next) => {
 
     if (Object.keys(update).length) {
       await prisma.user.update({ where: { id: req.user.id }, data: update });
+      // notify user about profile changes
+      try {
+        await createNotification(req.user.id, "Profile updated", "Your profile settings were updated successfully.", "info", null);
+      } catch (err) {
+        console.error('profile notification failed', err?.message || err);
+      }
     }
     if (data.preferences) {
       await prisma.userPreference.upsert({
@@ -372,6 +407,8 @@ router.patch("/me", requireAuth, async (req, res, next) => {
       select: {
         id: true,
         name: true,
+        pendingEmail: true,
+        emailVerifiedAt: true,
         email: true,
         role: true,
         preferences: true,
@@ -379,7 +416,34 @@ router.patch("/me", requireAuth, async (req, res, next) => {
         activeStoreItem: true
       }
     });
-    res.json({ user });
+    const payload = { user };
+    if (devVerificationUrl) payload.devVerificationUrl = devVerificationUrl;
+    res.json(payload);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get("/verify-email-change", authLimiter, async (req, res, next) => {
+  try {
+    const token = req.query.token?.toString();
+    if (!token) return res.status(400).json({ error: "Missing token." });
+    const tokenHash = hashToken(token);
+    const user = await prisma.user.findFirst({ where: { emailChangeTokenHash: tokenHash } });
+    if (!user) return res.status(400).json({ error: "Invalid or expired token." });
+    if (!user.pendingEmail || !user.emailChangeTokenExpiresAt || user.emailChangeTokenExpiresAt <= new Date()) {
+      return res.status(400).json({ error: "This link is invalid or expired." });
+    }
+
+    // Ensure pendingEmail is not used by another user
+    const existing = await prisma.user.findFirst({ where: { email: user.pendingEmail, id: { not: user.id } } });
+    if (existing) return res.status(409).json({ error: "That email is already in use." });
+
+    await prisma.$transaction([
+      prisma.user.update({ where: { id: user.id }, data: { email: user.pendingEmail, pendingEmail: null, emailChangeTokenHash: null, emailChangeTokenExpiresAt: null, emailVerifiedAt: new Date() } })
+    ]);
+
+    res.json({ message: "Email updated and verified." });
   } catch (error) {
     next(error);
   }

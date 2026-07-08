@@ -18,6 +18,7 @@ async function recordDownloadAudit({ userId, uploadId, success, reason, ip }) {
 }
 
 router.get("/:uploadId", requireAuth, async (req, res) => {
+  if (!req.user) return res.status(401).json({ error: "Please sign up or log in to purchase or download this item." });
   const upload = await prisma.upload.findUnique({
     where: { id: req.params.uploadId },
     include: {

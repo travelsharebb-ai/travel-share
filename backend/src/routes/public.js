@@ -24,6 +24,10 @@ router.get("/appearance", publicController.appearance);
 router.get("/events", publicController.publicEvents);
 router.get("/store-preview", publicController.storePreview);
 
+router.get("/guest/session", publicController.guestSessionStatus);
+router.post("/guest/session", publicController.guestSessionCreate);
+router.post("/guest/resume", publicController.guestSessionResume);
+
 // =======================
 // 🔥 SINGLE QR ENTRY POINT
 // =======================

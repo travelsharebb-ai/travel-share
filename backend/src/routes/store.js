@@ -6,6 +6,7 @@ import { ensureBasicSkinUnlocks } from "../utils/skins.js";
 const router = Router();
 
 router.get("/", async (req, res) => {
+  if (!req.user) return res.status(401).json({ error: "Please sign up or log in to purchase or download this item." });
   await ensureBasicSkinUnlocks(req.user.id).catch((error) => {
     console.error("Failed to grant basic skins while loading store", error);
   });
@@ -20,6 +21,7 @@ router.get("/", async (req, res) => {
 });
 
 router.post("/:itemId/purchase", async (req, res) => {
+  if (!req.user) return res.status(401).json({ error: "Please sign up or log in to purchase or download this item." });
   const item = await prisma.purchaseItem.findFirst({ where: { id: req.params.itemId, active: true } });
   if (!item) return res.status(404).json({ error: "Store item not found." });
   if (item.priceCents > 0 && process.env.ALLOW_DEV_PURCHASES !== "true") {
@@ -41,6 +43,7 @@ router.post("/:itemId/purchase", async (req, res) => {
 });
 
 router.post("/:itemId/checkout", async (req, res, next) => {
+  if (!req.user) return res.status(401).json({ error: "Please sign up or log in to purchase or download this item." });
   try {
     const provider = ["stripe", "paypal"].includes(req.body?.provider) ? req.body.provider : "stripe";
     const item = await prisma.purchaseItem.findFirst({ where: { id: req.params.itemId, active: true } });

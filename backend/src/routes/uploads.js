@@ -4,6 +4,7 @@ import { prisma } from "../utils/prisma.js";
 import { attachFrameUrls, userOwnsSkin } from "../utils/skins.js";
 import { notifyReportedUpload } from "../utils/email.js";
 import { isPlatformAdmin } from "../middleware/auth.js";
+import { createNotification } from "../services/notifications.js";
 
 const router = Router();
 
@@ -153,6 +154,15 @@ router.patch("/uploads/:uploadId/approve", async (req, res) => {
     }
   });
   const hydrated = (await hydrateUploads([updated]))[0];
+  try {
+    // notify owner if present
+    const ownerId = updated.trip?.userId || updated.event?.organizerId || null;
+    if (ownerId) {
+      await createNotification(ownerId, "Upload approved", `An upload was approved: ${updated.caption || 'photo'}.`, "info", null);
+    }
+  } catch (err) {
+    console.error('notify upload approval failed', err?.message || err);
+  }
   res.json({ upload: hydrated });
 });
 
@@ -190,6 +200,14 @@ router.patch("/uploads/:uploadId/reject", async (req, res) => {
     }
   });
   const hydrated = (await hydrateUploads([updated]))[0];
+  try {
+    const ownerId = updated.trip?.userId || updated.event?.organizerId || null;
+    if (ownerId) {
+      await createNotification(ownerId, "Upload rejected", `An upload was rejected by moderation.`, "warning", null);
+    }
+  } catch (err) {
+    console.error('notify upload rejection failed', err?.message || err);
+  }
   res.json({ upload: hydrated });
 });
 
@@ -247,6 +265,15 @@ router.patch("/uploads/:uploadId/report", async (req, res, next) => {
     notifyReportedUpload({ upload: updated }).catch((error) => {
       console.error("Reported upload notification failed", error);
     });
+
+    try {
+      const ownerId = updated.trip?.userId || (updated.trip?.user?.id) || null;
+      if (ownerId) {
+        await createNotification(ownerId, "Upload reported", `An upload was reported: ${updated.reportReason || 'reported'}.`, "warning", null);
+      }
+    } catch (err) {
+      console.error('notify reported upload failed', err?.message || err);
+    }
 
     const hydrated = (await hydrateUploads([updated]))[0];
     res.json({ upload: hydrated });

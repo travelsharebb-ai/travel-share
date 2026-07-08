@@ -7,7 +7,9 @@ import {
 } from "../services/sessionService.js";
 import * as uploadService from "../services/uploadService.js";
 import crypto from "node:crypto";
-import { readCookie, setGuestSessionCookie, fingerprintFromRequest, getOrSetUploaderSession } from "../utils/tokens.js";
+import bcrypt from "bcryptjs";
+import { readCookie, setGuestSessionCookie, fingerprintFromRequest, getOrSetUploaderSession, secureToken, hashToken } from "../utils/tokens.js";
+import { get as getPlatformSetting } from "../services/platformService.js";
 
 /**
  * =========================
@@ -31,6 +33,11 @@ async function guestPayload(guest, platformCache) {
   return {
     token: guest.token,
     state: lifecycle.state,
+    status: lifecycle.state,
+    displayName: guest.displayName || null,
+    resumeAvailable: Boolean(guest.resumeCode),
+    accessLink: guest.resumeCode ? `${process.env.FRONTEND_URL || "http://localhost:5173"}/guest/access/${guest.resumeCode}` : null,
+    lastGuestAccessAt: guest.lastGuestAccessAt || null,
     activeUntil: lifecycle.activeUntil,
     expiresAt: lifecycle.expiresAt,
     daysRemaining: lifecycle.daysRemaining,
@@ -45,6 +52,14 @@ async function qrResponse(type, data, guest, platformCache) {
     guest: await guestPayload(guest, platformCache),
     data
   };
+}
+
+function inferBackgroundMediaType(value, fallback = "video") {
+  if (!value || typeof value !== "string") return fallback;
+  const extension = value.toLowerCase().match(/\.([a-z0-9]{2,5})(?:[?#].*)?$/)?.[1];
+  if (["mp4", "webm", "mov", "m4v"].includes(extension)) return "video";
+  if (["jpg", "jpeg", "png", "webp", "gif", "avif"].includes(extension)) return "image";
+  return fallback;
 }
 
 /**
@@ -68,9 +83,18 @@ export async function settings(req, res, next) {
 
 export async function appearance(req, res, next) {
   try {
+    const fallbackUrl = process.env.BACKGROUND_VIDEO_URL || "/videos/come-to-barbados.mp4";
+    const storedMediaUrl = await getPlatformSetting(req.platformCache, "backgroundMediaUrl", null);
+    const storedVideoUrl = await getPlatformSetting(req.platformCache, "backgroundVideoUrl", fallbackUrl);
+    const storedMediaType = await getPlatformSetting(req.platformCache, "backgroundMediaType", null);
+    const backgroundMediaUrl = storedMediaUrl || storedVideoUrl || fallbackUrl;
+    const backgroundMediaType = storedMediaType || inferBackgroundMediaType(backgroundMediaUrl, "video");
+
     res.json({
       appearance: {
-        backgroundVideoUrl: "/videos/come-to-barbados.mp4"
+        backgroundVideoUrl: backgroundMediaUrl,
+        backgroundMediaUrl,
+        backgroundMediaType
       }
     });
   } catch (err) {
@@ -106,6 +130,164 @@ export async function publicEvents(req, res, next) {
   }
 }
 
+export async function guestSessionStatus(req, res, next) {
+  try {
+    const token = readCookie(req, "ts_guest") || req.get("x-guest-token");
+    if (!token) {
+      return res.json({
+        valid: false,
+        guestSession: null,
+        status: "expired",
+        daysRemaining: 0,
+        expiresAt: null,
+        activeUntil: null,
+        graceEndsAt: null
+      });
+    }
+
+    const guest = await prisma.guestSession.findUnique({ where: { token } });
+    if (!guest || guest.claimedById) {
+      return res.json({
+        valid: false,
+        guestSession: null,
+        status: "expired",
+        daysRemaining: 0,
+        expiresAt: null,
+        activeUntil: null,
+        graceEndsAt: null
+      });
+    }
+
+    const lifecycle = await getGuestLifecycle(guest, { platformCache: req.platformCache });
+    const status = lifecycle.state;
+    const guestSession = {
+      token: guest.token,
+      status,
+      daysRemaining: lifecycle.daysRemaining,
+      expiresAt: lifecycle.expiresAt,
+      activeUntil: lifecycle.activeUntil,
+      graceEndsAt: lifecycle.activeUntil,
+      shouldPromptRegister: lifecycle.shouldPromptRegister,
+      expired: lifecycle.expired
+    };
+    return res.json({
+      valid: !lifecycle.expired,
+      guestSession,
+      status,
+      daysRemaining: lifecycle.daysRemaining,
+      expiresAt: lifecycle.expiresAt,
+      activeUntil: lifecycle.activeUntil,
+      graceEndsAt: lifecycle.activeUntil
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function guestSessionCreate(req, res, next) {
+  try {
+    const { displayName, passcode } = req.body || {};
+
+    const guest = await getOrCreateGuestSession({
+      token: readCookie(req, "ts_guest") || req.get("x-guest-token"),
+      deviceFingerprint: fingerprintFromRequest(req),
+      platformCache: req.platformCache
+    });
+    if (guest) setGuestSessionCookie(res, guest.token);
+
+    // If client provided a displayName and passcode, persist them securely and return a resume token
+    let resumeToken = null;
+    if (passcode && typeof passcode === 'string' && /^\d{4}$/.test(passcode)) {
+      try {
+        // generate resume code and keep a hashed copy for later resume validation
+        const resumeCode = secureToken(18);
+        resumeToken = resumeCode;
+        const resumeTokenHash = hashToken(resumeCode);
+        const passcodeHash = await bcrypt.hash(passcode, 10);
+        await prisma.guestSession.update({
+          where: { id: guest.id },
+          data: {
+            displayName: displayName || null,
+            resumeCode,
+            resumeTokenHash,
+            passcodeHash,
+            passcodeSetAt: new Date(),
+            lastGuestAccessAt: new Date()
+          }
+        });
+      } catch (err) {
+        console.error('Error saving guest profile', err?.message || err);
+      }
+    } else if (displayName) {
+      try {
+        await prisma.guestSession.update({ where: { id: guest.id }, data: { displayName: displayName || null, lastGuestAccessAt: new Date() } });
+      } catch (err) {
+        console.error('Error saving guest displayName', err?.message || err);
+      }
+    }
+
+    const guestRecord = await prisma.guestSession.findUnique({ where: { id: guest.id } });
+    const payload = await guestPayload(guestRecord, { platformCache: req.platformCache });
+    const response = {
+      valid: !payload.expired,
+      guestSession: payload,
+      status: payload.status,
+      daysRemaining: payload.daysRemaining,
+      expiresAt: payload.expiresAt,
+      activeUntil: payload.activeUntil,
+      graceEndsAt: payload.activeUntil
+    };
+    if (resumeToken) response.resumeToken = resumeToken;
+    if (payload.accessLink) response.accessLink = payload.accessLink;
+    return res.status(201).json(response);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function guestSessionResume(req, res, next) {
+  try {
+    const { resumeToken, passcode } = req.body || {};
+    if (!resumeToken || !passcode) {
+      return res.status(400).json({ error: 'resumeToken and passcode required' });
+    }
+
+    const resumeTokenHash = hashToken(resumeToken);
+    const guest = await prisma.guestSession.findUnique({ where: { resumeTokenHash } });
+    if (!guest || guest.claimedById) {
+      return res.status(401).json({ error: 'Guest session not found' });
+    }
+
+    const lifecycle = await getGuestLifecycle(guest, { platformCache: req.platformCache });
+    if (lifecycle.expired) {
+      return res.status(403).json({ error: 'Guest session expired' });
+    }
+
+    // verify passcode
+    if (!guest.passcodeHash) {
+      return res.status(401).json({ error: 'No passcode set for this session' });
+    }
+    const ok = await bcrypt.compare(passcode, guest.passcodeHash);
+    if (!ok) {
+      return res.status(401).json({ error: 'Invalid passcode' });
+    }
+
+    // update last access
+    try {
+      await prisma.guestSession.update({ where: { id: guest.id }, data: { lastGuestAccessAt: new Date() } });
+    } catch (err) {
+      console.warn('guestSessionResume - unable to update lastGuestAccessAt', err?.message || err);
+    }
+
+    // set cookie and return session payload
+    setGuestSessionCookie(res, guest.token);
+    const payload = await guestPayload(guest, req.platformCache);
+    return res.json({ guestToken: guest.token, guestSession: payload, accessLink: payload.accessLink });
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function storePreview(req, res, next) {
   try {
     // Return active store items for public preview. Do not expose internal fields.
@@ -126,7 +308,6 @@ export async function storePreview(req, res, next) {
 
     const mapped = items.map((it) => {
       const metadata = it.metadata || null;
-      // Provide a friendly category and assetUrl for frontend consumption
       const category = metadata && typeof metadata === 'object' && 'category' in metadata ? metadata.category : null;
       const assetUrl = metadata && typeof metadata === 'object' && (metadata.frameAssetUrl || metadata.previewImage) ? (metadata.frameAssetUrl || metadata.previewImage) : it.previewUrl || null;
 
