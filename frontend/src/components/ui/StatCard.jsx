@@ -27,10 +27,12 @@ const styles = {
     borderRadius: 12,
     display: "grid",
     placeItems: "center",
-    background: "rgba(96,165,250,0.15)"
+    background: "var(--stat-icon-bg, rgba(96,165,250,0.15))",
+    border: "1px solid var(--stat-icon-border, rgba(96,165,250,0.25))",
+    color: "var(--stat-icon-color, #60a5fa)"
   },
   label: {
-    color: "#9ca3af",
+    color: "var(--stat-label, var(--text))",
     fontSize: 13,
     fontWeight: 700
   },
@@ -38,11 +40,12 @@ const styles = {
     display: "block",
     marginTop: 14,
     fontSize: 30,
-    fontWeight: 950
+    fontWeight: 950,
+    color: "var(--stat-value, var(--text))"
   },
   detail: {
     margin: "6px 0 0",
-    color: "#9ca3af",
+    color: "var(--stat-detail, var(--text-muted))",
     fontSize: 13
   }
 };

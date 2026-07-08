@@ -36,7 +36,7 @@ const styles = {
     gap: 7
   },
   label: {
-    color: "#d1d5db",
+    color: "var(--text-muted)",
     fontWeight: 800,
     fontSize: 14
   },
@@ -44,9 +44,9 @@ const styles = {
     width: "100%",
     padding: "13px 14px",
     borderRadius: 14,
-    border: "1px solid #334155",
-    background: "#0b1220",
-    color: "#ffffff",
+    border: "1px solid var(--border)",
+    background: "var(--surface)",
+    color: "var(--text)",
     fontSize: 15,
     outline: "none",
     boxSizing: "border-box"

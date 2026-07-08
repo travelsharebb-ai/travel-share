@@ -9,8 +9,8 @@ export default function LoadingState({ label = "Loading..." }) {
 
 const styles = {
   wrap: {
-    background: "rgba(17,24,39,0.92)",
-    border: "1px solid #223047",
+    background: "var(--surface)",
+    border: "1px solid var(--border)",
     borderRadius: 22,
     padding: 24,
     display: "grid",
@@ -21,11 +21,11 @@ const styles = {
     width: 42,
     height: 42,
     borderRadius: "50%",
-    border: "4px solid #223047",
-    borderTopColor: "#60a5fa"
+    border: "4px solid var(--border)",
+    borderTopColor: "var(--accent, #60a5fa)"
   },
   label: {
-    color: "#9ca3af",
+    color: "var(--text-muted)",
     margin: 0
   }
 };

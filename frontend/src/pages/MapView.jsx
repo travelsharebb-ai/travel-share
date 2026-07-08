@@ -1,15 +1,16 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, currentUser } from '../lib/api.js';
+import { useLanguage } from '../lib/i18n.js';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
 const FILTER_OPTIONS = [
-  { id: 'all', label: 'All', icon: '🌍' },
-  { id: 'events', label: 'Events', icon: '🎯' },
-  { id: 'trips', label: 'Trips', icon: '✈️' },
-  { id: 'photos', label: 'Photos', icon: '📸' },
-  { id: 'nearby', label: 'Nearby', icon: '📍' }
+  { id: 'all', icon: '🌍' },
+  { id: 'events', icon: '🎯' },
+  { id: 'trips', icon: '✈️' },
+  { id: 'photos', icon: '📸' },
+  { id: 'nearby', icon: '📍' }
 ];
 
 // Barbados bounding box for preferring local results
@@ -24,25 +25,21 @@ const BARBADOS_BOUNDS = {
 const MAP_STYLES = {
   streets: {
     id: 'streets',
-    label: 'Streets',
     url: 'mapbox://styles/mapbox/streets-v12',
     icon: '🗺️'
   },
   satellite: {
     id: 'satellite',
-    label: 'Satellite',
     url: 'mapbox://styles/mapbox/satellite-streets-v12',
     icon: '🛰️'
   },
   terrain: {
     id: 'terrain',
-    label: 'Terrain',
     url: 'mapbox://styles/mapbox/outdoors-v12',
     icon: '🏔️'
   },
   navigation: {
     id: 'navigation',
-    label: 'Navigation',
     url: 'mapbox://styles/mapbox/navigation-day-v1',
     icon: '🧭'
   }
@@ -56,6 +53,28 @@ const STORAGE_KEY_MAP_STYLE = 'travelshare_map_style';
 // And layers for traffic visualization when needed.
 
 export default function MapView() {
+  const { t } = useLanguage();
+  const translatedFilterOptions = useMemo(
+    () => FILTER_OPTIONS.map((item) => ({
+      ...item,
+      label: t(`map.${item.id}`)
+    })),
+    [t]
+  );
+
+  const translatedMapStyles = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.entries(MAP_STYLES).map(([key, value]) => [
+          key,
+          {
+            ...value,
+            label: t(`map.${value.id}`)
+          }
+        ])
+      ),
+    [t]
+  );
 
   // Utility: escape user-provided strings used in popup HTML
   function escapeHtml(str) {
@@ -69,11 +88,11 @@ export default function MapView() {
   }
 
   function formatPreviewTime(d) {
-    if (!d) return 'Recently shared';
+    if (!d) return t('map.recentlyShared');
     try {
       return d.toLocaleString();
     } catch (e) {
-      return 'Recently shared';
+      return t('map.recentlyShared');
     }
   }
 
@@ -375,8 +394,8 @@ export default function MapView() {
 
     const dot = document.createElement('div');
     dot.className = 'user-location-dot';
-    dot.setAttribute('aria-label', 'Your current location');
-    dot.title = 'Your current location';
+    dot.setAttribute('aria-label', t('map.yourCurrentLocation'));
+    dot.title = t('map.yourCurrentLocation');
     dot.innerHTML = '●';
     Object.assign(dot.style, {
       width: '34px',
@@ -404,7 +423,7 @@ export default function MapView() {
       .setLngLat([markerLng, markerLat])
       .setPopup(
         new mapboxgl.Popup({ offset: 20 }).setHTML(
-          `<strong>You are here</strong><br/>Accuracy: about ${Math.round(accuracy || 0)} meters`
+          `<strong>${escapeHtml(t('map.youAreHere'))}</strong><br/>${escapeHtml(t('map.accuracy', { meters: Math.round(accuracy || 0) }))}`
         )
       )
       .addTo(mapRef.current);
@@ -472,7 +491,7 @@ export default function MapView() {
       return {
         latitude: Number(pendingPostLocation.lat),
         longitude: Number(pendingPostLocation.lng),
-        label: pendingPostAddress?.address || 'Add Post location',
+        label: pendingPostAddress?.address || t('map.addPostLocation', 'Add Post location'),
         source: 'addPost'
       };
     }
@@ -487,7 +506,7 @@ export default function MapView() {
       return {
         latitude: Number(userLocation.latitude),
         longitude: Number(userLocation.longitude),
-        label: 'Your location',
+        label: t('map.yourLocation', 'Your location'),
         source: 'userLocation'
       };
     }
@@ -503,7 +522,7 @@ export default function MapView() {
             return {
               latitude: Number(center.lat),
               longitude: Number(center.lng),
-              label: 'Map center',
+              label: t('map.mapCenter', 'Map center'),
               source: 'mapCenter'
             };
           }
@@ -543,7 +562,7 @@ export default function MapView() {
     const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY?.trim();
     if (!apiKey) {
       setStreetViewLocation(null);
-      setStreetViewError('Street View needs a Google Maps API key.');
+      setStreetViewError(t('map.streetViewApiKey', 'Street View needs a Google Maps API key.'));
       setStreetViewUrl('');
       setStreetViewOpen(true);
       return;
@@ -552,7 +571,7 @@ export default function MapView() {
     const location = getBestStreetViewLocation();
     if (!location) {
       setStreetViewLocation(null);
-      setStreetViewError('Zoom in closer or search/select a specific place first.');
+      setStreetViewError(t('map.streetViewZoomFirst', 'Zoom in closer or search/select a specific place first.'));
       setStreetViewUrl('');
       setStreetViewOpen(true);
       return;
@@ -658,7 +677,7 @@ export default function MapView() {
       features: points
         .filter((point) => point.latitude != null && point.longitude != null)
         .map((point, index) => ({
-          type: 'Feature',
+          type: t("map.feature"),
           geometry: { type: 'Point', coordinates: [point.longitude, point.latitude] },
           properties: {
             id: point.id || index,
@@ -675,7 +694,7 @@ export default function MapView() {
         .slice(0, index + 1)
         .filter((point) => point.latitude != null && point.longitude != null)
         .map((point, idx) => ({
-          type: 'Feature',
+          type: t("map.feature"),
           geometry: { type: 'Point', coordinates: [point.longitude, point.latitude] },
           properties: {
             id: point.id || idx
@@ -692,7 +711,7 @@ export default function MapView() {
     return {
       type: 'FeatureCollection',
       features: [{
-        type: 'Feature',
+        type: t("map.feature"),
         geometry: { type: 'Point', coordinates: [point.longitude, point.latitude] },
         properties: { id: point.id }
       }]
@@ -1026,9 +1045,9 @@ export default function MapView() {
         const props = feature.properties || {};
 
         const previewImage = props.previewImage ? `<div style="margin-bottom:8px;"><img src="${props.previewImage}" alt="preview" style="width:220px;height:120px;object-fit:cover;border-radius:6px;display:block;"/></div>` : '';
-        const previewTitle = props.previewTitle || props.title || 'Community post';
-        const previewUser = props.previewUser ? `<small style="color:#444;">by ${escapeHtml(props.previewUser)}</small>` : `<small style="color:#444;">Community post</small>`;
-        const previewTime = props.previewCreatedAt ? `<div style="color:#666;font-size:12px;margin-top:6px;">${formatPreviewTime(new Date(props.previewCreatedAt))}</div>` : `<div style="color:#666;font-size:12px;margin-top:6px;">Recently shared</div>`;
+        const previewTitle = props.previewTitle || props.title || t("map.communityPost");
+        const previewUser = props.previewUser ? `<small style="color:#444;">by ${escapeHtml(props.previewUser)}</small>` : `<small style="color:#444;">{t("map.communityPost")}</small>`;
+        const previewTime = props.previewCreatedAt ? `<div style="color:#666;font-size:12px;margin-top:6px;">${formatPreviewTime(new Date(props.previewCreatedAt))}</div>` : `<div style="color:#666;font-size:12px;margin-top:6px;">{t("map.recentlyShared")}</div>`;
 
         const html = `<div style="padding:8px;font-size:14px;max-width:260px;">${previewImage}<strong>${escapeHtml(previewTitle)}</strong><br/><small>${escapeHtml(props.description || 'No address')}</small><br/>${previewUser}${previewTime}</div>`;
 
@@ -1348,7 +1367,7 @@ export default function MapView() {
       const features = (filteredLocations || locations)
         .filter((loc) => loc.lat != null && loc.lng != null)
         .map((loc) => ({
-          type: 'Feature',
+          type: t("map.feature"),
           geometry: { type: 'Point', coordinates: [loc.lng, loc.lat] },
           properties: {
             id: loc.id,
@@ -1595,7 +1614,7 @@ export default function MapView() {
     const features = filteredLocations
       .filter((loc) => loc.lat != null && loc.lng != null)
       .map((loc) => ({
-        type: 'Feature',
+        type: t("map.feature"),
         geometry: { type: 'Point', coordinates: [loc.lng, loc.lat] },
         properties: {
           id: loc.id,
@@ -1700,9 +1719,9 @@ export default function MapView() {
             const props = feature.properties || {};
 
             const previewImage = props.previewImage ? `<div style="margin-bottom:8px;"><img src="${props.previewImage}" alt="preview" style="width:220px;height:120px;object-fit:cover;border-radius:6px;display:block;"/></div>` : '';
-            const previewTitle = props.previewTitle || props.title || 'Community post';
-            const previewUser = props.previewUser ? `<small style="color:#444;">by ${escapeHtml(props.previewUser)}</small>` : `<small style="color:#444;">Community post</small>`;
-            const previewTime = props.previewCreatedAt ? `<div style="color:#666;font-size:12px;margin-top:6px;">${formatPreviewTime(new Date(props.previewCreatedAt))}</div>` : `<div style="color:#666;font-size:12px;margin-top:6px;">Recently shared</div>`;
+            const previewTitle = props.previewTitle || props.title || t("map.communityPost");
+            const previewUser = props.previewUser ? `<small style="color:#444;">by ${escapeHtml(props.previewUser)}</small>` : `<small style="color:#444;">{t("map.communityPost")}</small>`;
+            const previewTime = props.previewCreatedAt ? `<div style="color:#666;font-size:12px;margin-top:6px;">${formatPreviewTime(new Date(props.previewCreatedAt))}</div>` : `<div style="color:#666;font-size:12px;margin-top:6px;">{t("map.recentlyShared")}</div>`;
 
             const html = `<div style="padding:8px;font-size:14px;max-width:260px;">${previewImage}<strong>${escapeHtml(previewTitle)}</strong><br/><small>${escapeHtml(props.description || 'No address')}</small><br/>${previewUser}${previewTime}</div>`;
 
@@ -2061,15 +2080,14 @@ export default function MapView() {
     <div className="page-shell min-h-screen pb-8">
       <div className="mb-8">
         <div className="hero-copy-panel">
-          <p className="text-primary font-semibold uppercase tracking-wide mb-2">Map page loaded</p>
-          <h1 className="font-serif text-3xl font-bold text-white mb-2">Explore Locations</h1>
-          <p className="text-slatebody mb-6">Discover events, trips, and photos from around the world</p>
+          <h1 className="font-serif text-3xl font-bold text-white mb-2">{t('map.heroTitle','Explore Locations')}</h1>
+          <p className="text-slatebody mb-6">{t('map.heroSubtitle','Discover events, trips, and photos from around the world')}</p>
 
           <div className="mb-6">
             <div className="relative">
               <input
                 type="text"
-                placeholder="Search locations or addresses..."
+                placeholder={t('map.searchPlaceholder','Search locations or addresses...')}
                 value={searchText}
                 onChange={(event) => handleSearchChange(event.target.value)}
                 onBlur={() => setTimeout(() => setShowSearchSuggestions(false), 200)}
@@ -2093,7 +2111,7 @@ export default function MapView() {
           </div>
 
           <div className="flex flex-wrap gap-2 mb-6">
-            {FILTER_OPTIONS.map((filter) => (
+            {translatedFilterOptions.map((filter) => (
               <button
                 key={filter.id}
                 onClick={() => {
@@ -2112,7 +2130,7 @@ export default function MapView() {
 
           <div className="flex gap-4 mb-6">
             <div className="flex-1">
-              <label className="block text-sm font-semibold text-slate-300 mb-2">Country</label>
+              <label className="block text-sm font-semibold text-slate-300 mb-2">{t("map.country")}</label>
               <select
                 value={countryFilter}
                 onChange={(e) => {
@@ -2121,7 +2139,7 @@ export default function MapView() {
                 }}
                 className="field w-full"
               >
-                <option value="">All Countries</option>
+                <option value="">{t("map.allCountries")}</option>
                 {countryOptions.length > 0 ? (
                   countryOptions.map((country) => (
                     <option key={country} value={country}>
@@ -2129,18 +2147,18 @@ export default function MapView() {
                     </option>
                   ))
                 ) : (
-                  <option disabled>No country data available</option>
+                  <option disabled>{t("map.noCountryData")}</option>
                 )}
               </select>
             </div>
             <div className="flex-1">
-              <label className="block text-sm font-semibold text-slate-300 mb-2">Region</label>
+              <label className="block text-sm font-semibold text-slate-300 mb-2">{t("map.region")}</label>
               <select
                 value={regionFilter}
                 onChange={(e) => setRegionFilter(e.target.value)}
                 className="field w-full"
               >
-                <option value="">All Regions</option>
+                <option value="">{t("map.allRegions")}</option>
                 {regionOptions.length > 0 ? (
                   regionOptions.map((region) => (
                     <option key={region} value={region}>
@@ -2148,13 +2166,13 @@ export default function MapView() {
                     </option>
                   ))
                 ) : (
-                  <option disabled>No region data available</option>
+                  <option disabled>{t("map.noRegionData")}</option>
                 )}
               </select>
             </div>
           </div>
           <div className="text-xs text-slate-400 mb-6">
-            Country and region filters apply to loaded Travel Share posts only.
+            {t('map.filterHint','Country and region filters apply to loaded Travel Share posts only.')}
           </div>
         </div>
       </div>
@@ -2167,9 +2185,7 @@ export default function MapView() {
                 <div>
                   <div className="text-4xl mb-3">⚠️</div>
                   <h3 className="text-xl font-bold text-white mb-2">{mapError}</h3>
-                  <p className="text-slatebody text-sm mb-4">
-                    The map is currently unavailable. Locations are still visible in the sidebar.
-                  </p>
+                  <p className="text-slatebody text-sm mb-4">{t("map.mapUnavailableMessage")}</p>
                 </div>
               </div>
             ) : (
@@ -2226,9 +2242,7 @@ export default function MapView() {
                       fontSize: '13px',
                       boxShadow: '0 2px 10px rgba(0,0,0,0.12)'
                     }}
-                  >
-                    No heatmap data yet.
-                  </div>
+                  >{t("map.noHeatmapData")}</div>
                 ) : null}
                 {!overlayError && mapMode === 'replay' && !replayPoints.length ? (
                   <div
@@ -2245,9 +2259,7 @@ export default function MapView() {
                       fontSize: '13px',
                       boxShadow: '0 2px 10px rgba(0,0,0,0.12)'
                     }}
-                  >
-                    No replay data yet.
-                  </div>
+                  >{t("map.noReplayData")}</div>
                 ) : null}
                 
                 {/* Layer Control Panel */}
@@ -2267,7 +2279,7 @@ export default function MapView() {
                     <button
                       onClick={() => setShowLayerControl(true)}
                       style={{
-                        backgroundColor: 'transparent',
+                        backgroundColor: '#f3f4f6',
                         border: 'none',
                         padding: '10px 14px',
                         cursor: 'pointer',
@@ -2279,7 +2291,7 @@ export default function MapView() {
                         minHeight: '44px',
                         color: '#333'
                       }}
-                      title="Map Layers"
+                      title={t('map.layers','Map Layers')}
                     >
                       🗺️
                     </button>
@@ -2294,7 +2306,7 @@ export default function MapView() {
                               style={{
                                 padding: '8px 12px',
                                 border: 'none',
-                                backgroundColor: mapMode === mode ? '#2563eb' : 'transparent',
+                                backgroundColor: mapMode === mode ? '#2563eb' : '#e5e7eb',
                                 color: mapMode === mode ? '#ffffff' : '#333',
                                 cursor: 'pointer',
                                 borderRadius: '9999px',
@@ -2302,7 +2314,7 @@ export default function MapView() {
                                 transition: 'background-color 0.2s, color 0.2s'
                               }}
                             >
-                              {mode === 'pins' ? 'Pins' : mode === 'heatmap' ? 'Heatmap' : 'Replay'}
+                              {mode === 'pins' ? t('map.pins','Pins') : mode === 'heatmap' ? t('map.heatmap','Heatmap') : t('map.replay','Replay')}
                             </button>
                           ))}
                         </div>
@@ -2322,7 +2334,7 @@ export default function MapView() {
                               }}
                               disabled={replayPoints.length === 0}
                             >
-                              {replayPlaying ? 'Pause' : 'Play'}
+                              {replayPlaying ? t('map.pause','Pause') : t('map.play','Play')}
                             </button>
                             <button
                               type="button"
@@ -2339,10 +2351,10 @@ export default function MapView() {
                                 fontSize: '13px'
                               }}
                             >
-                              Reset
+                              {t('map.reset','Reset')}
                             </button>
                             <div style={{ fontSize: '12px', color: '#444' }}>
-                              Step {Math.min(replayIndex + 1, replayPoints.length)} / {replayPoints.length}
+                              {t('map.step','Step')} {Math.min(replayIndex + 1, replayPoints.length)} / {replayPoints.length}
                             </div>
                           </div>
                         ) : null}
@@ -2357,7 +2369,7 @@ export default function MapView() {
                             padding: '10px 16px',
                             textAlign: 'left',
                             border: 'none',
-                            backgroundColor: mapStyle === style.id ? '#e5e7eb' : 'transparent',
+                            backgroundColor: mapStyle === style.id ? '#d1d5db' : '#e5e7eb',
                             cursor: styleLoading || mapStyle === style.id ? 'not-allowed' : 'pointer',
                             fontSize: '14px',
                             color: '#333',
@@ -2366,10 +2378,10 @@ export default function MapView() {
                             whiteSpace: 'nowrap'
                           }}
                           onMouseEnter={(e) => {
-                            e.target.style.backgroundColor = mapStyle === style.id ? '#d1d5db' : '#f3f4f6';
+                            e.target.style.backgroundColor = mapStyle === style.id ? '#bfdbfe' : '#d1d5db';
                           }}
                           onMouseLeave={(e) => {
-                            e.target.style.backgroundColor = mapStyle === style.id ? '#e5e7eb' : 'transparent';
+                            e.target.style.backgroundColor = mapStyle === style.id ? '#d1d5db' : '#e5e7eb';
                           }}
                         >
                           <span style={{ marginRight: '8px' }}>{style.icon}</span>
@@ -2396,12 +2408,12 @@ export default function MapView() {
                           color: '#111827',
                           marginTop: '10px'
                         }}
-                      >
-                        🧭 Street View
+                        >
+                        {t('map.streetViewButton','🧭 Street View')}
                       </button>
                       {styleLoading ? (
                         <div style={{ marginTop: '8px', fontSize: '12px', color: '#444' }}>
-                          Switching map view…
+                          {t('map.switchingMapView','Switching map view…')}
                         </div>
                       ) : null}
                       <button
@@ -2412,30 +2424,30 @@ export default function MapView() {
                           padding: '10px 16px',
                           textAlign: 'center',
                           border: 'none',
-                          backgroundColor: 'transparent',
+                          backgroundColor: '#e5e7eb',
                           cursor: 'pointer',
                           fontSize: '12px',
-                          color: '#666',
-                          borderTop: '1px solid #e5e7eb',
+                          color: '#333',
+                          borderTop: '1px solid #d1d5db',
                           transition: 'background-color 0.2s'
                         }}
                         onMouseEnter={(e) => {
-                          e.target.style.backgroundColor = '#f3f4f6';
+                          e.target.style.backgroundColor = '#d1d5db';
                         }}
                         onMouseLeave={(e) => {
-                          e.target.style.backgroundColor = 'transparent';
+                          e.target.style.backgroundColor = '#e5e7eb';
                         }}
-                      >
-                        Close
+                        >
+                        {t('map.close','Close')}
                       </button>
                       {mapMode === 'heatmap' && !heatmapPoints.length ? (
                         <div style={{ marginTop: '10px', fontSize: '13px', color: '#444' }}>
-                          No heatmap data yet.
+                          {t('map.noHeatmapData',t("map.noHeatmapData"))}
                         </div>
                       ) : null}
                       {mapMode === 'replay' && !replayPoints.length ? (
                         <div style={{ marginTop: '10px', fontSize: '13px', color: '#444' }}>
-                          No replay data yet.
+                          {t('map.noReplayData',t("map.noReplayData"))}
                         </div>
                       ) : null}
                     </div>
@@ -2481,10 +2493,10 @@ export default function MapView() {
                   color: '#ffffff'
                 }}
               >
-                <div>
-                  <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700 }}>Street View</h2>
+                  <div>
+                  <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700 }}>{t('map.streetView','Street View')}</h2>
                   <p style={{ margin: '6px 0 0', color: '#cbd5e1', fontSize: '0.95rem' }}>
-                    Street View availability depends on Google coverage.
+                    {t('map.streetViewCoverage','Street View availability depends on Google coverage.')}
                   </p>
                 </div>
                 <button
@@ -2502,8 +2514,8 @@ export default function MapView() {
                 </button>
               </div>
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                <div style={{ padding: '12px 16px', background: '#0f172a', color: '#e2e8f0', fontSize: '0.95rem' }}>
-                  {streetViewError || 'Opening Street View...'}
+                  <div style={{ padding: '12px 16px', background: '#0f172a', color: '#e2e8f0', fontSize: '0.95rem' }}>
+                  {streetViewError || t('map.openingStreetView','Opening Street View...')}
                 </div>
                 <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
                   {streetViewError ? (
@@ -2513,7 +2525,7 @@ export default function MapView() {
                   ) : streetViewUrl ? (
                     <>
                       <iframe
-                        title="Street View preview"
+                        title={t("hardcoded.streetViewPreview")}
                         src={streetViewUrl}
                         width="100%"
                         height="100%"
@@ -2523,21 +2535,19 @@ export default function MapView() {
                         referrerPolicy="no-referrer-when-downgrade"
                       />
                       <div style={{ padding: '12px 16px', background: '#0f172a', color: '#94a3b8', fontSize: '0.85rem', borderTop: '1px solid #1e293b' }}>
-                        Street View may be blank if Google has no panorama near this location.
+                        {t('map.streetViewBlank','Street View may be blank if Google has no panorama near this location.')}
                       </div>
                     </>
                   ) : (
-                    <div style={{ padding: '16px', color: '#94a3b8', fontSize: '0.95rem', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      Preparing Street View...
-                    </div>
+                    <div style={{ padding: '16px', color: '#94a3b8', fontSize: '0.95rem', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{t("map.preparingStreetView")}</div>
                   )}
                 </div>
                 <div style={{ padding: '12px 16px', background: '#0f172a', color: '#64748b', fontSize: '0.85rem', borderTop: '1px solid #1e293b' }}>
-                  <div>API key: {import.meta.env.VITE_GOOGLE_MAPS_API_KEY ? 'present' : 'missing'}</div>
-                  <div>Latitude: {streetViewLocation?.latitude ?? 'N/A'}</div>
-                  <div>Longitude: {streetViewLocation?.longitude ?? 'N/A'}</div>
-                  <div>URL ready: {streetViewUrl ? 'yes' : 'no'}</div>
-                  {streetViewLocation?.source && <div>Source: {streetViewLocation.source}</div>}
+                  <div>{t('map.apiKeyLabel','API key')}: {import.meta.env.VITE_GOOGLE_MAPS_API_KEY ? t('map.present','present') : t('map.missing','missing')}</div>
+                  <div>{t('map.latitudeLabel','Latitude')}: {streetViewLocation?.latitude ?? 'N/A'}</div>
+                  <div>{t('map.longitudeLabel','Longitude')}: {streetViewLocation?.longitude ?? 'N/A'}</div>
+                  <div>{t('map.urlReadyLabel','URL ready')}: {streetViewUrl ? t('map.yes','yes') : t('map.no','no')}</div>
+                  {streetViewLocation?.source && <div>{t('map.sourceLabel','Source')}: {streetViewLocation.source}</div>}
                 </div>
               </div>
             </div>
@@ -2546,23 +2556,23 @@ export default function MapView() {
 
         <div className="lg:col-span-1">
           <div className="space-y-4">
-            <button onClick={handleCenterOnMe} className="btn-primary w-full">📍 Center on Me</button>
+            <button onClick={handleCenterOnMe} className="btn-primary w-full">{t('map.centerOnMe','📍 Center on Me')}</button>
             <button
               onClick={isAddPostMode ? handleCancelAddPost : handleStartAddPost}
-              className="btn-ghost w-full"
+              className="btn-secondary w-full"
             >
-              {isAddPostMode ? 'Exit Add Post' : '➕ Add Post'}
+              {isAddPostMode ? t('map.exitAddPost','Exit Add Post') : t('map.addPost','➕ Add Post')}
             </button>
-            <button onClick={handleDiscoverEvents} className="btn-indigo w-full">🎯 Discover Events</button>
-            <button onClick={handleScanQR} className="btn-ghost w-full">📱 Scan QR</button>
+            <button onClick={handleDiscoverEvents} className="btn-indigo w-full">{t('map.discoverEvents','🎯 Discover Events')}</button>
+            <button onClick={handleScanQR} className="btn-ghost w-full">{t('map.scanQr','📱 Scan QR')}</button>
 
             {isAdminUser ? (
               <div className="card p-4 bg-slate-950/90 border border-slate-800">
                 <div className="flex items-center justify-between mb-3">
                   <div>
-                    <p className="text-sm uppercase tracking-wide text-primary">Admin Tools</p>
-                    <p className="text-xs text-slatebody">Manage map pins and moderation.</p>
-                  </div>
+                      <p className="text-sm uppercase tracking-wide text-primary">{t('map.adminTools','Admin Tools')}</p>
+                      <p className="text-xs text-slatebody">{t('map.manageMapPins','Manage map pins and moderation.')}</p>
+                    </div>
                   <button
                     onClick={() => {
                       setIsAdminView(!isAdminView);
@@ -2571,22 +2581,22 @@ export default function MapView() {
                       setAdminPendingMove(null);
                       setAdminActionError('');
                     }}
-                    className={`px-3 py-2 rounded-full text-xs font-semibold ${isAdminView ? 'bg-primary text-slate-950' : 'bg-slate-700 text-white'}`}
+                    className="btn-secondary px-3 py-2 rounded-full text-xs font-semibold"
                   >
-                    {isAdminView ? 'Active' : 'Activate'}
+                    {isAdminView ? t('map.active','Active') : t('map.activate','Activate')}
                   </button>
                 </div>
                 {isAdminView ? (
                   <div className="space-y-3">
                     {adminError ? <div className="text-sm text-red-400">{adminError}</div> : null}
                     <div>
-                      <label className="block text-sm font-semibold text-white mb-2">Select pin</label>
+                      <label className="block text-sm font-semibold text-white mb-2">{t('map.selectPin','Select pin')}</label>
                       <select
                         value={selectedAdminLocationId || ''}
                         onChange={(e) => setSelectedAdminLocationId(e.target.value || null)}
                         className="field w-full"
                       >
-                        <option value="">Choose a location</option>
+                        <option value="">{t("map.chooseLocation")}</option>
                         {adminLocations.map((loc) => (
                           <option key={loc.id} value={loc.id}>
                             {loc.title || 'Untitled'} {loc.hidden ? '(hidden)' : ''} {loc.featured ? '★' : ''}
@@ -2597,10 +2607,10 @@ export default function MapView() {
                     {selectedAdminLocation ? (
                       <div className="space-y-3">
                         <div className="text-sm text-slatebody">
-                          <div><strong>Name:</strong> {selectedAdminLocation.name}</div>
-                          <div><strong>Address:</strong> {selectedAdminLocation.address || 'None'}</div>
-                          <div><strong>Coordinates:</strong> {selectedAdminLocation.latitude?.toFixed(5) ?? 'N/A'}, {selectedAdminLocation.longitude?.toFixed(5) ?? 'N/A'}</div>
-                          <div><strong>Status:</strong> {selectedAdminLocation.hidden ? 'Hidden' : 'Visible'}{selectedAdminLocation.featured ? ' · Featured' : ''}</div>
+                          <div><strong>{t("hardcoded.name")}</strong> {selectedAdminLocation.name}</div>
+                          <div><strong>{t("map.addressLabelShort")}</strong> {selectedAdminLocation.address || 'None'}</div>
+                          <div><strong>{t("hardcoded.coordinates")}</strong> {selectedAdminLocation.latitude?.toFixed(5) ?? 'N/A'}, {selectedAdminLocation.longitude?.toFixed(5) ?? 'N/A'}</div>
+                          <div><strong>{t("hardcoded.status")}</strong> {selectedAdminLocation.hidden ? 'Hidden' : 'Visible'}{selectedAdminLocation.featured ? ' · Featured' : ''}</div>
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                           <button
@@ -2621,15 +2631,11 @@ export default function MapView() {
                             onClick={() => setAdminMoveMode(true)}
                             disabled={!selectedAdminLocation}
                             className="btn-primary w-full"
-                          >
-                            Move pin
-                          </button>
+                          >{t("map.movePin")}</button>
                           <button
                             onClick={handleAdminDeleteLocation}
                             className="btn-danger w-full"
-                          >
-                            Hide from map
-                          </button>
+                          >{t("map.hideFromMap")}</button>
                         </div>
                         {adminMoveMode ? (
                           <div className="text-sm text-slatebody">
@@ -2640,22 +2646,18 @@ export default function MapView() {
                                 <button
                                   onClick={() => handleAdminUpdateLocation({ latitude: adminPendingMove.lat, longitude: adminPendingMove.lng })}
                                   className="btn-ghost w-full mt-2"
-                                >
-                                  Confirm move
-                                </button>
+                                >{t("hardcoded.confirmMove")}</button>
                                 <button
                                   onClick={() => setAdminPendingMove(null)}
                                   className="btn-ghost w-full"
-                                >
-                                  Cancel
-                                </button>
+                                >{t("common.cancel")}</button>
                               </div>
                             ) : null}
                           </div>
                         ) : null}
                         {selectedAdminLocation.uploads && selectedAdminLocation.uploads.length > 0 ? (
                           <div className="space-y-2 pt-3 border-t border-slate-700">
-                            <div className="text-sm font-semibold text-white">Recent uploads</div>
+                            <div className="text-sm font-semibold text-white">{t("tourist.recentUploads.title")}</div>
                             {selectedAdminLocation.uploads.slice(0, 5).map((upload) => (
                               <div key={upload.id} className="rounded-lg border border-slate-700 p-3 bg-slate-900">
                                 <div className="text-sm mb-1">{upload.caption || upload.fileType || 'Upload'}</div>
@@ -2664,11 +2666,11 @@ export default function MapView() {
                                   <button
                                     onClick={() => handleAdminUploadAction(upload.id, 'approve')}
                                     className="btn-ghost w-full"
-                                  >Approve</button>
+                                  >{t("admin.moderation.approve")}</button>
                                   <button
                                     onClick={() => handleAdminUploadAction(upload.id, 'reject')}
                                     className="btn-ghost w-full"
-                                  >Reject</button>
+                                  >{t("common.reject")}</button>
                                   <button
                                     onClick={() => handleAdminUploadAction(upload.id, upload.locationVisibility === 'hidden' ? 'unhide' : 'hide')}
                                     className="btn-ghost w-full"
@@ -2677,7 +2679,7 @@ export default function MapView() {
                                     onClick={() => handleAdminUploadAction(upload.id, upload.locationId ? 'feature' : 'unfeature')}
                                     className="btn-ghost w-full"
                                     disabled={!upload.locationId}
-                                  >Feature</button>
+                                  >{t("map.feature")}</button>
                                 </div>
                               </div>
                             ))}
@@ -2692,7 +2694,7 @@ export default function MapView() {
 
             {isLocating && (
               <div className="card p-4 text-center">
-                <p className="text-slatebody text-sm">Finding your location…</p>
+                <p className="text-slatebody text-sm">{t("map.findingLocation")}</p>
               </div>
             )}
 
@@ -2704,23 +2706,21 @@ export default function MapView() {
 
             {isAddPostMode ? (
               <div className="card p-4 bg-slate-950/90 border border-slate-800">
-                <p className="font-semibold text-white mb-2">Add Post mode active</p>
-                <p className="text-slatebody text-sm mb-3">
-                  Click or tap the map to choose where to add your post. Drag the marker to adjust the pin.
-                </p>
+                <p className="font-semibold text-white mb-2">{t("map.addPostModeActive")}</p>
+                <p className="text-slatebody text-sm mb-3">{t("map.addPostInstructions")}</p>
                 {pendingPostLocation ? (
                   <div className="space-y-2 text-sm text-slatebody">
                     <div>
-                      <strong>Latitude:</strong> {pendingPostLocation.lat.toFixed(5)}
+                      <strong>{t("map.latitudeLabel")}</strong> {pendingPostLocation.lat.toFixed(5)}
                     </div>
                     <div>
-                      <strong>Longitude:</strong> {pendingPostLocation.lng.toFixed(5)}
+                      <strong>{t("map.longitudeLabel")}</strong> {pendingPostLocation.lng.toFixed(5)}
                     </div>
                     <div>
-                      <strong>Address:</strong> {pendingPostAddress?.address || 'Coordinates only'}
+                      <strong>{t("map.addressLabelShort")}</strong> {pendingPostAddress?.address || 'Coordinates only'}
                     </div>
                     <div className="space-y-3">
-                      <label className="block text-sm font-semibold text-white">Location privacy</label>
+                      <label className="block text-sm font-semibold text-white mb-2">{t("map.locationPrivacy")}</label>
                       <div className="space-y-2">
                         <label className="flex items-start gap-3 rounded-2xl border border-slate-700 bg-slate-900 p-3">
                           <input
@@ -2732,8 +2732,8 @@ export default function MapView() {
                             className="mt-1"
                           />
                           <div>
-                            <div className="font-semibold text-white">Exact Location</div>
-                            <div className="text-slatebody text-sm">Shows your selected spot on the map.</div>
+                            <div className="font-semibold text-white">{t("map.exactLocation")}</div>
+                            <div className="text-slatebody text-sm">{t("map.exactLocationDescription")}</div>
                           </div>
                         </label>
                         <label className="flex items-start gap-3 rounded-2xl border border-slate-700 bg-slate-900 p-3">
@@ -2746,8 +2746,8 @@ export default function MapView() {
                             className="mt-1"
                           />
                           <div>
-                            <div className="font-semibold text-white">Approximate Location</div>
-                            <div className="text-slatebody text-sm">Shows a nearby general area, not the exact spot.</div>
+                            <div className="font-semibold text-white">{t("map.approximateLocation")}</div>
+                            <div className="text-slatebody text-sm">{t("map.approximateLocationDescription")}</div>
                           </div>
                         </label>
                         <label className="flex items-start gap-3 rounded-2xl border border-slate-700 bg-slate-900 p-3">
@@ -2760,8 +2760,8 @@ export default function MapView() {
                             className="mt-1"
                           />
                           <div>
-                            <div className="font-semibold text-white">City-Level Only</div>
-                            <div className="text-slatebody text-sm">Shows only the city/place area.</div>
+                            <div className="font-semibold text-white">{t("map.cityLevelOnly")}</div>
+                            <div className="text-slatebody text-sm">{t("map.cityLevelOnlyDescription")}</div>
                           </div>
                         </label>
                       </div>
@@ -2769,15 +2769,11 @@ export default function MapView() {
                     {reverseGeocodeError ? (
                       <p className="text-xs text-red-400">{reverseGeocodeError}</p>
                     ) : null}
-                    <button onClick={handleConfirmAddPost} className="btn-primary w-full mt-2" disabled={!pendingPostLocation || !pendingLocationPrivacy}>
-                      Confirm Location
-                    </button>
-                    <button onClick={handleCancelAddPost} className="btn-ghost w-full">
-                      Cancel
-                    </button>
+                    <button onClick={handleConfirmAddPost} className="btn-primary w-full mt-2" disabled={!pendingPostLocation || !pendingLocationPrivacy}>{t("map.confirmLocation")}</button>
+                    <button onClick={handleCancelAddPost} className="btn-ghost w-full">{t("common.cancel")}</button>
                   </div>
                 ) : (
-                  <div className="text-slatebody text-sm">Tap the map to place a draggable post marker.</div>
+                  <div className="text-slatebody text-sm">{t("map.tapToPlacePost")}</div>
                 )}
               </div>
             ) : null}
@@ -2794,7 +2790,7 @@ export default function MapView() {
                 </div>
               ) : loading ? (
                 <div className="card p-4 text-center">
-                  <p className="text-slatebody">Loading locations…</p>
+                  <p className="text-slatebody">{t("map.loadingLocations")}</p>
                 </div>
               ) : error ? (
                 <div className="card p-4 text-center">
@@ -2813,9 +2809,7 @@ export default function MapView() {
                         {location.type || 'location'}
                       </span>
                           {location.featured ? (
-                            <span className="ml-2 text-xs uppercase tracking-wide text-amber-300">
-                              ★ Featured
-                            </span>
+                            <span className="ml-2 text-xs uppercase tracking-wide text-amber-300">{t("hardcoded.featured")}</span>
                           ) : null}
                     </div>
                     {location.imageUrl ? (
@@ -2825,16 +2819,16 @@ export default function MapView() {
                     ) : null}
                     <p className="text-slatebody text-sm">{location.description || 'No description available.'}</p>
                     <div className="mt-3 text-sm text-slatebody">
-                      <div>{location.previewTitle || 'Community post'}</div>
+                      <div>{location.previewTitle || t("map.communityPost")}</div>
                       <div className="text-xs text-muted">
-                        {location.previewUser ? `by ${location.previewUser}` : 'Community post'} • {location.previewCreatedAt ? formatPreviewTime(location.previewCreatedAt) : 'Recently shared'}
+                        {location.previewUser ? `by ${location.previewUser}` : t("map.communityPost")} • {location.previewCreatedAt ? formatPreviewTime(location.previewCreatedAt) : t("map.recentlyShared")}
                       </div>
                     </div>
                   </div>
                 ))
               ) : (
                 <div className="card p-4 text-center">
-                  <p className="text-slatebody">No Travel Share posts found here yet.</p>
+                  <p className="text-slatebody">{t("map.noTravelSharePosts")}</p>
                 </div>
               )}
             </div>

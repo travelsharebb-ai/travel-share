@@ -37,7 +37,7 @@ const styles = {
   },
   subtitle: {
     margin: "6px 0 0",
-    color: "#9ca3af"
+    color: "var(--text-muted)"
   },
   grid: {
     display: "grid",

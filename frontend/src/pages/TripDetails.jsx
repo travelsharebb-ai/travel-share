@@ -1,9 +1,11 @@
+import { useLanguage } from "../lib/i18n";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import MediaCard from "../components/MediaCard.jsx";
 import { api, currentUser, getToken } from "../lib/api.js";
 
 export default function TripDetails() {
+  const { t } = useLanguage();
   const { tripId } = useParams();
   const [trip, setTrip] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -94,7 +96,7 @@ export default function TripDetails() {
     <main className="page-shell space-y-6">
       <section className="hero-copy-panel">
         <div>
-          <p className="text-sm uppercase tracking-[0.32em] text-primary">Trip album</p>
+          <p className="text-sm uppercase tracking-[0.32em] text-primary">{t("hardcoded.tripAlbum")}</p>
           <h1 className="mt-3 text-4xl font-black font-serif">{loading ? "Loading trip…" : trip?.title || "Trip details"}</h1>
           <p className="mt-4 max-w-2xl text-slatebody leading-7">
             {loading
@@ -105,18 +107,14 @@ export default function TripDetails() {
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
-          <Link className="btn-primary" to={`/trips/${tripId}/upload`}>
-            Upload Memory
-          </Link>
-          <Link className="btn-ghost" to="/scan">
-            Scan QR
-          </Link>
+          <Link className="btn-primary" to={`/trips/${tripId}/upload`}>{t("hardcoded.uploadMemory")}</Link>
+          <Link className="btn-ghost" to="/scan">{t("nav.scan")}</Link>
         </div>
       </section>
 
       <section className="grid gap-4 lg:grid-cols-4">
         <div className="card p-5">
-          <p className="text-sm uppercase tracking-[0.32em] text-primary">Stats</p>
+          <p className="text-sm uppercase tracking-[0.32em] text-primary">{t("hardcoded.stats")}</p>
           <div className="mt-5 space-y-4">
             {[
               { label: "Memories", value: stats.uploads },
@@ -133,10 +131,10 @@ export default function TripDetails() {
         </div>
         <div className="lg:col-span-3 grid gap-4">
           <div className="card p-5">
-            <p className="text-sm uppercase tracking-[0.32em] text-primary">Gallery preview</p>
+            <p className="text-sm uppercase tracking-[0.32em] text-primary">{t("hardcoded.galleryPreview")}</p>
             {feedback ? <p className="mt-3 text-sm text-emerald-300">{feedback}</p> : null}
             {loading ? (
-              <p className="mt-4 text-slatebody">Loading gallery…</p>
+              <p className="mt-4 text-slatebody">{t("hardcoded.loadingGallery")}</p>
             ) : gallery.length ? (
               <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-2">
                 {gallery.map((upload) => (
@@ -150,17 +148,15 @@ export default function TripDetails() {
                 ))}
               </div>
             ) : (
-              <div className="mt-5 rounded-3xl border border-borderline bg-slate-950/70 p-6 text-slatebody">
-                No memories have been added to this trip yet.
-              </div>
+              <div className="mt-5 rounded-3xl border border-borderline bg-slate-950/70 p-6 text-slatebody">{t("hardcoded.noMemoriesHaveBeenAddedToThisTrip")}</div>
             )}
           </div>
 
           <div className="grid gap-4 lg:grid-cols-2">
             <div className="card p-5">
-              <p className="text-sm uppercase tracking-[0.32em] text-primary">Timeline</p>
+              <p className="text-sm uppercase tracking-[0.32em] text-primary">{t("hardcoded.timeline")}</p>
               {loading ? (
-                <p className="mt-4 text-slatebody">Loading timeline…</p>
+                <p className="mt-4 text-slatebody">{t("hardcoded.loadingTimeline")}</p>
               ) : timeline.length ? (
                 <div className="mt-5 space-y-3">
                   {timeline.map((chapter) => (
@@ -171,41 +167,41 @@ export default function TripDetails() {
                   ))}
                 </div>
               ) : (
-                <p className="mt-4 text-slatebody">No timeline chapters are available yet.</p>
+                <p className="mt-4 text-slatebody">{t("hardcoded.noTimelineChaptersAreAvailableYet")}</p>
               )}
             </div>
 
             <div className="card p-5">
-              <p className="text-sm uppercase tracking-[0.32em] text-primary">Map & location</p>
+              <p className="text-sm uppercase tracking-[0.32em] text-primary">{t("hardcoded.mapLocation")}</p>
               <div className="mt-5 space-y-3 text-slatebody">
                 {loading ? (
-                  <p>Loading location details…</p>
+                  <p>{t("hardcoded.loadingLocationDetails")}</p>
                 ) : locationSample ? (
                   <>
                     <p className="font-semibold">{locationSample.locationName || locationSample.region || "Travel memory"}</p>
                     <p>{locationSample.latitude || locationSample.approximateLatitude ? "Location data is available." : "Location is hidden."}</p>
                   </>
                 ) : (
-                  <p>No visible locations were recorded for this trip yet.</p>
+                  <p>{t("hardcoded.noVisibleLocationsWereRecordedForThisTrip")}</p>
                 )}
               </div>
             </div>
           </div>
 
           <div className="card p-5">
-            <p className="text-sm uppercase tracking-[0.32em] text-primary">Share album</p>
+            <p className="text-sm uppercase tracking-[0.32em] text-primary">{t("hardcoded.shareAlbum")}</p>
             <div className="mt-5 rounded-3xl border border-borderline bg-slate-950/70 p-5 text-slatebody">
               {loading ? (
-                <p>Loading share links…</p>
+                <p>{t("hardcoded.loadingShareLinks")}</p>
               ) : shareLink ? (
                 <>
-                  <p className="font-semibold">Share link ready</p>
+                  <p className="font-semibold">{t("hardcoded.shareLinkReady")}</p>
                   <p className="mt-3 break-all text-sm">{`${window.location.origin}/share/${shareLink.token}`}</p>
                 </>
               ) : (
                 <>
-                  <p>No album share links created yet.</p>
-                  <p className="mt-3 text-sm">Use the backend share link API to create an album share link when ready.</p>
+                  <p>{t("hardcoded.noAlbumShareLinksCreatedYet")}</p>
+                  <p className="mt-3 text-sm">{t("hardcoded.useTheBackendShareLinkApiToCreate")}</p>
                 </>
               )}
             </div>

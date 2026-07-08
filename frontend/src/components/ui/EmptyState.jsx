@@ -25,8 +25,8 @@ export default function EmptyState({
 
 const styles = {
   wrap: {
-    background: "rgba(17,24,39,0.92)",
-    border: "1px solid #223047",
+    background: "var(--surface)",
+    border: "1px solid var(--border)",
     borderRadius: 24,
     padding: 28,
     textAlign: "center",
@@ -40,7 +40,7 @@ const styles = {
     borderRadius: "50%",
     display: "grid",
     placeItems: "center",
-    background: "rgba(96,165,250,0.16)",
+    background: "var(--stat-icon-bg, rgba(167,139,250,0.12))",
     fontSize: 30
   },
   title: {
@@ -50,7 +50,7 @@ const styles = {
   },
   copy: {
     margin: 0,
-    color: "#9ca3af",
+    color: "var(--text-muted)",
     maxWidth: 480,
     lineHeight: 1.55
   }

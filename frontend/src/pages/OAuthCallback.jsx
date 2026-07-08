@@ -1,8 +1,10 @@
+import { useLanguage } from "../lib/i18n";
 import { useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { PageLayout, PageHeader, Section, Card, LoadingState } from "../components/ui";
 
 export default function OAuthCallback() {
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const { search } = useLocation();
 
@@ -18,7 +20,7 @@ export default function OAuthCallback() {
 
   return (
     <PageLayout>
-      <PageHeader title="Signing you in" subtitle="Processing your OAuth sign-in..." />
+      <PageHeader title={t("hardcoded.signingYouIn")} subtitle="Processing your OAuth sign-in..." />
       <Section>
         <Card>
           <LoadingState message="Processing login..." />

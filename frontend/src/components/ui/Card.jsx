@@ -14,11 +14,11 @@ export default function Card({ children, elevated = false, style }) {
 
 const styles = {
   card: {
-    background: "rgba(3, 7, 15, 0.9)",
-    border: "1px solid #1f2a3a",
+    background: "var(--surface)",
+    border: "1px solid var(--border)",
     borderRadius: 8,
     padding: 20,
-    color: "#ffffff",
+    color: "var(--text)",
     backdropFilter: "blur(10px)"
   },
   elevated: {

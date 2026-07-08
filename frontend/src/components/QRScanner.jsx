@@ -1,8 +1,13 @@
+import { useLanguage } from "../lib/i18n";
 import { useEffect, useRef, useState } from "react";
 import { Html5QrcodeScanner } from "html5-qrcode";
 import { useNavigate } from "react-router-dom";
+import PageLayout from "./ui/PageLayout.jsx";
+import PageHeader from "./ui/PageHeader.jsx";
+import { ArrowLeft } from "lucide-react";
 
 export default function QRScanner() {
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const hasScannedRef = useRef(false);
   const scannerRef = useRef(null);
@@ -62,122 +67,120 @@ export default function QRScanner() {
   }, [navigate]);
 
   return (
-    <div style={styles.page}>
-      <div style={styles.glowOne} />
-      <div style={styles.glowTwo} />
+    <PageLayout>
+      <PageHeader
+        hero
+        title={"Scan QR"}
+        subtitle={"Point your camera at a Travel Share code"}
+      />
 
-      <div style={styles.wrap}>
-        <header style={styles.header}>
-          <button onClick={() => navigate(-1)} style={styles.backBtn}>
-            ←
-          </button>
+      <div style={styles.container}>
 
-          <div style={styles.headerText}>
-            <h1 style={styles.title}>Scan QR</h1>
-            <p style={styles.subtitle}>
-              Point your camera at a <span style={styles.green}>Travel Share</span> code
-            </p>
+        <div style={styles.content}>
+          <div style={styles.backContainer}>
+            <button className="btn-ghost topbar-icon-button" onClick={() => navigate(-1)} style={styles.backButton}>
+              <ArrowLeft size={16} />
+              <span style={styles.backLabel}>{t("common.back")}</span>
+            </button>
           </div>
 
-          <button type="button" style={styles.helpBtn}>?</button>
-        </header>
+          <div style={styles.notice}>
+            <span style={styles.noticeIcon}>📷</span>
+            <span>{t("hardcoded.cameraAccessIsRequiredToScanQrCodes")}</span>
+          </div>
 
-        <div style={styles.notice}>
-          <span style={styles.noticeIcon}>📷</span>
-          <span>Camera access is required to scan QR codes</span>
-        </div>
+          <section style={{ ...styles.cameraCard, zIndex: 2 }}>
+            <div id="qr-reader" style={styles.reader} />
 
-        <section style={styles.cameraCard}>
-          <div id="qr-reader" style={styles.reader} />
+            <div style={styles.overlay}>
+              <div style={styles.scanBox}>
+                <div style={{ ...styles.corner, ...styles.topLeft }} />
+                <div style={{ ...styles.corner, ...styles.topRight }} />
+                <div style={{ ...styles.corner, ...styles.bottomLeft }} />
+                <div style={{ ...styles.corner, ...styles.bottomRight }} />
 
-          <div style={styles.overlay}>
-            <div style={styles.scanBox}>
-              <div style={{ ...styles.corner, ...styles.topLeft }} />
-              <div style={{ ...styles.corner, ...styles.topRight }} />
-              <div style={{ ...styles.corner, ...styles.bottomLeft }} />
-              <div style={{ ...styles.corner, ...styles.bottomRight }} />
-
-              {status !== "success" && <div style={styles.scanLine} />}
-              {status === "success" && <div style={styles.successCircle}>✓</div>}
+                {status !== "success" && <div style={styles.scanLine} />}
+                {status === "success" && <div style={styles.successCircle}>✓</div>}
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
 
-        <section style={styles.statusCard}>
-          <div style={styles.statusSpinner} />
+          <section style={{ ...styles.statusCard, zIndex: 2 }}>
+            <div style={styles.statusSpinner} />
 
-          <div style={styles.statusCopy}>
-            <h2 style={styles.statusTitle}>
-              {status === "loading" && "Requesting camera"}
-              {status === "scanning" && "Ready to scan"}
-              {status === "success" && "QR detected"}
-              {status === "error" && "Scan failed"}
-            </h2>
+            <div style={styles.statusCopy}>
+              <h2 style={styles.statusTitle}>
+                {status === "loading" && "Requesting camera"}
+                {status === "scanning" && "Ready to scan"}
+                {status === "success" && "QR detected"}
+                {status === "error" && "Scan failed"}
+              </h2>
 
-            <p style={styles.statusText}>
-              {status === "loading" && "Allow camera access when your browser asks."}
-              {status === "scanning" && "Hold steady and keep the QR code inside the frame."}
-              {status === "success" && "Opening your upload page..."}
-              {status === "error" && (error || "Try again.")}
-            </p>
-          </div>
+              <p style={styles.statusText}>
+                {status === "loading" && "Allow camera access when your browser asks."}
+                {status === "scanning" && "Hold steady and keep the QR code inside the frame."}
+                {status === "success" && "Opening your upload page..."}
+                {status === "error" && (error || "Try again.")}
+              </p>
+            </div>
 
-          <span style={styles.statusPill}>
-            {status === "success" ? "Opening..." : "Scanning..."}
-          </span>
-        </section>
+            <span style={styles.statusPill}>
+              {status === "success" ? "Opening..." : "Scanning..."}
+            </span>
+          </section>
 
-        <section style={styles.actionGrid}>
-          <button type="button" style={styles.actionCard}>
-            <span style={styles.actionIcon}>🖼️</span>
-            <strong>Scan from Image</strong>
-            <small>Use QR screenshot</small>
-          </button>
+          <section style={{ ...styles.actionGrid, zIndex: 2 }}>
+            <button type="button" style={styles.actionCard}>
+              <span style={styles.actionIcon}>🖼️</span>
+              <strong>{t("hardcoded.scanFromImage")}</strong>
+              <small>{t("hardcoded.useQrScreenshot")}</small>
+            </button>
 
-          <button
-            type="button"
-            style={styles.actionCard}
-            onClick={() => {
-              const token = window.prompt("Enter QR token");
-              if (token) navigate(`/qr/${token}`);
-            }}
-          >
-            <span style={styles.actionIcon}>⌨️</span>
-            <strong>Enter Code</strong>
-            <small>Paste token manually</small>
-          </button>
-        </section>
+            <button
+              type="button"
+              style={styles.actionCard}
+              onClick={() => {
+                const token = window.prompt("Enter QR token");
+                if (token) navigate(`/qr/${token}`);
+              }}
+            >
+              <span style={styles.actionIcon}>⌨️</span>
+              <strong>{t("hardcoded.enterCode")}</strong>
+              <small>{t("hardcoded.pasteTokenManually")}</small>
+            </button>
+          </section>
 
-        {import.meta.env.DEV && (
-          <button
-            type="button"
-            onClick={() => navigate("/qr/test-ci-token")}
-            style={styles.demoButton}
-          >
-            <span style={styles.rowIcon}>▦</span>
+          {import.meta.env.DEV && (
+            <button
+              type="button"
+              onClick={() => navigate("/qr/test-ci-token")}
+              style={styles.demoButton}
+            >
+              <span style={styles.rowIcon}>▦</span>
+              <span style={styles.rowText}>
+                <strong>{t("hardcoded.testDemoQr")}</strong>
+                <small>{t("hardcoded.developmentOnly")}</small>
+              </span>
+              <span style={styles.chevron}>›</span>
+            </button>
+          )}
+
+          <button type="button" onClick={() => navigate("/")} style={styles.homeButton}>
+            <span style={styles.rowIcon}>⌂</span>
             <span style={styles.rowText}>
-              <strong>Test Demo QR</strong>
-              <small>Development only</small>
+              <strong>{t("hardcoded.backToHome")}</strong>
+              <small>{t("hardcoded.returnToHomePage")}</small>
             </span>
             <span style={styles.chevron}>›</span>
           </button>
-        )}
 
-        <button type="button" onClick={() => navigate("/")} style={styles.homeButton}>
-          <span style={styles.rowIcon}>⌂</span>
-          <span style={styles.rowText}>
-            <strong>Back to Home</strong>
-            <small>Return to home page</small>
-          </span>
-          <span style={styles.chevron}>›</span>
-        </button>
-
-        <div style={styles.tipCard}>
-          <strong>💡 Tip</strong>
-          <p>Good lighting and steady hands help QR codes scan faster.</p>
+          <div style={styles.tipCard}>
+            <strong>{t("hardcoded.tip")}</strong>
+            <p>{t("hardcoded.goodLightingAndSteadyHandsHelpQrCodes")}</p>
+          </div>
         </div>
       </div>
-    </div>
+    </PageLayout>
   );
 }
 
@@ -192,36 +195,39 @@ const styles = {
     overflowX: "hidden"
   },
 
-  glowOne: {
-    position: "absolute",
-    width: 380,
-    height: 380,
-    right: -140,
-    top: -100,
-    borderRadius: "50%",
-    background: "rgba(0,255,153,0.16)",
-    filter: "blur(90px)"
-  },
-
-  glowTwo: {
-    position: "absolute",
-    width: 300,
-    height: 300,
-    left: -160,
-    bottom: -140,
-    borderRadius: "50%",
-    background: "rgba(59,130,246,0.13)",
-    filter: "blur(90px)"
-  },
-
-  wrap: {
+  container: {
     position: "relative",
     zIndex: 2,
     width: "100%",
-    maxWidth: 520,
+    maxWidth: 720,
     margin: "0 auto",
     display: "grid",
+    gap: 16,
+    overflow: "hidden"
+  },
+  content: {
+    position: "relative",
+    zIndex: 2,
+    display: "grid",
     gap: 16
+  },
+  backContainer: {
+    display: "flex",
+    alignItems: "center"
+  },
+  backButton: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 8,
+    padding: "8px 10px",
+    borderRadius: 12,
+    border: "1px solid var(--border)",
+    background: "var(--surface)",
+    color: "var(--text)"
+  },
+  backLabel: {
+    display: "inline-block",
+    fontWeight: 800
   },
 
   header: {
@@ -235,9 +241,9 @@ const styles = {
     width: 48,
     height: 48,
     borderRadius: 16,
-    border: "1px solid #223047",
-    background: "#111827",
-    color: "white",
+    border: "1px solid var(--border)",
+    background: "var(--surface)",
+    color: "var(--text)",
     fontSize: 24,
     cursor: "pointer"
   },
@@ -255,12 +261,12 @@ const styles = {
 
   subtitle: {
     margin: "6px 0 0",
-    color: "#a7b0c0",
+    color: "var(--text-muted)",
     fontSize: 14
   },
 
   green: {
-    color: "#00ff99",
+    color: "var(--accent)",
     fontWeight: 900
   },
 
@@ -268,22 +274,22 @@ const styles = {
     width: 42,
     height: 42,
     borderRadius: "50%",
-    border: "1px solid #223047",
-    background: "#111827",
-    color: "white",
+    border: "1px solid var(--border)",
+    background: "var(--surface)",
+    color: "var(--text)",
     fontWeight: 900,
     cursor: "pointer"
   },
 
   notice: {
-    background: "rgba(17,24,39,0.92)",
-    border: "1px solid #223047",
+    background: "var(--surface)",
+    border: "1px solid var(--border)",
     borderRadius: 999,
     padding: "14px 18px",
     display: "flex",
     alignItems: "center",
     gap: 12,
-    color: "#cbd5e1",
+    color: "var(--text-muted)",
     fontSize: 14
   },
 
@@ -295,10 +301,10 @@ const styles = {
     position: "relative",
     borderRadius: 28,
     overflow: "hidden",
-    background: "#020617",
-    border: "1px solid #334155",
+    background: "var(--surface-2)",
+    border: "1px solid var(--border)",
     minHeight: 420,
-    boxShadow: "0 28px 70px rgba(0,0,0,0.55)"
+    boxShadow: "none"
   },
 
   reader: {
@@ -312,8 +318,7 @@ const styles = {
     inset: 0,
     display: "grid",
     placeItems: "center",
-    background:
-      "radial-gradient(circle at center, transparent 0 34%, rgba(0,0,0,0.48) 35% 100%)"
+    background: "transparent"
   },
 
   scanBox: {
@@ -326,7 +331,7 @@ const styles = {
     position: "absolute",
     width: 42,
     height: 42,
-    borderColor: "#4cffb4"
+    borderColor: "var(--accent)"
   },
 
   topLeft: {
@@ -368,8 +373,8 @@ const styles = {
     right: 10,
     height: 4,
     borderRadius: 999,
-    background: "#00ff99",
-    boxShadow: "0 0 24px #00ff99"
+    background: "var(--accent)",
+    boxShadow: "none"
   },
 
   successCircle: {
@@ -379,8 +384,8 @@ const styles = {
     width: 96,
     height: 96,
     borderRadius: "50%",
-    background: "#00ff99",
-    color: "#03110b",
+    background: "var(--accent)",
+    color: "var(--page-bg)",
     display: "grid",
     placeItems: "center",
     fontSize: 56,
@@ -392,8 +397,8 @@ const styles = {
     gridTemplateColumns: "42px 1fr auto",
     gap: 14,
     alignItems: "center",
-    background: "rgba(17,24,39,0.94)",
-    border: "1px solid #223047",
+    background: "var(--surface)",
+    border: "1px solid var(--border)",
     borderRadius: 22,
     padding: 16
   },
@@ -402,7 +407,7 @@ const styles = {
     width: 34,
     height: 34,
     borderRadius: "50%",
-    border: "4px dashed #00ff99"
+    border: "4px dashed var(--accent)"
   },
 
   statusCopy: {
@@ -417,7 +422,7 @@ const styles = {
 
   statusText: {
     margin: "5px 0 0",
-    color: "#a7b0c0",
+    color: "var(--text-muted)",
     fontSize: 13,
     lineHeight: 1.35
   },
@@ -425,44 +430,20 @@ const styles = {
   statusPill: {
     borderRadius: 999,
     padding: "8px 12px",
-    background: "#00ff9920",
-    color: "#00ff99",
-    border: "1px solid #00ff9950",
+    background: "var(--accent-soft)",
+    color: "var(--accent)",
+    border: "1px solid var(--border)",
     fontWeight: 900,
     fontSize: 12,
     whiteSpace: "nowrap"
-  },
-
-  actionGrid: {
-    display: "grid",
-    gridTemplateColumns: "1fr 1fr",
-    gap: 12
-  },
-
-  actionCard: {
-    border: "1px solid #223047",
-    background: "rgba(17,24,39,0.92)",
-    color: "white",
-    borderRadius: 20,
-    padding: 18,
-    minHeight: 120,
-    display: "grid",
-    gap: 6,
-    placeItems: "center",
-    textAlign: "center",
-    cursor: "pointer"
-  },
-
-  actionIcon: {
-    fontSize: 28
   },
 
   demoButton: {
     border: "none",
     borderRadius: 20,
     padding: 18,
-    background: "linear-gradient(135deg, #00ff99, #00cc7a)",
-    color: "#03110b",
+    background: "var(--accent)",
+    color: "var(--page-bg)",
     display: "grid",
     gridTemplateColumns: "34px 1fr auto",
     gap: 12,
@@ -473,11 +454,11 @@ const styles = {
   },
 
   homeButton: {
-    border: "1px solid #223047",
+    border: "1px solid var(--border)",
     borderRadius: 20,
     padding: 18,
-    background: "rgba(17,24,39,0.92)",
-    color: "white",
+    background: "var(--surface)",
+    color: "var(--text)",
     display: "grid",
     gridTemplateColumns: "34px 1fr auto",
     gap: 12,
@@ -500,10 +481,10 @@ const styles = {
   },
 
   tipCard: {
-    border: "1px solid #223047",
+    border: "1px solid var(--border)",
     borderRadius: 20,
     padding: 16,
-    background: "rgba(17,24,39,0.82)",
-    color: "#a7b0c0"
+    background: "var(--surface)",
+    color: "var(--text-muted)"
   }
 };

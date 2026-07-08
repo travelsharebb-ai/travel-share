@@ -1,42 +1,35 @@
+import { useLanguage } from "../lib/i18n";
 import { Navigate } from "react-router-dom";
 import { Link } from "react-router-dom";
 import { QrCode, Users, MapPin, ShieldCheck } from "lucide-react";
-import Shell from "../components/Shell";
+import AppTopbar from "../components/AppTopbar";
 import { currentUser } from "../lib/api";
 
 export default function Landing() {
+  const { t } = useLanguage();
   const user = currentUser();
   if (user) return <Navigate to="/dashboard" replace />;
   
   return (
-    <Shell>
+    <>
+      <AppTopbar variant="public" />
       <main className="page-shell grid min-h-[calc(100vh-74px)] content-center gap-8 py-10 lg:grid-cols-[1fr_0.9fr] lg:items-center">
         <section className="hero-copy-panel min-w-0 space-y-6">
-          <p className="inline-flex rounded-full border border-primary/30 bg-primary/10 px-4 py-2 text-sm font-bold text-primary">
-            QR-powered travel and event memories
-          </p>
+          <p className="inline-flex rounded-full border border-primary/30 bg-primary/10 px-4 py-2 text-sm font-bold text-primary">{t("hardcoded.qrPoweredTravelAndEventMemories")}</p>
           <h1 className="max-w-3xl break-words font-serif text-5xl font-black leading-tight sm:text-6xl">
             TravelShare
           </h1>
-          <p className="max-w-2xl text-lg leading-8 text-slatebody">
-            Collect memories from tourists, guests, and event crowds. Map the journey, replay the experience, and manage the whole platform from one business control panel.
-          </p>
+          <p className="max-w-2xl text-lg leading-8 text-slatebody">{t("hardcoded.collectMemoriesFromTouristsGuestsAndEventCrowds")}</p>
           <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-            <Link className="btn-primary" to="/signup">
-              <QrCode size={19} /> Create account
-            </Link>
+            <Link className="btn-primary btn-signup" to="/signup">{t("hardcoded.createAccount")}</Link>
             <Link className="btn-ghost" to="/guest">
-              <Users size={19} /> Continue as guest
-            </Link>
+              <Users size={19} />{t("hardcoded.continueAsGuest2")}</Link>
             <Link className="btn-ghost" to="/discover">
-              <MapPin size={19} /> Discover events
-            </Link>
+              <MapPin size={19} />{t("hardcoded.discoverEvents")}</Link>
             <Link className="btn-ghost" to="/privacy">
-              <ShieldCheck size={19} /> Privacy
-            </Link>
+              <ShieldCheck size={19} />{t("settingsPage.privacy")}</Link>
             <Link className="btn-ghost" to="/terms">
-              <ShieldCheck size={19} /> Terms
-            </Link>
+              <ShieldCheck size={19} />{t("hardcoded.terms")}</Link>
           </div>
         </section>
         
@@ -64,6 +57,6 @@ export default function Landing() {
           })}
         </section>
       </main>
-    </Shell>
+    </>
   );
 }

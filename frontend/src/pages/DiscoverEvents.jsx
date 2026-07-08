@@ -1,6 +1,6 @@
+import { useLanguage } from "../lib/i18n";
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import Shell from "../components/Shell";
 import { api } from "../lib/api";
 
 function HeaderBlock({ eyebrow, title, copy }) {
@@ -14,6 +14,7 @@ function HeaderBlock({ eyebrow, title, copy }) {
 }
 
 export default function DiscoverEvents() {
+  const { t } = useLanguage();
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -32,35 +33,34 @@ export default function DiscoverEvents() {
   }, []);
 
   return (
-    <Shell>
       <main className="page-shell space-y-6">
         <section className="hero-copy-panel">
           <HeaderBlock 
-            eyebrow="Discover" 
-            title="Public Events" 
-            copy="Browse upcoming and recent public events and open their QR pages to contribute memories." 
+            eyebrow={t("hardcoded.discoverEvents")} 
+            title={t("hardcoded.publicEvents")} 
+            copy={t("hardcoded.browseUpcomingAndRecentPublicEvents")} 
           />
         </section>
 
         <section className="grid gap-4">
           {loading ? (
-            <div className="card p-5">Loading events…</div>
+            <div className="card p-5">{t("hardcoded.loadingEvents")}</div>
           ) : events.length === 0 ? (
-            <div className="card p-5">No public events found.</div>
+            <div className="card p-5">{t("hardcoded.noPublicEventsFound")}</div>
           ) : (
             events.map((ev) => (
               <div key={ev.id} className="card p-5">
                 {ev.qrToken ? (
                   <Link to={`/qr/${ev.qrToken}`} className="block">
                     <p className="font-serif text-2xl font-black">{ev.title}</p>
-                    <p className="text-slatebody">{ev.location || "Public event"} • {ev._count?.uploads || 0} memories</p>
-                    <p className="mt-2 text-primary">Open event QR page</p>
+                    <p className="text-slatebody">{ev.location || t("hardcoded.publicEvent")} • {t("hardcoded.memoriesCount", undefined, { count: ev._count?.uploads || 0 })}</p>
+                    <p className="mt-2 text-primary">{t("hardcoded.openEventQrPage")}</p>
                   </Link>
                 ) : (
                   <div className="opacity-60">
                     <p className="font-serif text-2xl font-black">{ev.title}</p>
-                    <p className="text-slatebody">{ev.location || "Public event"} • {ev._count?.uploads || 0} memories</p>
-                    <p className="mt-2 text-slatebody">Event QR not available</p>
+                    <p className="text-slatebody">{ev.location || t("hardcoded.publicEvent")} • {t("hardcoded.memoriesCount", undefined, { count: ev._count?.uploads || 0 })}</p>
+                    <p className="mt-2 text-slatebody">{t("hardcoded.eventQrNotAvailable")}</p>
                   </div>
                 )}
               </div>
@@ -68,6 +68,5 @@ export default function DiscoverEvents() {
           )}
         </section>
       </main>
-    </Shell>
   );
 }

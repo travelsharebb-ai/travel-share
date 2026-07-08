@@ -1,3 +1,4 @@
+import { useLanguage } from "../lib/i18n";
 import React, { useEffect, useState, useRef } from "react";
 
 export default function LocationField({
@@ -7,8 +8,9 @@ export default function LocationField({
   longitude,
   onLatChange,
   onLngChange,
-  placeholder = "Location"
+  placeholder={t("admin.moderation.location")}
 }) {
+  const { t } = useLanguage();
   const coordsPresent = latitude && longitude;
   const mapsQuery = coordsPresent ? `${latitude},${longitude}` : value;
   const mapsHref = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapsQuery || "")}`;
@@ -70,12 +72,12 @@ export default function LocationField({
       )}
       <div className="mt-2 grid gap-2 sm:flex sm:items-center">
         <div className="flex gap-2 items-center">
-          <input className="field w-36" placeholder="Lat" value={latitude || ""} onChange={(e) => onLatChange && onLatChange(e.target.value)} />
-          <input className="field w-36" placeholder="Lng" value={longitude || ""} onChange={(e) => onLngChange && onLngChange(e.target.value)} />
+          <input className="field w-36" placeholder={t("hardcoded.lat")} value={latitude || ""} onChange={(e) => onLatChange && onLatChange(e.target.value)} />
+          <input className="field w-36" placeholder={t("hardcoded.lng")} value={longitude || ""} onChange={(e) => onLngChange && onLngChange(e.target.value)} />
         </div>
         <div className="flex gap-2">
-          <a className="text-sm text-primary" target="_blank" rel="noreferrer" href={mapsHref}>Open in Google Maps</a>
-          <a className="text-sm text-primary" target="_blank" rel="noreferrer" href={earthHref}>Open in Google Earth</a>
+          <a className="text-sm text-primary" target="_blank" rel="noreferrer" href={mapsHref}>{t("hardcoded.openInGoogleMaps")}</a>
+          <a className="text-sm text-primary" target="_blank" rel="noreferrer" href={earthHref}>{t("hardcoded.openInGoogleEarth")}</a>
         </div>
       </div>
     </div>

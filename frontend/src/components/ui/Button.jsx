@@ -7,7 +7,8 @@ export default function Button({
   type = "button",
   variant = "primary",
   full = false,
-  disabled = false
+  disabled = false,
+  className = ""
 }) {
   const style = {
     ...styles.base,
@@ -21,14 +22,14 @@ export default function Button({
 
   if (to) {
     return (
-      <Link to={to} style={style}>
+      <Link to={to} style={style} className={className}>
         {children}
       </Link>
     );
   }
 
   return (
-    <button type={type} onClick={onClick} disabled={disabled} style={style}>
+    <button type={type} onClick={onClick} disabled={disabled} style={style} className={className}>
       {children}
     </button>
   );
@@ -51,24 +52,24 @@ const styles = {
     transition: "all 200ms ease"
   },
   primary: {
-    background: "#7c3aed",
-    color: "#ffffff",
-    boxShadow: "0 14px 30px rgba(124, 58, 237, 0.24)"
+    background: "var(--accent, #7c3aed)",
+    color: "var(--btn-primary-text, #ffffff)",
+    boxShadow: "none"
   },
   secondary: {
-    background: "#60a5fa",
-    color: "#0f172a",
-    boxShadow: "0 14px 30px rgba(96, 165, 250, 0.24)"
+    background: "var(--secondary, var(--accent-2, #60a5fa))",
+    color: "var(--btn-secondary-text, var(--text))",
+    boxShadow: "none"
   },
   ghost: {
-    background: "#0b111d",
-    border: "1px solid #1f2a3a",
-    color: "#ffffff"
+    background: "var(--btn-ghost-bg)",
+    border: "1px solid var(--btn-ghost-border)",
+    color: "var(--btn-ghost-text)"
   },
   danger: {
     background: "#ef4444",
     color: "#ffffff",
-    boxShadow: "0 14px 30px rgba(239, 68, 68, 0.24)"
+    boxShadow: "none"
   },
   full: {
     width: "100%"

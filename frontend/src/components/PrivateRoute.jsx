@@ -1,10 +1,13 @@
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
+import { currentUser } from "../lib/api";
+import Shell from "./Shell.jsx";
 
 export default function PrivateRoute({ children, roles }) {
-  const user = JSON.parse(localStorage.getItem("user"));
+  const user = currentUser();
+  const location = useLocation();
 
   if (!user) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
   // optional role check
@@ -12,5 +15,6 @@ export default function PrivateRoute({ children, roles }) {
     return <Navigate to="/dashboard" replace />;
   }
 
-  return children;
+  // Wrap protected pages with the application Shell so sidebar/user card/logout are consistent
+  return <Shell>{children}</Shell>;
 }

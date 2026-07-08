@@ -1,3 +1,4 @@
+import { useLanguage } from "../lib/i18n";
 import { Check, Eye, Flag, Lock, Trash2, X } from "lucide-react";
 import { API_URL } from "../lib/api";
 
@@ -6,6 +7,7 @@ function assetUrl(url) {
 }
 
 export default function MediaCard({ upload, selected, onSelect, onApprove, onReject, onReport, onDelete, downloadOptions, currentDownloadItemId, onChangeDownloadItem, skinOptions = [], onApplySkin }) {
+  const { t } = useLanguage();
   const overlayRaw = upload.frameAssetUrl || upload.skinFrameUrl;
   const overlayUrl = assetUrl(overlayRaw);
 
@@ -35,7 +37,7 @@ export default function MediaCard({ upload, selected, onSelect, onApprove, onRej
           </div>
           {onSelect && (
             <input
-              aria-label="Select upload"
+              aria-label={t("hardcoded.selectUpload")}
               type="checkbox"
               checked={selected}
               onChange={(event) => onSelect(upload.id, event.target.checked)}
@@ -45,34 +47,31 @@ export default function MediaCard({ upload, selected, onSelect, onApprove, onRej
         </div>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           <a className="btn-ghost" href={upload.id ? `${API_URL}/api/downloads/${upload.id}` : upload.fileUrl} target="_blank" rel="noreferrer">
-            <Eye size={17} /> View full
-          </a>
-          {onApprove && <button className="btn-green" onClick={() => onApprove(upload.id)}><Check size={17} /> Approve & Save</button>}
-          {onReject && <button className="btn-danger" onClick={() => onReject(upload.id)}><X size={17} /> Reject</button>}
-          {onReport && <button className="btn-ghost" onClick={() => onReport(upload.id)}><Flag size={17} /> Report</button>}
-          {onDelete && <button className="btn-ghost" onClick={() => onDelete(upload.id)}><Trash2 size={17} /> Delete</button>}
+            <Eye size={17} />{t("common.viewFull")}</a>
+          {onApprove && <button className="btn-green" onClick={() => onApprove(upload.id)}><Check size={17} />{t("common.approveAndSave")}</button>}
+          {onReject && <button className="btn-danger" onClick={() => onReject(upload.id)}><X size={17} />{t("common.reject")}</button>}
+          {onReport && <button className="btn-ghost" onClick={() => onReport(upload.id)}><Flag size={17} />{t("common.report")}</button>}
+          {onDelete && <button className="btn-ghost" onClick={() => onDelete(upload.id)}><Trash2 size={17} />{t("common.delete")}</button>}
         </div>
         {onChangeDownloadItem ? (
           <div className="rounded-lg border border-borderline bg-slate-50 p-3 text-sm">
-            <label className="mb-2 block font-semibold">Download access</label>
+            <label className="mb-2 block font-semibold">{t("common.downloadAccess")}</label>
             <select className="field" value={currentDownloadItemId || ""} onChange={(event) => onChangeDownloadItem(upload.id, event.target.value || null)}>
-              <option value="">No download asset assigned</option>
+              <option value="">{t("hardcoded.noDownloadAssetAssigned")}</option>
               {downloadOptions?.map((item) => (
                 <option key={item.id} value={item.id}>{item.name} - ${((item.priceCents || 0) / 100).toFixed(2)}</option>
               ))}
             </select>
-            <p className="mt-2 text-xs text-slatebody">Assigned download assets gate the full view to buyers and the uploader.</p>
+            <p className="mt-2 text-xs text-slatebody">{t("hardcoded.assignedDownloadAssetsGateTheFullViewTo")}</p>
           </div>
         ) : null}
         {onApplySkin && upload.fileType !== "video" ? (
           <div className="space-y-2 rounded-lg border border-borderline bg-skysoft p-3">
             <div className="flex items-center justify-between gap-2">
-              <p className="text-sm font-bold">Photo frame</p>
-              <button className={!upload.skinId ? "btn-primary" : "btn-ghost"} type="button" onClick={() => onApplySkin(upload.id, null)} aria-label="Remove photo frame" disabled={!upload.skinId}>
-                None
-              </button>
+              <p className="text-sm font-bold">{t("common.photoFrame")}</p>
+              <button className={!upload.skinId ? "btn-primary" : "btn-ghost"} type="button" onClick={() => onApplySkin(upload.id, null)} aria-label={t("common.removePhotoFrame")} disabled={!upload.skinId}>{t("common.none")}</button>
             </div>
-            <div className="flex gap-2 overflow-x-auto pb-1" role="list" aria-label="Available photo frames">
+            <div className="flex gap-2 overflow-x-auto pb-1" role="list" aria-label={t("common.availablePhotoFrames")}>
               {skinOptions.map((skin) => {
                 const metadata = skin.metadata && typeof skin.metadata === "object" ? skin.metadata : {};
                 const frameUrl = assetUrl(metadata.frameAssetUrl || skin.previewUrl);
@@ -92,7 +91,7 @@ export default function MediaCard({ upload, selected, onSelect, onApprove, onRej
                 );
               })}
             </div>
-            {skinOptions.length === 0 && <p className="text-xs text-slatebody">Unlock basic or premium frames in the store to apply them here.</p>}
+            {skinOptions.length === 0 && <p className="text-xs text-slatebody">{t("hardcoded.unlockBasicOrPremiumFramesInTheStore")}</p>}
           </div>
         ) : null}
       </div>

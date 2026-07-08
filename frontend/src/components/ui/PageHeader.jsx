@@ -1,6 +1,6 @@
-export default function PageHeader({ eyebrow, title, subtitle, actions }) {
+export default function PageHeader({ eyebrow, title, subtitle, actions, hero = false, className = "" }) {
   return (
-    <section style={styles.wrap}>
+    <section className={`${hero ? "hero-copy-panel" : ""} ${className}`} style={styles.wrap}>
       <div>
         {eyebrow && <p style={styles.eyebrow}>{eyebrow}</p>}
         <h1 style={styles.title}>{title}</h1>
@@ -24,8 +24,8 @@ const styles = {
     display: "inline-flex",
     padding: "7px 11px",
     borderRadius: 999,
-    background: "rgba(96,165,250,0.14)",
-    color: "#60a5fa",
+    background: "var(--eyebrow-bg, rgba(167,139,250,0.14))",
+    color: "var(--eyebrow-text, var(--accent))",
     fontSize: 12,
     fontWeight: 900,
     textTransform: "uppercase",
@@ -38,11 +38,11 @@ const styles = {
     lineHeight: 1.08,
     fontWeight: 950,
     fontFamily: "Georgia, 'Times New Roman', serif",
-    textShadow: "0 2px 18px rgba(0, 0, 0, 0.72)"
+    textShadow: "none"
   },
   subtitle: {
     margin: "10px 0 0",
-    color: "#d1d5db",
+    color: "var(--text-muted)",
     fontSize: 16,
     maxWidth: 680,
     lineHeight: 1.55

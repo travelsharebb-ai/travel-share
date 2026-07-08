@@ -1,8 +1,10 @@
+import { useLanguage } from "../lib/i18n";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../lib/api.js";
 
 export default function EventDetails() {
+  const { t } = useLanguage();
   const { eventId } = useParams();
   const [event, setEvent] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -48,19 +50,19 @@ export default function EventDetails() {
       <section className="hero-copy-panel">
         {loading ? (
           <div>
-            <p className="text-sm uppercase tracking-[0.32em] text-primary">Event management</p>
-            <h1 className="mt-3 text-4xl font-black">Loading event…</h1>
+            <p className="text-sm uppercase tracking-[0.32em] text-primary">{t("hardcoded.eventManagement")}</p>
+            <h1 className="mt-3 text-4xl font-black">{t("hardcoded.loadingEvent")}</h1>
           </div>
         ) : error ? (
           <div>
-            <p className="text-sm uppercase tracking-[0.32em] text-primary">Event management</p>
-            <h1 className="mt-3 text-4xl font-black">Event unavailable</h1>
+            <p className="text-sm uppercase tracking-[0.32em] text-primary">{t("hardcoded.eventManagement")}</p>
+            <h1 className="mt-3 text-4xl font-black">{t("hardcoded.eventUnavailable")}</h1>
             <p className="mt-4 text-slatebody">{error}</p>
           </div>
         ) : (
           <div className="grid gap-6 lg:grid-cols-[1.4fr_0.9fr]">
             <div>
-              <p className="text-sm uppercase tracking-[0.32em] text-primary">Event management</p>
+              <p className="text-sm uppercase tracking-[0.32em] text-primary">{t("hardcoded.eventManagement")}</p>
               <h1 className="mt-3 text-4xl font-black font-serif">{event.title}</h1>
               <p className="mt-4 max-w-2xl text-slatebody leading-7">{heroSubtitle}</p>
               <div className="mt-5 flex flex-wrap gap-3">
@@ -74,7 +76,7 @@ export default function EventDetails() {
             </div>
             <div className="space-y-4">
               <div className="card p-5">
-                <p className="text-sm uppercase tracking-[0.32em] text-primary">Event details</p>
+                <p className="text-sm uppercase tracking-[0.32em] text-primary">{t("hardcoded.eventDetails")}</p>
                 <p className="mt-3 text-xl font-black">{event.location || "Location not set"}</p>
                 <p className="mt-2 text-slatebody">{event.category || "General event"}</p>
                 <div className="mt-4 space-y-2 text-sm text-slatebody">
@@ -83,19 +85,15 @@ export default function EventDetails() {
                 </div>
               </div>
               <div className="card p-5">
-                <p className="text-sm uppercase tracking-[0.32em] text-primary">Quick actions</p>
+                <p className="text-sm uppercase tracking-[0.32em] text-primary">{t("guestDashboard.quickActionsBadge")}</p>
                 <div className="mt-4 grid gap-3">
-                  <Link className="btn-indigo" to="/scan">
-                    Scan attendee QR
-                  </Link>
+                  <Link className="btn-indigo" to="/scan">{t("events.dashboard.scanAttendeeQr")}</Link>
                   <button
                     type="button"
                     className="btn-ghost"
                     onClick={() => publicQrPath ? window.open(publicQrPath, "_blank") : null}
                     disabled={!publicQrPath}
-                  >
-                    Open public QR page
-                  </button>
+                  >{t("hardcoded.openPublicQrPage")}</button>
                 </div>
               </div>
             </div>
@@ -107,7 +105,7 @@ export default function EventDetails() {
         <section className="grid gap-4 lg:grid-cols-4">
           {[
             { label: "Guests", value: stats.guests, detail: "Unique guest sessions" },
-            { label: "Uploads", value: stats.uploads, detail: "Total media submissions" },
+            { label: t("dashboard.stats.uploads"), value: stats.uploads, detail: "Total media submissions" },
             { label: "Scans", value: stats.scans, detail: "QR check-ins" },
             { label: "Zones", value: stats.zones, detail: "Active event zones" }
           ].map((item) => (
@@ -123,9 +121,9 @@ export default function EventDetails() {
       {!loading && event && (
         <section className="grid gap-4 lg:grid-cols-2">
           <div className="card p-5">
-            <p className="text-sm uppercase tracking-[0.32em] text-primary">Event management</p>
-            <h2 className="mt-3 text-2xl font-black">Gallery & upload summary</h2>
-            <p className="mt-3 text-slatebody">A quick preview of the latest upload activity for this event.</p>
+            <p className="text-sm uppercase tracking-[0.32em] text-primary">{t("hardcoded.eventManagement")}</p>
+            <h2 className="mt-3 text-2xl font-black">{t("hardcoded.galleryUploadSummary")}</h2>
+            <p className="mt-3 text-slatebody">{t("hardcoded.aQuickPreviewOfTheLatestUploadActivity")}</p>
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
               {event.uploads.length ? (
                 event.uploads.slice(0, 4).map((upload) => (
@@ -133,7 +131,7 @@ export default function EventDetails() {
                     {upload.fileType?.startsWith("image") ? (
                       <img src={upload.fileUrl} alt={upload.caption || "Upload"} className="h-36 w-full object-cover" />
                     ) : (
-                      <div className="flex h-36 items-center justify-center bg-slate-900 text-slatebody">Video</div>
+                      <div className="flex h-36 items-center justify-center bg-slate-900 text-slatebody">{t("hardcoded.video")}</div>
                     )}
                     <div className="p-3 text-sm text-slatebody">
                       <p className="font-semibold truncate">{upload.caption || "Guest memory"}</p>
@@ -142,31 +140,29 @@ export default function EventDetails() {
                   </div>
                 ))
               ) : (
-                <div className="rounded-3xl border border-borderline bg-slate-950/70 p-6 text-slatebody">
-                  No uploads have been added yet.
-                </div>
+                <div className="rounded-3xl border border-borderline bg-slate-950/70 p-6 text-slatebody">{t("hardcoded.noUploadsHaveBeenAddedYet")}</div>
               )}
             </div>
           </div>
 
           <div className="card p-5">
-            <p className="text-sm uppercase tracking-[0.32em] text-primary">Management cards</p>
+            <p className="text-sm uppercase tracking-[0.32em] text-primary">{t("hardcoded.managementCards")}</p>
             <div className="mt-5 space-y-4">
               <div className="rounded-3xl border border-borderline bg-slate-950/70 p-5">
-                <p className="text-sm uppercase tracking-[0.32em] text-primary">Details</p>
-                <p className="mt-3 text-slatebody">Review event metadata, adjust visibility, or set event coverage details.</p>
+                <p className="text-sm uppercase tracking-[0.32em] text-primary">{t("hardcoded.details")}</p>
+                <p className="mt-3 text-slatebody">{t("hardcoded.reviewEventMetadataAdjustVisibilityOrSetEvent")}</p>
               </div>
               <div className="rounded-3xl border border-borderline bg-slate-950/70 p-5">
-                <p className="text-sm uppercase tracking-[0.32em] text-primary">QR access</p>
-                <p className="mt-3 text-slatebody">Share this event QR page securely via the public QR route.</p>
+                <p className="text-sm uppercase tracking-[0.32em] text-primary">{t("hardcoded.qrAccess")}</p>
+                <p className="mt-3 text-slatebody">{t("hardcoded.shareThisEventQrPageSecurelyViaThe")}</p>
               </div>
               <div className="rounded-3xl border border-borderline bg-slate-950/70 p-5">
-                <p className="text-sm uppercase tracking-[0.32em] text-primary">Uploads</p>
-                <p className="mt-3 text-slatebody">Approve guest media, moderate uploads, and keep the event gallery polished.</p>
+                <p className="text-sm uppercase tracking-[0.32em] text-primary">{t("dashboard.stats.uploads")}</p>
+                <p className="mt-3 text-slatebody">{t("hardcoded.approveGuestMediaModerateUploadsAndKeepThe")}</p>
               </div>
               <div className="rounded-3xl border border-borderline bg-slate-950/70 p-5">
-                <p className="text-sm uppercase tracking-[0.32em] text-primary">Activity</p>
-                <p className="mt-3 text-slatebody">Monitor recent guest submissions and zone engagement in real time.</p>
+                <p className="text-sm uppercase tracking-[0.32em] text-primary">{t("hardcoded.activity")}</p>
+                <p className="mt-3 text-slatebody">{t("hardcoded.monitorRecentGuestSubmissionsAndZoneEngagementIn")}</p>
               </div>
             </div>
           </div>

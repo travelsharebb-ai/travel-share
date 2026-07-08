@@ -1,7 +1,9 @@
+import { useLanguage } from "../lib/i18n";
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 
 export default function QRResolver() {
+  const { t } = useLanguage();
   const { qrToken } = useParams();
   const navigate = useNavigate();
   const [error, setError] = useState(null);
@@ -51,9 +53,9 @@ export default function QRResolver() {
   return (
     <main className="page-shell flex min-h-[calc(100vh-74px)] items-center justify-center py-10">
       <section className="card p-5 max-w-lg bg-slate-950/90 border border-white/10 text-center">
-        <p className="text-sm uppercase tracking-[0.32em] text-primary">Opening QR</p>
-        <h1 className="mt-3 text-3xl font-black font-serif">Preparing your experience</h1>
-        <p className="mt-3 text-slatebody">Please wait while we load your QR journey.</p>
+        <p className="text-sm uppercase tracking-[0.32em] text-primary">{t("hardcoded.openingQr")}</p>
+        <h1 className="mt-3 text-3xl font-black font-serif">{t("hardcoded.preparingYourExperience")}</h1>
+        <p className="mt-3 text-slatebody">{t("hardcoded.pleaseWaitWhileWeLoadYourQrJourney")}</p>
         {error && <p className="mt-4 text-sm text-red-400">{error}</p>}
       </section>
     </main>

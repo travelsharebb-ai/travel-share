@@ -1,7 +1,9 @@
+import { useLanguage } from "../lib/i18n";
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 
 export default function PublicUpload() {
+  const { t } = useLanguage();
   const { qrToken } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
@@ -195,15 +197,13 @@ export default function PublicUpload() {
   return (
       <main className="page-shell py-10">
         <section className="hero-copy-panel max-w-4xl">
-          <p className="text-sm uppercase tracking-[0.32em] text-primary">QR upload</p>
-          <h1 className="mt-3 text-5xl font-black font-serif">Share a memory with this QR</h1>
-          <p className="mt-4 max-w-3xl text-slatebody leading-7">Choose a photo or video, add a caption, and keep the QR upload flow intact for public guests.</p>
+          <p className="text-sm uppercase tracking-[0.32em] text-primary">{t("hardcoded.qrUpload")}</p>
+          <h1 className="mt-3 text-5xl font-black font-serif">{t("hardcoded.shareAMemoryWithThisQr")}</h1>
+          <p className="mt-4 max-w-3xl text-slatebody leading-7">{t("hardcoded.chooseAPhotoOrVideoAddACaption")}</p>
         </section>
 
         <section className="card p-5 max-w-2xl bg-slate-950/90 border border-white/10 mt-6">
-          <button type="button" onClick={() => navigate("/scan")} className="btn-ghost mb-4">
-            ← Scan
-          </button>
+          <button type="button" onClick={() => navigate("/scan")} className="btn-ghost mb-4">{t("hardcoded.scan")}</button>
 
           <p className="text-sm uppercase tracking-[0.32em] text-primary">{qrInfo?.qrType || "QR"}</p>
           <h1 className="mt-3 text-3xl font-black font-serif">{title}</h1>
@@ -217,12 +217,8 @@ export default function PublicUpload() {
               )}
               {shouldPromptRegister && guestState !== 'expired' && (
                 <div className="mt-3 flex flex-wrap gap-3">
-                  <button type="button" onClick={() => navigate('/signup')} className="btn-primary">
-                    Register now
-                  </button>
-                  <button type="button" onClick={() => navigate('/login')} className="btn-ghost">
-                    Sign in
-                  </button>
+                  <button type="button" onClick={() => navigate('/signup')} className="btn-primary">{t("hardcoded.registerNow")}</button>
+                  <button type="button" onClick={() => navigate('/login')} className="btn-ghost">{t("hardcoded.signIn")}</button>
                 </div>
               )}
             </div>
@@ -231,15 +227,11 @@ export default function PublicUpload() {
           <form onSubmit={handleUpload} className="mt-6 grid gap-5">
             {guestState === 'expired' ? (
               <section className="card rounded-3xl border border-red-500 bg-red-500/10 p-6 text-center">
-                <p className="text-lg font-semibold text-red-200">This guest session has expired.</p>
-                <p className="mt-2 text-slatebody">Please register or start a new session to continue uploading.</p>
+                <p className="text-lg font-semibold text-red-200">{t("hardcoded.thisGuestSessionHasExpired")}</p>
+                <p className="mt-2 text-slatebody">{t("hardcoded.pleaseRegisterOrStartANewSessionTo")}</p>
                 <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:justify-center">
-                  <button type="button" onClick={() => navigate('/signup')} className="btn-primary w-full sm:w-auto">
-                    Register
-                  </button>
-                  <button type="button" onClick={() => navigate('/scan')} className="btn-ghost w-full sm:w-auto">
-                    Start new session
-                  </button>
+                  <button type="button" onClick={() => navigate('/signup')} className="btn-primary w-full sm:w-auto">{t("hardcoded.register")}</button>
+                  <button type="button" onClick={() => navigate('/scan')} className="btn-ghost w-full sm:w-auto">{t("hardcoded.startNewSession")}</button>
                 </div>
               </section>
             ) : (
@@ -248,11 +240,11 @@ export default function PublicUpload() {
               {!previewUrl ? (
                 <>
                   <span className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-primary text-black text-3xl">＋</span>
-                  <strong className="mt-4 block text-lg">Choose photo or video</strong>
-                  <small className="mt-2 block text-slatebody">Camera or gallery supported</small>
+                  <strong className="mt-4 block text-lg">{t("common.choosePhotoOrVideo")}</strong>
+                  <small className="mt-2 block text-slatebody">{t("hardcoded.cameraOrGallerySupported")}</small>
                 </>
               ) : file?.type.startsWith("image/") ? (
-                <img src={previewUrl} alt="Preview" className="mx-auto h-64 w-full max-w-full rounded-3xl object-cover" />
+                <img src={previewUrl} alt={t("common.preview")} className="mx-auto h-64 w-full max-w-full rounded-3xl object-cover" />
               ) : (
                 <video src={previewUrl} controls className="mx-auto h-64 w-full max-w-full rounded-3xl object-cover" />
               )}
@@ -266,13 +258,11 @@ export default function PublicUpload() {
             </label>
 
             {file && (
-              <button type="button" onClick={() => chooseFile(null)} className="btn-ghost w-full">
-                Remove file
-              </button>
+              <button type="button" onClick={() => chooseFile(null)} className="btn-ghost w-full">{t("hardcoded.removeFile")}</button>
             )}
 
             <textarea
-              placeholder="Add a caption..."
+              placeholder={t("common.addCaption")}
               value={caption}
               onChange={(e) => setCaption(e.target.value)}
               className="field min-h-[120px] bg-slate-950/70 text-white"
@@ -292,9 +282,7 @@ export default function PublicUpload() {
               {uploading ? "Uploading..." : "Upload Memory"}
             </button>
 
-            <button type="button" onClick={() => navigate("/scan")} className="btn-ghost w-full">
-              Scan another QR
-            </button>
+            <button type="button" onClick={() => navigate("/scan")} className="btn-ghost w-full">{t("common.scanAnotherQr")}</button>
             </>
             )}
           </form>

@@ -24,15 +24,15 @@ const styles = {
     padding: "clamp(1rem, 3vw, 2rem)",
     background: "linear-gradient(rgba(2,6,14,0.92), rgba(2,6,14,0.92))",
     border: "1px solid rgba(148, 163, 184, 0.38)",
-    boxShadow: "0 28px 80px rgba(0, 0, 0, 0.55)",
-    backdropFilter: "blur(8px)"
+    boxShadow: "none",
+    backdropFilter: "none"
   },
   content: {
     display: "grid",
     gap: 14
   },
   eyebrow: {
-    color: "#60a5fa",
+    color: "var(--eyebrow-text, var(--accent-2, #60a5fa))",
     fontSize: 12,
     fontWeight: 900,
     textTransform: "uppercase",
@@ -48,7 +48,7 @@ const styles = {
   },
   copy: {
     margin: 0,
-    color: "#d1d5db",
+    color: "var(--hero-copy, var(--text-muted))",
     lineHeight: 1.65,
     maxWidth: 620,
     fontSize: 16
@@ -61,8 +61,7 @@ const styles = {
   visual: {
     minHeight: 220,
     borderRadius: 12,
-    background:
-      "radial-gradient(circle at 30% 20%, rgba(96,165,250,0.28), transparent 36%), radial-gradient(circle at 80% 70%, rgba(124,58,237,0.28), transparent 34%), #05070d",
-    border: "1px solid #223047"
+    background: "var(--page-bg)",
+    border: "1px solid var(--visual-border, rgba(34,48,71,0.36))"
   }
 };
