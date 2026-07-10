@@ -595,6 +595,24 @@ const translations = {
     "item": {
       "defaultDescription": "Uma atualização Travel Share premium para aprimorar seus álbuns e fotos de eventos."
     },
+    "payment": {
+          "confirming": "Confirmando o seu pagamento...",
+          "success": "Pagamento confirmado.",
+          "pending": "O pagamento ainda está sendo processado.",
+          "canceled": "Checkout cancelado. Nenhuma compra foi desbloqueada.",
+          "failed": "O pagamento falhou. O item não foi desbloqueado.",
+          "error": "Não foi possível confirmar o pagamento agora.",
+          "checkAgain": "Verificar estado do pagamento",
+          "tryAgain": "Tentar novamente",
+          "backToStore": "Voltar à loja",
+          "checkoutStarted": "Checkout iniciado. Conclua o pagamento com o provedor e volte para confirmar.",
+          "checkoutUnavailable": "Checkout indisponível no momento.",
+          "signInRequired": "Entre ou crie uma conta para comprar itens premium.",
+          "processing": "Estado do pagamento",
+          "ownedNow": "Pagamento confirmado. O item agora está desbloqueado.",
+          "noTransaction": "Nenhuma transação de pagamento foi encontrada para este retorno do checkout.",
+          "safeNotice": "As compras só são desbloqueadas depois que o backend confirma o pagamento com o provedor."
+    },
     "modal": {
       "skinDetails": "Detalhes da pele",
       "close": "Fechar",

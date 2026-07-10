@@ -1,14 +1,18 @@
-import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
-import { api, API_URL, currentUser, getToken } from "../lib/api.js";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { api, API_URL, checkoutStoreItem, confirmStorePayment, currentUser, getStoreItems, getToken, unlockFreeStoreItem } from "../lib/api.js";
 import { useLanguage } from "../lib/i18n";
 
 function formatPrice(priceCents, t) {
   return Number(priceCents || 0) === 0 ? t("store.price.free", "Free") : `$${(priceCents / 100).toFixed(2)}`;
 }
 
+const PENDING_PAYMENT_KEY = "travelSharePendingStorePayment";
+
 export default function Store() {
   const { t } = useLanguage();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const user = currentUser();
   const isGuestUser = user?.role === "guest";
   const [items, setItems] = useState([]);
@@ -26,10 +30,21 @@ export default function Store() {
   const [selectedUploadId, setSelectedUploadId] = useState(null);
   const [imageErrorIds, setImageErrorIds] = useState(new Set());
   const [ownedOnly, setOwnedOnly] = useState(false);
+  const [paymentStatus, setPaymentStatus] = useState(null);
+  const handledPaymentRef = useRef(null);
 
   useEffect(() => {
     loadItems();
   }, []);
+
+  useEffect(() => {
+    const payment = searchParams.get("payment");
+    const transactionId = searchParams.get("transactionId");
+    const key = `${payment || ""}:${transactionId || ""}`;
+    if (!payment || handledPaymentRef.current === key) return;
+    handledPaymentRef.current = key;
+    handlePaymentReturn(payment, transactionId);
+  }, [searchParams]);
 
   async function loadItems() {
     setLoading(true);
@@ -39,7 +54,7 @@ export default function Store() {
     try {
       const user = currentUser();
       const isAuthenticated = Boolean(getToken()) && user?.role !== "guest";
-      const data = isAuthenticated ? await api("/api/store") : await api("/api/public/store-preview");
+      const data = isAuthenticated ? await getStoreItems() : await api("/api/public/store-preview");
       setItems(data.items || []);
     } catch (err) {
       setItems([]);
@@ -182,12 +197,20 @@ export default function Store() {
   }
 
   async function unlockItem(itemId) {
+    const user = currentUser();
+    if (!getToken() || user?.role === "guest") {
+      setPaymentStatus({
+        state: "error",
+        message: t("store.payment.signInRequired", "Sign in or create an account to buy premium store items.")
+      });
+      return;
+    }
     setProcessingItemId(itemId);
     setError(null);
     setStatus(null);
 
     try {
-      await api(`/api/store/${itemId}/purchase`, { method: "POST", body: JSON.stringify({}) });
+      await unlockFreeStoreItem(itemId);
       setStatus(t("store.status.itemUnlocked", "Item unlocked successfully."));
       await loadItems();
     } catch (err) {
@@ -198,26 +221,172 @@ export default function Store() {
   }
 
   async function checkoutItem(itemId) {
+    const user = currentUser();
+    if (!getToken() || user?.role === "guest") {
+      setPaymentStatus({
+        state: "error",
+        message: t("store.payment.signInRequired", "Sign in or create an account to buy premium store items.")
+      });
+      return;
+    }
     setProcessingItemId(itemId);
     setError(null);
     setStatus(null);
+    setPaymentStatus(null);
 
     try {
-      const data = await api(`/api/store/${itemId}/checkout`, {
-        method: "POST",
-        body: JSON.stringify({ provider: "stripe" })
-      });
-        if (data.checkoutUrl) {
-        window.open(data.checkoutUrl, "_blank");
-        setStatus(t("store.status.checkoutOpened", "Checkout opened in a new tab. Complete payment to unlock the item."));
+      const data = await checkoutStoreItem(itemId, "stripe");
+      const transactionId = data.transactionId || data.transaction?.id;
+      if (transactionId) {
+        localStorage.setItem(PENDING_PAYMENT_KEY, JSON.stringify({
+          transactionId,
+          itemId,
+          provider: data.provider || "stripe",
+          timestamp: Date.now()
+        }));
+      }
+      if (data.checkoutUrl) {
+        setPaymentStatus({
+          state: "processing",
+          message: t("store.payment.checkoutStarted", "Checkout started. Complete payment with the provider, then return to confirm.")
+        });
+        window.location.assign(data.checkoutUrl);
       } else {
-        setStatus(t("store.status.checkoutStarted", "Checkout started. Complete payment in the new window."));
+        setPaymentStatus({
+          state: "pending",
+          transactionId,
+          itemId,
+          provider: data.provider || "stripe",
+          message: t("store.payment.processing", "Payment is being prepared.")
+        });
       }
     } catch (err) {
-      setError(err.message || t("store.error.checkout", "Unable to start checkout."));
+      setPaymentStatus({
+        state: "error",
+        itemId,
+        message: err.message || t("store.payment.checkoutUnavailable", "Checkout is unavailable right now.")
+      });
     } finally {
       setProcessingItemId(null);
     }
+  }
+
+  function cleanPaymentQuery() {
+    navigate("/store", { replace: true });
+  }
+
+  function getPendingPayment(transactionId) {
+    try {
+      const pending = JSON.parse(localStorage.getItem(PENDING_PAYMENT_KEY) || "null");
+      if (!transactionId || pending?.transactionId === transactionId) return pending;
+    } catch (err) {
+      // Ignore malformed local payment metadata.
+    }
+    return null;
+  }
+
+  async function handlePaymentReturn(payment, transactionId) {
+    const pending = getPendingPayment(transactionId);
+    if (!transactionId) {
+      setPaymentStatus({
+        state: "error",
+        message: t("store.payment.noTransaction", "No payment transaction was found for this checkout return.")
+      });
+      return;
+    }
+
+    if (payment === "cancel") {
+      setPaymentStatus({
+        state: "canceled",
+        transactionId,
+        itemId: pending?.itemId,
+        provider: pending?.provider,
+        message: t("store.payment.canceled", "Checkout canceled. No purchase was unlocked.")
+      });
+      return;
+    }
+
+    if (payment !== "success") return;
+    await checkPaymentStatus(transactionId, pending);
+  }
+
+  async function checkPaymentStatus(transactionId = paymentStatus?.transactionId, pendingOverride = null) {
+    if (!transactionId) {
+      setPaymentStatus({
+        state: "error",
+        message: t("store.payment.noTransaction", "No payment transaction was found for this checkout return.")
+      });
+      return;
+    }
+
+    const pending = pendingOverride || getPendingPayment(transactionId);
+    setPaymentStatus({
+      state: "confirming",
+      transactionId,
+      itemId: pending?.itemId,
+      provider: pending?.provider,
+      message: t("store.payment.confirming", "Confirming your payment...")
+    });
+
+    try {
+      const result = await confirmStorePayment(transactionId);
+      if (result.status === "paid" || result.status === "owned") {
+        try {
+          localStorage.removeItem(PENDING_PAYMENT_KEY);
+        } catch (err) {
+          // Ignore storage cleanup errors.
+        }
+        setPaymentStatus({
+          state: "success",
+          transactionId,
+          itemId: pending?.itemId || result.item?.id,
+          message: t("store.payment.ownedNow", "Payment confirmed. Your item is now unlocked.")
+        });
+        await loadItems();
+        cleanPaymentQuery();
+        return;
+      }
+
+      if (result.status === "canceled") {
+        setPaymentStatus({
+          state: "canceled",
+          transactionId,
+          itemId: pending?.itemId || result.item?.id,
+          message: t("store.payment.canceled", "Checkout canceled. No purchase was unlocked.")
+        });
+        return;
+      }
+
+      if (result.status === "failed") {
+        setPaymentStatus({
+          state: "failed",
+          transactionId,
+          itemId: pending?.itemId || result.item?.id,
+          message: t("store.payment.failed", "Payment failed. Your item was not unlocked.")
+        });
+        return;
+      }
+
+      setPaymentStatus({
+        state: "pending",
+        transactionId,
+        itemId: pending?.itemId || result.item?.id,
+        message: t("store.payment.pending", "Payment is still processing.")
+      });
+    } catch (err) {
+      setPaymentStatus({
+        state: "error",
+        transactionId,
+        itemId: pending?.itemId,
+        message: err.message || t("store.payment.error", "Unable to confirm payment right now.")
+      });
+    }
+  }
+
+  function paymentBannerClass(state) {
+    if (state === "success") return "border-emerald-500/30 bg-emerald-950/80 text-emerald-100";
+    if (state === "canceled" || state === "pending" || state === "processing" || state === "confirming") return "border-sky-500/30 bg-slate-950/80 text-sky-100";
+    return "border-report/30 bg-slate-950/80 text-report";
   }
 
   return (
@@ -302,6 +471,32 @@ export default function Store() {
       ) : null}
       {error ? (
         <div className="rounded-3xl border border-report/30 bg-slate-950/80 p-4 text-report">{error}</div>
+      ) : null}
+      {paymentStatus ? (
+        <section className={`rounded-3xl border p-5 shadow-sm ${paymentBannerClass(paymentStatus.state)}`}>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-sm uppercase tracking-[0.32em] text-primary">{t("store.payment.processing", "Payment status")}</p>
+              <p className="mt-2 font-semibold">{paymentStatus.message}</p>
+              <p className="mt-2 text-sm text-slatebody">{t("store.payment.safeNotice", "Purchases unlock only after the backend confirms payment with the provider.")}</p>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              {paymentStatus.transactionId && ["pending", "error", "failed", "confirming"].includes(paymentStatus.state) ? (
+                <button type="button" className="btn-primary" onClick={() => checkPaymentStatus(paymentStatus.transactionId)}>
+                  {t("store.payment.checkAgain", "Check payment status")}
+                </button>
+              ) : null}
+              {paymentStatus.itemId && ["canceled", "failed", "error"].includes(paymentStatus.state) ? (
+                <button type="button" className="btn-primary" onClick={() => checkoutItem(paymentStatus.itemId)}>
+                  {t("store.payment.tryAgain", "Try again")}
+                </button>
+              ) : null}
+              <button type="button" className="btn-ghost" onClick={() => { setPaymentStatus(null); cleanPaymentQuery(); }}>
+                {t("store.payment.backToStore", "Back to store")}
+              </button>
+            </div>
+          </div>
+        </section>
       ) : null}
 
       {loading ? (

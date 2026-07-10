@@ -156,4 +156,29 @@ export function getQRSpaceQRCode(id) {
   return api(`/api/qr-spaces/${encodeURIComponent(id)}/qr`);
 }
 
+export function getStoreItems() {
+  return api("/api/store");
+}
+
+export function unlockFreeStoreItem(itemId) {
+  return api(`/api/store/${encodeURIComponent(itemId)}/purchase`, {
+    method: "POST",
+    body: JSON.stringify({})
+  });
+}
+
+export function checkoutStoreItem(itemId, provider = "stripe") {
+  return api(`/api/store/${encodeURIComponent(itemId)}/checkout`, {
+    method: "POST",
+    body: JSON.stringify({ provider })
+  });
+}
+
+export function confirmStorePayment(transactionId) {
+  return api(`/api/store/payments/${encodeURIComponent(transactionId)}/confirm`, {
+    method: "POST",
+    body: JSON.stringify({})
+  });
+}
+
 export { API_URL };

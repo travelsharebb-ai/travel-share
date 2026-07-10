@@ -375,6 +375,24 @@ const translations = {
     "item": {
       "defaultDescription": "Een premium Travel Share-upgrade om albums en evenementfoto's te verbeteren."
     },
+    "payment": {
+          "confirming": "Je betaling wordt bevestigd...",
+          "success": "Betaling bevestigd.",
+          "pending": "De betaling wordt nog verwerkt.",
+          "canceled": "Checkout geannuleerd. Er is geen aankoop ontgrendeld.",
+          "failed": "Betaling mislukt. Je item is niet ontgrendeld.",
+          "error": "Kan de betaling nu niet bevestigen.",
+          "checkAgain": "Betaalstatus controleren",
+          "tryAgain": "Opnieuw proberen",
+          "backToStore": "Terug naar store",
+          "checkoutStarted": "Checkout gestart. Rond de betaling af bij de provider en keer terug om te bevestigen.",
+          "checkoutUnavailable": "Checkout is momenteel niet beschikbaar.",
+          "signInRequired": "Log in of maak een account om premium-items te kopen.",
+          "processing": "Betaalstatus",
+          "ownedNow": "Betaling bevestigd. Je item is nu ontgrendeld.",
+          "noTransaction": "Geen betalingstransactie gevonden voor deze checkout-terugkeer.",
+          "safeNotice": "Aankopen worden pas ontgrendeld nadat de backend de betaling bij de provider bevestigt."
+    },
     "modal": {
       "skinDetails": "Skin-details",
       "close": "Sluiten",

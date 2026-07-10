@@ -441,6 +441,24 @@ const translations = {
     "item": {
       "defaultDescription": "A premium Travel Share upgrade to enhance your albums and event photos."
     },
+    "payment": {
+          "confirming": "Confirming your payment...",
+          "success": "Payment confirmed.",
+          "pending": "Payment is still processing.",
+          "canceled": "Checkout canceled. No purchase was unlocked.",
+          "failed": "Payment failed. Your item was not unlocked.",
+          "error": "Unable to confirm payment right now.",
+          "checkAgain": "Check payment status",
+          "tryAgain": "Try again",
+          "backToStore": "Back to store",
+          "checkoutStarted": "Checkout started. Complete payment with the provider, then return to confirm.",
+          "checkoutUnavailable": "Checkout is unavailable right now.",
+          "signInRequired": "Sign in or create an account to buy premium store items.",
+          "processing": "Payment status",
+          "ownedNow": "Payment confirmed. Your item is now unlocked.",
+          "noTransaction": "No payment transaction was found for this checkout return.",
+          "safeNotice": "Purchases unlock only after the backend confirms payment with the provider."
+    },
     "modal": {
       "skinDetails": "Skin details",
       "close": "Close",

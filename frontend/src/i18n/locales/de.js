@@ -568,6 +568,24 @@ const translations = {
     "item": {
       "defaultDescription": "Ein Premium-Upgrade Travel Share zur Verbesserung Ihrer Alben und Veranstaltungsfotos."
     },
+    "payment": {
+          "confirming": "Zahlung wird bestätigt...",
+          "success": "Zahlung bestätigt.",
+          "pending": "Die Zahlung wird noch verarbeitet.",
+          "canceled": "Checkout abgebrochen. Kein Kauf wurde freigeschaltet.",
+          "failed": "Die Zahlung ist fehlgeschlagen. Dein Artikel wurde nicht freigeschaltet.",
+          "error": "Die Zahlung kann im Moment nicht bestätigt werden.",
+          "checkAgain": "Zahlungsstatus prüfen",
+          "tryAgain": "Erneut versuchen",
+          "backToStore": "Zurück zum Store",
+          "checkoutStarted": "Checkout gestartet. Schließe die Zahlung beim Anbieter ab und kehre dann zur Bestätigung zurück.",
+          "checkoutUnavailable": "Checkout ist derzeit nicht verfügbar.",
+          "signInRequired": "Melde dich an oder erstelle ein Konto, um Premium-Artikel zu kaufen.",
+          "processing": "Zahlungsstatus",
+          "ownedNow": "Zahlung bestätigt. Dein Artikel ist jetzt freigeschaltet.",
+          "noTransaction": "Für diese Checkout-Rückkehr wurde keine Zahlungstransaktion gefunden.",
+          "safeNotice": "Käufe werden erst freigeschaltet, nachdem das Backend die Zahlung beim Anbieter bestätigt hat."
+    },
     "modal": {
       "skinDetails": "Hautdetails",
       "close": "Schließen",

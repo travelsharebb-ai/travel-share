@@ -762,6 +762,24 @@ const translations = {
     "item": {
       "defaultDescription": "アルバムやイベントの写真を強化するためのプレミアム Travel Share アップグレード。"
     },
+    "payment": {
+          "confirming": "お支払いを確認しています...",
+          "success": "お支払いが確認されました。",
+          "pending": "お支払いはまだ処理中です。",
+          "canceled": "チェックアウトはキャンセルされました。購入は解除されていません。",
+          "failed": "お支払いに失敗しました。アイテムは解除されていません。",
+          "error": "現在、お支払いを確認できません。",
+          "checkAgain": "支払い状況を確認",
+          "tryAgain": "もう一度試す",
+          "backToStore": "ストアに戻る",
+          "checkoutStarted": "チェックアウトを開始しました。プロバイダーで支払いを完了し、戻って確認してください。",
+          "checkoutUnavailable": "現在チェックアウトを利用できません。",
+          "signInRequired": "プレミアムアイテムを購入するにはサインインまたはアカウント作成が必要です。",
+          "processing": "支払い状況",
+          "ownedNow": "お支払いが確認されました。アイテムが解除されました。",
+          "noTransaction": "このチェックアウト戻りに対応する支払い取引が見つかりません。",
+          "safeNotice": "購入はバックエンドがプロバイダーで支払いを確認した後にのみ解除されます。"
+    },
     "modal": {
       "skinDetails": "スキンの詳細",
       "close": "近い",

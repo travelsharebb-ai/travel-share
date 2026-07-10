@@ -83,7 +83,13 @@ router.post("/:itemId/checkout", async (req, res, next) => {
       }
     });
 
-    res.status(201).json({ transaction: updatedTransaction, checkoutUrl: result.checkoutUrl, provider });
+    res.status(201).json({
+      transactionId: updatedTransaction.id,
+      checkoutUrl: result.checkoutUrl,
+      provider,
+      status: updatedTransaction.status,
+      transaction: updatedTransaction
+    });
   } catch (error) {
     next(error);
   }

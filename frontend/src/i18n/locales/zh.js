@@ -762,6 +762,24 @@ const translations = {
     "item": {
       "defaultDescription": "高级 Travel Share 升级可增强您的相册和活动照片。"
     },
+    "payment": {
+          "confirming": "正在确认你的付款...",
+          "success": "付款已确认。",
+          "pending": "付款仍在处理中。",
+          "canceled": "结账已取消。没有解锁任何购买。",
+          "failed": "付款失败。你的项目未解锁。",
+          "error": "目前无法确认付款。",
+          "checkAgain": "检查付款状态",
+          "tryAgain": "重试",
+          "backToStore": "返回商店",
+          "checkoutStarted": "结账已开始。请在支付提供商处完成付款，然后返回确认。",
+          "checkoutUnavailable": "结账目前不可用。",
+          "signInRequired": "请登录或创建账户以购买高级项目。",
+          "processing": "付款状态",
+          "ownedNow": "付款已确认。你的项目现已解锁。",
+          "noTransaction": "未找到此次结账返回对应的付款交易。",
+          "safeNotice": "只有后端向支付提供商确认付款后，购买才会解锁。"
+    },
     "modal": {
       "skinDetails": "皮肤细节",
       "close": "关闭",

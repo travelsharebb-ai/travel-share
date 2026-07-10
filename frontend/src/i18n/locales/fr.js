@@ -698,6 +698,24 @@ const translations = {
     "item": {
       "defaultDescription": "Une mise à niveau premium Travel Share pour améliorer vos albums et photos d'événements."
     },
+    "payment": {
+          "confirming": "Confirmation de votre paiement...",
+          "success": "Paiement confirmé.",
+          "pending": "Le paiement est toujours en cours de traitement.",
+          "canceled": "Checkout annulé. Aucun achat n’a été déverrouillé.",
+          "failed": "Le paiement a échoué. Votre article n’a pas été déverrouillé.",
+          "error": "Impossible de confirmer le paiement pour le moment.",
+          "checkAgain": "Vérifier le paiement",
+          "tryAgain": "Réessayer",
+          "backToStore": "Retour à la boutique",
+          "checkoutStarted": "Checkout démarré. Terminez le paiement avec le fournisseur, puis revenez confirmer.",
+          "checkoutUnavailable": "Checkout indisponible pour le moment.",
+          "signInRequired": "Connectez-vous ou créez un compte pour acheter des articles premium.",
+          "processing": "État du paiement",
+          "ownedNow": "Paiement confirmé. Votre article est maintenant déverrouillé.",
+          "noTransaction": "Aucune transaction de paiement n’a été trouvée pour ce retour du checkout.",
+          "safeNotice": "Les achats ne se déverrouillent qu’après confirmation du paiement par le backend auprès du fournisseur."
+    },
     "modal": {
       "skinDetails": "Détails de la peau",
       "close": "Fermer",

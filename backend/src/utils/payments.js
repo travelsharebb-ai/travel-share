@@ -2,6 +2,12 @@ function appUrl(path) {
   return new URL(path, process.env.FRONTEND_URL || "http://localhost:5173").toString();
 }
 
+function checkoutReturnPath(result, transaction) {
+  const params = new URLSearchParams({ payment: result });
+  if (transaction?.id) params.set("transactionId", transaction.id);
+  return `/store?${params.toString()}`;
+}
+
 export function getPaymentCurrency() {
   return String(process.env.STRIPE_CURRENCY || "usd").toLowerCase();
 }
@@ -22,8 +28,8 @@ export async function createStripeCheckout({ item, user, transaction }) {
 
   const body = new URLSearchParams({
     mode: "payment",
-    success_url: appUrl("/store?payment=success"),
-    cancel_url: appUrl("/store?payment=cancel"),
+    success_url: appUrl(checkoutReturnPath("success", transaction)),
+    cancel_url: appUrl(checkoutReturnPath("cancel", transaction)),
     customer_email: user.email,
     client_reference_id: `${user.id}:${item.id}`,
     "line_items[0][quantity]": "1"
@@ -93,7 +99,7 @@ async function paypalAccessToken() {
   return data.access_token;
 }
 
-export async function createPaypalOrder({ item }) {
+export async function createPaypalOrder({ item, transaction }) {
   const base = process.env.PAYPAL_API_BASE || "https://api-m.sandbox.paypal.com";
   const token = await paypalAccessToken();
   const response = await fetch(`${base}/v2/checkout/orders`, {
@@ -109,8 +115,8 @@ export async function createPaypalOrder({ item }) {
         description: item.name
       }],
       application_context: {
-        return_url: appUrl("/store?payment=success"),
-        cancel_url: appUrl("/store?payment=cancel")
+        return_url: appUrl(checkoutReturnPath("success", transaction)),
+        cancel_url: appUrl(checkoutReturnPath("cancel", transaction))
       }
     })
   });
