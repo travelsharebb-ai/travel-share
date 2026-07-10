@@ -1,6 +1,8 @@
 import { Router } from "express";
 import { prisma } from "../utils/prisma.js";
-import { capturePaypalOrder, createPaypalOrder, createStripeCheckout, verifyStripeCheckout } from "../utils/payments.js";
+import { isPlatformAdmin } from "../middleware/auth.js";
+import { finalizePaidTransaction, updateTransactionPaymentStatus } from "../services/paymentFinalizationService.js";
+import { capturePaypalOrder, createPaypalOrder, createStripeCheckout, getPaymentCurrency, verifyStripeCheckout } from "../utils/payments.js";
 import { ensureBasicSkinUnlocks } from "../utils/skins.js";
 
 const router = Router();
@@ -49,10 +51,12 @@ router.post("/:itemId/checkout", async (req, res, next) => {
     const item = await prisma.purchaseItem.findFirst({ where: { id: req.params.itemId, active: true } });
     if (!item) return res.status(404).json({ error: "Store item not found." });
     if (item.priceCents <= 0) return res.status(400).json({ error: "Free items can be unlocked directly." });
-
-    const result = provider === "paypal"
-      ? await createPaypalOrder({ item, user: req.user })
-      : await createStripeCheckout({ item, user: req.user });
+    if (provider === "stripe" && !process.env.STRIPE_SECRET_KEY) {
+      return res.status(501).json({ error: "Stripe is not configured. Set STRIPE_SECRET_KEY." });
+    }
+    if (provider === "paypal" && (!process.env.PAYPAL_CLIENT_ID || !process.env.PAYPAL_CLIENT_SECRET)) {
+      return res.status(501).json({ error: "PayPal is not configured. Set PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET." });
+    }
 
     const transaction = await prisma.paymentTransaction.create({
       data: {
@@ -60,13 +64,26 @@ router.post("/:itemId/checkout", async (req, res, next) => {
         itemId: item.id,
         provider,
         amountCents: item.priceCents,
+        currency: provider === "stripe" ? getPaymentCurrency() : "usd"
+      }
+    });
+
+    const result = provider === "paypal"
+      ? await createPaypalOrder({ item, user: req.user, transaction })
+      : await createStripeCheckout({ item, user: req.user, transaction });
+
+    const updatedTransaction = await prisma.paymentTransaction.update({
+      where: { id: transaction.id },
+      data: {
+        currency: result.currency || transaction.currency,
+        providerPaymentId: result.providerPaymentId || null,
         providerRef: result.providerRef || null,
         checkoutUrl: result.checkoutUrl || null,
         rawResponse: result.rawResponse || undefined
       }
     });
 
-    res.status(201).json({ transaction, checkoutUrl: result.checkoutUrl, provider });
+    res.status(201).json({ transaction: updatedTransaction, checkoutUrl: result.checkoutUrl, provider });
   } catch (error) {
     next(error);
   }
@@ -75,7 +92,10 @@ router.post("/:itemId/checkout", async (req, res, next) => {
 router.post("/payments/:transactionId/confirm", async (req, res, next) => {
   try {
     const transaction = await prisma.paymentTransaction.findFirst({
-      where: { id: req.params.transactionId, userId: req.user.id },
+      where: {
+        id: req.params.transactionId,
+        ...(isPlatformAdmin(req.user) ? {} : { userId: req.user.id })
+      },
       include: { item: true }
     });
     if (!transaction) return res.status(404).json({ error: "Payment transaction not found." });
@@ -86,28 +106,21 @@ router.post("/payments/:transactionId/confirm", async (req, res, next) => {
       ? await capturePaypalOrder(transaction.providerRef)
       : await verifyStripeCheckout(transaction.providerRef);
 
-    const updated = await prisma.paymentTransaction.update({
-      where: { id: transaction.id },
-      data: {
-        status: result.paid ? "paid" : "pending",
-        rawResponse: result.rawResponse || undefined
-      }
-    });
-
     if (result.paid) {
-      await prisma.userPurchase.upsert({
-        where: { userId_itemId: { userId: req.user.id, itemId: transaction.itemId } },
-        update: { status: "owned" },
-        create: { userId: req.user.id, itemId: transaction.itemId, status: "owned" }
+      const finalized = await finalizePaidTransaction(transaction.id, {
+        providerPaymentId: result.providerPaymentId,
+        currency: result.currency,
+        rawResponse: result.rawResponse
       });
-      if (transaction.item.type === "image_skin") {
-        await prisma.userSkinUnlock.upsert({
-          where: { id: `${req.user.id}_${transaction.itemId}` },
-          update: {},
-          create: { id: `${req.user.id}_${transaction.itemId}`, userId: req.user.id, skinId: transaction.itemId }
-        });
-      }
+      return res.json({ status: finalized.transaction.status, item: transaction.item });
     }
+
+    const nextStatus = ["expired", "canceled"].includes(result.status) ? "canceled" : "pending";
+    const updated = await updateTransactionPaymentStatus(transaction.id, nextStatus, {
+      providerPaymentId: result.providerPaymentId,
+      currency: result.currency,
+      rawResponse: result.rawResponse
+    });
 
     res.json({ status: updated.status, item: transaction.item });
   } catch (error) {

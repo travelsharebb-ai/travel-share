@@ -484,17 +484,39 @@ model PaymentTransaction {
   provider    PaymentProvider
   status      PaymentStatus   @default(pending)
   amountCents Int
+  currency    String?
   providerRef String?
+  providerPaymentId String?
   checkoutUrl String?
   rawResponse Json?
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
   item        PurchaseItem    @relation(fields: [itemId], references: [id], onDelete: Cascade)
   user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  webhookEvents PaymentWebhookEvent[]
 
   @@index([userId])
   @@index([provider, providerRef])
   @@index([status])
+}
+
+model PaymentWebhookEvent {
+  id              String             @id @default(cuid())
+  provider        PaymentProvider
+  providerEventId String             @unique
+  transactionId   String?
+  eventType       String?
+  processed       Boolean            @default(false)
+  payload         Json?
+  errorMessage    String?
+  receivedAt      DateTime           @default(now())
+  processedAt     DateTime?
+  transaction     PaymentTransaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+
+  @@index([provider])
+  @@index([transactionId])
+  @@index([processed])
+  @@index([receivedAt])
 }
 
 model PasswordResetToken {

@@ -14,6 +14,7 @@ import downloadRoutes from "./routes/downloads.js";
 import skinRoutes from "./routes/skins.js";
 import notificationsRoutes from "./routes/notifications.js";
 import followsRoutes from "./routes/follows.js";
+import webhookRoutes from "./routes/webhooks.js";
 import { requireAdmin, requireAuth, requireOrganizerOrAdmin } from "./middleware/auth.js";
 import requestLogger from "./middleware/requestLogger.js";
 import diagnostics from "./utils/diagnostics.js";
@@ -36,6 +37,7 @@ export function createApp() {
     },
     credentials: true
   }));
+  app.use("/api/webhooks", webhookRoutes);
   app.use(express.json({ limit: "2mb" }));
   app.use(express.static(path.resolve(process.cwd(), "public")));
   app.use("/uploads", express.static(path.resolve(process.cwd(), "uploads")));
