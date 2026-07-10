@@ -41,7 +41,7 @@ export default function MediaCard({ upload, selected, onSelect, onApprove, onRej
               type="checkbox"
               checked={selected}
               onChange={(event) => onSelect(upload.id, event.target.checked)}
-              className="mt-1 h-5 w-5 shrink-0"
+              className="form-checkbox mt-1 shrink-0"
             />
           )}
         </div>
@@ -54,7 +54,7 @@ export default function MediaCard({ upload, selected, onSelect, onApprove, onRej
           {onDelete && <button className="btn-ghost" onClick={() => onDelete(upload.id)}><Trash2 size={17} />{t("common.delete")}</button>}
         </div>
         {onChangeDownloadItem ? (
-          <div className="rounded-lg border border-borderline bg-slate-50 p-3 text-sm">
+          <div className="form-panel p-3 text-sm">
             <label className="mb-2 block font-semibold">{t("common.downloadAccess")}</label>
             <select className="field" value={currentDownloadItemId || ""} onChange={(event) => onChangeDownloadItem(upload.id, event.target.value || null)}>
               <option value="">{t("hardcoded.noDownloadAssetAssigned")}</option>
@@ -66,7 +66,7 @@ export default function MediaCard({ upload, selected, onSelect, onApprove, onRej
           </div>
         ) : null}
         {onApplySkin && upload.fileType !== "video" ? (
-          <div className="space-y-2 rounded-lg border border-borderline bg-skysoft p-3">
+          <div className="form-panel space-y-2 p-3">
             <div className="flex items-center justify-between gap-2">
               <p className="text-sm font-bold">{t("common.photoFrame")}</p>
               <button className={!upload.skinId ? "btn-primary" : "btn-ghost"} type="button" onClick={() => onApplySkin(upload.id, null)} aria-label={t("common.removePhotoFrame")} disabled={!upload.skinId}>{t("common.none")}</button>

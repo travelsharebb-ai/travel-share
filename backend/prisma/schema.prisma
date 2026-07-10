@@ -30,13 +30,29 @@ model User {
   passwordResetTokens  PasswordResetToken[]
   paymentTransactions  PaymentTransaction[]
   trips                Trip[]
+  qrUploadSpaces       QRUploadSpace[]
   activeStoreItem      PurchaseItem?          @relation("ActiveStoreItem", fields: [activeStoreItemId], references: [id])
   preferences          UserPreference?
   purchases            UserPurchase[]
   skinUnlocks          UserSkinUnlock[]     @relation("UserSkinUnlockUser")
   notifications         Notification[]
+  following            UserFollow[]          @relation("UserFollowing")
+  followers            UserFollow[]          @relation("UserFollowers")
 
   @@index([activeStoreItemId])
+}
+
+model UserFollow {
+  id          String   @id @default(cuid())
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+  follower    User     @relation("UserFollowing", fields: [followerId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  following   User     @relation("UserFollowers", fields: [followingId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
 }
 
 model UserPreference {
@@ -73,6 +89,7 @@ model GuestSession {
   claimedBy         User?    @relation("ClaimedGuestSessions", fields: [claimedById], references: [id])
   trips             Trip[]
   uploads           Upload[]
+  qrUploadSpaces    QRUploadSpace[]
 
   @@index([scopeType, scopeId])
   @@index([expiresAt])
@@ -237,6 +254,7 @@ model Upload {
   downloadPurchaseItemId String?
   skinId                 String?
   locationId             String?
+  qrUploadSpaceId        String?
   moderationLogs         AdminModerationLog[]
   downloadAuditLogs      DownloadAuditLog[]
   emailLogs              EmailNotificationLog[]
@@ -245,6 +263,7 @@ model Upload {
   event                  Event?                 @relation(fields: [eventId], references: [id], onDelete: Cascade)
   guestSession           GuestSession?          @relation(fields: [guestSessionId], references: [id])
   location               Location?              @relation(fields: [locationId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  qrUploadSpace          QRUploadSpace?          @relation(fields: [qrUploadSpaceId], references: [id], onDelete: SetNull)
   trip                   Trip?                  @relation(fields: [tripId], references: [id], onDelete: Cascade)
   zone                   MapZone?               @relation(fields: [zoneId], references: [id])
   uploadState            UploadState?
@@ -254,8 +273,44 @@ model Upload {
   @@index([zoneId])
   @@index([guestSessionId])
   @@index([locationId])
+  @@index([qrUploadSpaceId])
   @@index([uploaderFingerprint])
   @@index([downloadPurchaseItemId])
+}
+
+model QRUploadSpace {
+  id                   String         @id @default(cuid())
+  token                String         @unique
+  title                String
+  targetType           QRTargetType
+  targetId             String?
+  createdByUserId      String?
+  guestSessionId       String?
+  visibility           QRVisibility   @default(unlisted)
+  expiresAt            DateTime?
+  allowGuests          Boolean        @default(true)
+  allowRegisteredUsers Boolean        @default(true)
+  requireApproval      Boolean        @default(true)
+  latitude             Float?
+  longitude            Float?
+  locationName         String?
+  disabledAt           DateTime?
+  deletedAt            DateTime?
+  scanCount            Int            @default(0)
+  lastScannedAt        DateTime?
+  metadata             Json?
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+  createdBy            User?          @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+  guestSession         GuestSession?  @relation(fields: [guestSessionId], references: [id], onDelete: SetNull)
+  uploads              Upload[]
+
+  @@index([token])
+  @@index([createdByUserId])
+  @@index([guestSessionId])
+  @@index([targetType, targetId])
+  @@index([expiresAt])
+  @@index([deletedAt])
 }
 
 model UploadState {
@@ -504,6 +559,20 @@ enum QrMode {
   trusted
   time_limited
   family_safe
+}
+
+enum QRTargetType {
+  general
+  event
+  trip
+  album
+  location
+}
+
+enum QRVisibility {
+  public
+  private
+  unlisted
 }
 
 enum AdMediaType {

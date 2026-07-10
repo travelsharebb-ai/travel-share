@@ -507,7 +507,7 @@ export default function Store() {
                                             <label className="block text-sm uppercase tracking-[0.32em] text-primary" htmlFor="skin-trip-select">{t("store.modal.selectTripLabel", "Select trip")}</label>
                                             <select
                                               id="skin-trip-select"
-                                              className="mt-2 w-full rounded-3xl border border-borderline bg-slate-900 p-3 text-slatebody"
+                                              className="field mt-2"
                                               value={selectedTripId || ""}
                                               onChange={(event) => {
                                                 const tripId = event.target.value;
@@ -529,7 +529,7 @@ export default function Store() {
                                             {previewUploads.length ? (
                                               <select
                                                 id="skin-upload-select"
-                                                className="mt-2 w-full rounded-3xl border border-borderline bg-slate-900 p-3 text-slatebody"
+                                                className="field mt-2"
                                                 value={selectedUploadId || ""}
                                                 onChange={(event) => setSelectedUploadId(event.target.value)}
                                               >

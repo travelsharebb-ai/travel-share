@@ -58,7 +58,7 @@ export default function AdminModeration() {
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
                   <div className="rounded-3xl border border-borderline bg-slate-950/70 p-4">
                     <p className="text-sm uppercase tracking-[0.28em] text-slatebody">{t("admin.moderation.location", "Location")}</p>
-                    <p className="mt-2 text-white">{upload.locationName || "Unknown location"}</p>
+                    <p className="mt-2 text-white">{upload.locationName || t("admin.moderation.unknown", "Unknown")}</p>
                   </div>
                   <div className="rounded-3xl border border-borderline bg-slate-950/70 p-4">
                     <p className="text-sm uppercase tracking-[0.28em] text-slatebody">{t("admin.moderation.trip", "Trip")}</p>

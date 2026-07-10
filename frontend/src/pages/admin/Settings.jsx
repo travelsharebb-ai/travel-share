@@ -266,7 +266,7 @@ export default function AdminSettings() {
                         ref={fileInputRef}
                         type="file"
                         accept="image/jpeg,image/png,image/webp,video/mp4,video/webm"
-                        className="mt-2 block w-full rounded-2xl border border-borderline bg-slate-950/60 p-3 text-sm text-slatebody background-media-file-input"
+                        className="field mt-2 block background-media-file-input"
                         onChange={(e) => {
                           const file = e.target.files?.[0] || null;
                           setSelectedFile(file);

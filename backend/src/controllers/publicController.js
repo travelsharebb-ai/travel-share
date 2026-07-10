@@ -8,8 +8,10 @@ import {
 import * as uploadService from "../services/uploadService.js";
 import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 import { readCookie, setGuestSessionCookie, fingerprintFromRequest, getOrSetUploaderSession, secureToken, hashToken } from "../utils/tokens.js";
 import { get as getPlatformSetting } from "../services/platformService.js";
+import { publicQRSpacePayload, resolveQRUploadSpaceByToken } from "../services/qrSpaceService.js";
 
 /**
  * =========================
@@ -52,6 +54,21 @@ async function qrResponse(type, data, guest, platformCache) {
     guest: await guestPayload(guest, platformCache),
     data
   };
+}
+
+async function optionalAuthenticatedUser(req) {
+  try {
+    const header = req.get("authorization") || "";
+    const token = header.startsWith("Bearer ") ? header.slice(7) : null;
+    if (!token) return null;
+    const payload = jwt.verify(token, process.env.JWT_SECRET);
+    return prisma.user.findUnique({
+      where: { id: payload.sub },
+      select: { id: true, name: true, email: true, role: true }
+    });
+  } catch {
+    return null;
+  }
 }
 
 function inferBackgroundMediaType(value, fallback = "video") {
@@ -158,26 +175,17 @@ export async function guestSessionStatus(req, res, next) {
       });
     }
 
-    const lifecycle = await getGuestLifecycle(guest, { platformCache: req.platformCache });
-    const status = lifecycle.state;
-    const guestSession = {
-      token: guest.token,
-      status,
-      daysRemaining: lifecycle.daysRemaining,
-      expiresAt: lifecycle.expiresAt,
-      activeUntil: lifecycle.activeUntil,
-      graceEndsAt: lifecycle.activeUntil,
-      shouldPromptRegister: lifecycle.shouldPromptRegister,
-      expired: lifecycle.expired
-    };
+    const guestSession = await guestPayload(guest, req.platformCache);
+    const status = guestSession.status;
     return res.json({
-      valid: !lifecycle.expired,
+      valid: !guestSession.expired,
       guestSession,
       status,
-      daysRemaining: lifecycle.daysRemaining,
-      expiresAt: lifecycle.expiresAt,
-      activeUntil: lifecycle.activeUntil,
-      graceEndsAt: lifecycle.activeUntil
+      daysRemaining: guestSession.daysRemaining,
+      expiresAt: guestSession.expiresAt,
+      activeUntil: guestSession.activeUntil,
+      graceEndsAt: guestSession.activeUntil,
+      accessLink: guestSession.accessLink
     });
   } catch (err) {
     next(err);
@@ -412,6 +420,29 @@ export async function qrGet(req, res, next) {
       return res.json(await qrResponse("zone", zone, guest, req.platformCache));
     }
 
+    // 4. STANDALONE QR UPLOAD SPACE
+    const qrSpace = await resolveQRUploadSpaceByToken(token, { incrementScan: true });
+
+    if (qrSpace) {
+      const guest = await getOrCreateGuestSession({
+        token: readCookie(req, "ts_guest") || req.get("x-guest-token"),
+        deviceFingerprint: fingerprintFromRequest(req),
+        platformCache: req.platformCache,
+        scopeType: "qr_space",
+        scopeId: qrSpace.id
+      });
+
+      if (guest) setGuestSessionCookie(res, guest.token);
+
+      const payload = publicQRSpacePayload(qrSpace);
+      return res.json({
+        type: "upload_space",
+        guest: await guestPayload(guest, req.platformCache),
+        data: payload,
+        ...payload
+      });
+    }
+
     return res.status(404).json({ error: "QR not found" });
   } catch (err) {
     next(err);
@@ -496,6 +527,26 @@ export async function handleQrUpload(req, res, next) {
       return res.status(201).json({
         upload: result.saved,
         message: "Zone upload received"
+      });
+    }
+
+    const qrSpace = await resolveQRUploadSpaceByToken(token, { incrementScan: false });
+    if (qrSpace) {
+      const result = await uploadService.handleQRSpaceUpload({
+        file: req.file,
+        body: req.body,
+        params: req.params,
+        fingerprint,
+        platformCache: req.platformCache,
+        guestToken,
+        registeredUser: await optionalAuthenticatedUser(req)
+      });
+
+      if (result?.guest) setGuestSessionCookie(res, result.guest.token);
+
+      return res.status(201).json({
+        upload: result.saved,
+        message: "QR upload-space upload received"
       });
     }
 

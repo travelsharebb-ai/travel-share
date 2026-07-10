@@ -1,6 +1,7 @@
 import { useLanguage } from "../lib/i18n";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
 import MediaCard from "../components/MediaCard.jsx";
 import { api, currentUser, getToken } from "../lib/api.js";
 
@@ -95,6 +96,10 @@ export default function TripDetails() {
   return (
     <main className="page-shell space-y-6">
       <section className="hero-copy-panel">
+        <Link className="btn-ghost inline-flex items-center gap-2" to="/trips">
+          <ArrowLeft size={16} />
+          <span>{t("trips.backToTrips", "Back to trips")}</span>
+        </Link>
         <div>
           <p className="text-sm uppercase tracking-[0.32em] text-primary">{t("hardcoded.tripAlbum")}</p>
           <h1 className="mt-3 text-4xl font-black font-serif">{loading ? "Loading trip…" : trip?.title || "Trip details"}</h1>

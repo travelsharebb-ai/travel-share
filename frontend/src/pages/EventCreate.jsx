@@ -59,40 +59,40 @@ export default function EventCreate() {
       <section className="card p-5">
         <form onSubmit={submit} className="space-y-4">
           <div>
-            <label className="block text-sm font-semibold">{t("eventCreate.labelTitle", "Title")}</label>
-            <input className="input" value={form.title} onChange={(e) => update("title", e.target.value)} required />
+            <label className="form-label block" htmlFor="event-title">{t("eventCreate.labelTitle", "Title")}</label>
+            <input id="event-title" name="title" className="input mt-2" value={form.title} onChange={(e) => update("title", e.target.value)} required />
           </div>
 
           <div>
-            <label className="block text-sm font-semibold">{t("eventCreate.labelDescription", "Description")}</label>
-            <textarea className="input" value={form.description} onChange={(e) => update("description", e.target.value)} />
+            <label className="form-label block" htmlFor="event-description">{t("eventCreate.labelDescription", "Description")}</label>
+            <textarea id="event-description" name="description" className="input mt-2" value={form.description} onChange={(e) => update("description", e.target.value)} />
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <label className="block text-sm font-semibold">{t("eventCreate.labelCategory", "Category")}</label>
-              <input className="input" value={form.category} onChange={(e) => update("category", e.target.value)} />
+              <label className="form-label block" htmlFor="event-category">{t("eventCreate.labelCategory", "Category")}</label>
+              <input id="event-category" name="category" className="input mt-2" value={form.category} onChange={(e) => update("category", e.target.value)} />
             </div>
             <div>
-              <label className="block text-sm font-semibold">{t("eventCreate.labelLocation", "Location")}</label>
-              <input className="input" value={form.location} onChange={(e) => update("location", e.target.value)} />
+              <label className="form-label block" htmlFor="event-location">{t("eventCreate.labelLocation", "Location")}</label>
+              <input id="event-location" name="location" className="input mt-2" value={form.location} onChange={(e) => update("location", e.target.value)} />
             </div>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <label className="block text-sm font-semibold">{t("eventCreate.labelStartDate", "Start date")}</label>
-              <input type="datetime-local" className="input" value={form.startDate} onChange={(e) => update("startDate", e.target.value)} />
+              <label className="form-label block" htmlFor="event-start-date">{t("eventCreate.labelStartDate", "Start date")}</label>
+              <input id="event-start-date" name="startDate" type="datetime-local" className="input mt-2" value={form.startDate} onChange={(e) => update("startDate", e.target.value)} />
             </div>
             <div>
-              <label className="block text-sm font-semibold">{t("eventCreate.labelEndDate", "End date")}</label>
-              <input type="datetime-local" className="input" value={form.endDate} onChange={(e) => update("endDate", e.target.value)} />
+              <label className="form-label block" htmlFor="event-end-date">{t("eventCreate.labelEndDate", "End date")}</label>
+              <input id="event-end-date" name="endDate" type="datetime-local" className="input mt-2" value={form.endDate} onChange={(e) => update("endDate", e.target.value)} />
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-semibold">{t("eventCreate.labelVisibility", "Visibility")}</label>
-            <select className="input" value={form.visibility} onChange={(e) => update("visibility", e.target.value)}>
+            <label className="form-label block" htmlFor="event-visibility">{t("eventCreate.labelVisibility", "Visibility")}</label>
+            <select id="event-visibility" name="visibility" className="input mt-2" value={form.visibility} onChange={(e) => update("visibility", e.target.value)}>
               <option value="public">{t("eventCreate.visibility.public", "Public")}</option>
               <option value="private">{t("eventCreate.visibility.private", "Private")}</option>
             </select>

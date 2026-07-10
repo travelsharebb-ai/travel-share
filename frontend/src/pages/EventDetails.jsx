@@ -1,6 +1,7 @@
 import { useLanguage } from "../lib/i18n";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
 import { api } from "../lib/api.js";
 
 export default function EventDetails() {
@@ -43,11 +44,15 @@ export default function EventDetails() {
   }, [event]);
 
   const heroSubtitle = event?.description || "Manage checklist, QR access and gallery previews for your event.";
-  const publicQrPath = event?.qrToken ? `/qr/${event.qrToken}` : null;
+  const publicUploadPath = event?.qrToken ? `/qr/${event.qrToken}/upload` : null;
 
   return (
     <main className="page-shell space-y-6">
       <section className="hero-copy-panel">
+        <Link className="btn-ghost inline-flex items-center gap-2" to="/events">
+          <ArrowLeft size={16} />
+          <span>{t("events.backToEvents", "Back to events")}</span>
+        </Link>
         {loading ? (
           <div>
             <p className="text-sm uppercase tracking-[0.32em] text-primary">{t("hardcoded.eventManagement")}</p>
@@ -88,12 +93,15 @@ export default function EventDetails() {
                 <p className="text-sm uppercase tracking-[0.32em] text-primary">{t("guestDashboard.quickActionsBadge")}</p>
                 <div className="mt-4 grid gap-3">
                   <Link className="btn-indigo" to="/scan">{t("events.dashboard.scanAttendeeQr")}</Link>
-                  <button
-                    type="button"
-                    className="btn-ghost"
-                    onClick={() => publicQrPath ? window.open(publicQrPath, "_blank") : null}
-                    disabled={!publicQrPath}
-                  >{t("hardcoded.openPublicQrPage")}</button>
+                  {publicUploadPath ? (
+                    <Link className="btn-ghost" to={publicUploadPath}>{t("hardcoded.openPublicQrPage")}</Link>
+                  ) : (
+                    <button type="button" className="btn-ghost" disabled>{t("hardcoded.openPublicQrPage")}</button>
+                  )}
+                  <Link className="btn-primary" to={`/qr-spaces/new?targetType=event&targetId=${encodeURIComponent(event.id)}`}>
+                    {t("qrSpaces.createForEvent")}
+                  </Link>
+                  <p className="text-sm text-slatebody">{t("qrSpaces.createForEventHelp")}</p>
                 </div>
               </div>
             </div>

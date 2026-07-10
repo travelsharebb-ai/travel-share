@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
+import jwt from "jsonwebtoken";
 import { prisma } from "../utils/prisma.js";
 
 const router = Router();
@@ -37,9 +38,7 @@ function normalizeSafeCoordinates(upload) {
 function sanitizeReplayTitle(upload) {
   if (upload.caption) return upload.caption;
   if (upload.locationName) return upload.locationName;
-  if (upload.region && upload.country) return `${upload.region}, ${upload.country}`;
   if (upload.region) return upload.region;
-  if (upload.country) return upload.country;
   return "Travel memory";
 }
 
@@ -47,6 +46,28 @@ function clampLimit(value) {
   const limit = Number(value ?? 200);
   if (!Number.isFinite(limit) || limit <= 0) return 200;
   return Math.min(1000, Math.max(1, Math.trunc(limit)));
+}
+
+function supportedLocationFilter(value) {
+  const filter = String(value || "all").toLowerCase();
+  return ["all", "events", "trips", "photos", "travel_posts", "trending", "friends"].includes(filter)
+    ? filter
+    : "all";
+}
+
+async function optionalUser(req) {
+  const header = req.get("authorization") || "";
+  const token = header.startsWith("Bearer ") ? header.slice(7) : null;
+  if (!token) return null;
+  try {
+    const payload = jwt.verify(token, process.env.JWT_SECRET);
+    return prisma.user.findUnique({
+      where: { id: payload.sub },
+      select: { id: true, role: true }
+    });
+  } catch {
+    return null;
+  }
 }
 
 // Create a location
@@ -78,21 +99,65 @@ router.post("/", async (req, res, next) => {
 // List locations (optionally filter by userId)
 router.get("/", async (req, res, next) => {
   try {
+    const filter = supportedLocationFilter(req.query.filter);
+    let followedUserIds = [];
+    if (filter === "friends") {
+      const user = req.user || await optionalUser(req);
+      if (!user || user.role === "guest") {
+        return res.json({
+          locations: [],
+          filter,
+          friendsSupported: true,
+          authRequired: true,
+          message: "Sign in to view friend locations."
+        });
+      }
+      const follows = await prisma.userFollow.findMany({
+        where: { followerId: user.id },
+        select: { followingId: true }
+      });
+      followedUserIds = follows.map((follow) => follow.followingId);
+      if (followedUserIds.length === 0) {
+        return res.json({
+          locations: [],
+          filter,
+          friendsSupported: true,
+          emptyReason: "no_follows",
+          message: "No friend locations yet."
+        });
+      }
+    }
+
     const where = {};
     if (req.query.userId) where.userId = String(req.query.userId);
     where.hidden = false;
+    const approvedVisibleUpload = {
+      status: 'approved',
+      locationVisibility: { not: 'hidden' }
+    };
+    const friendUploadFilter = {
+      ...approvedVisibleUpload,
+      OR: [
+        { trip: { userId: { in: followedUserIds } } },
+        { event: { organizerId: { in: followedUserIds } } }
+      ]
+    };
+    const uploadWhere = filter === "friends" ? friendUploadFilter : approvedVisibleUpload;
+    if (filter === "events") where.uploads = { some: { ...approvedVisibleUpload, eventId: { not: null } } };
+    if (filter === "trips") where.uploads = { some: { ...approvedVisibleUpload, tripId: { not: null } } };
+    if (filter === "photos" || filter === "trending") where.uploads = { some: approvedVisibleUpload };
+    if (filter === "travel_posts") where.uploads = { some: { ...approvedVisibleUpload, tripId: null, eventId: null } };
+    if (filter === "friends") where.uploads = { some: friendUploadFilter };
+
     const items = await prisma.location.findMany({
       where,
       orderBy: { createdAt: "desc" },
       take: 100,
       include: {
         uploads: {
-          where: {
-            status: 'approved',
-            locationVisibility: { not: 'hidden' }
-          },
+          where: uploadWhere,
           orderBy: { createdAt: 'desc' },
-          take: 1,
+          take: 10,
           select: {
             id: true,
             fileUrl: true,
@@ -107,6 +172,7 @@ router.get("/", async (req, res, next) => {
             approximateLongitude: true,
             locationVisibility: true,
             region: true,
+            guestSessionId: true,
             trip: {
               select: {
                 id: true,
@@ -114,7 +180,7 @@ router.get("/", async (req, res, next) => {
                 user: { select: { id: true, name: true } }
               }
             },
-            event: { select: { id: true, title: true } }
+            event: { select: { id: true, title: true, organizerId: true } }
           }
         }
       }
@@ -146,11 +212,20 @@ router.get("/", async (req, res, next) => {
           safeAddress = null;
         }
       }
-      const tripCount = location.uploads.filter((upload) => upload.tripId).length;
-      const eventCount = location.uploads.filter((upload) => upload.eventId).length;
-      const photoCount = location.uploads.length;
+      const uploads = Array.isArray(location.uploads) ? location.uploads : [];
+      const tripCount = uploads.filter((upload) => upload.tripId).length;
+      const eventCount = uploads.filter((upload) => upload.eventId).length;
+      const travelPostCount = uploads.filter((upload) => !upload.tripId && !upload.eventId).length;
+      const photoCount = uploads.length;
+      const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+      const recentPostCount = uploads.filter((upload) => new Date(upload.createdAt).getTime() >= thirtyDaysAgo).length;
+      const lastUploadAt = uploads[0]?.createdAt || null;
+      const ownerIds = Array.from(new Set(uploads.flatMap((upload) => [
+        upload.trip?.user?.id,
+        upload.event?.organizerId
+      ]).filter(Boolean)));
 
-      const latest = Array.isArray(location.uploads) && location.uploads.length ? location.uploads[0] : null;
+      const latest = uploads.length ? uploads[0] : null;
       const preview = latest
         ? {
             id: latest.id,
@@ -176,12 +251,34 @@ router.get("/", async (req, res, next) => {
         mapMeta: {
           tripCount,
           eventCount,
-          photoCount
+          photoCount,
+          travelPostCount,
+          recentPostCount,
+          lastUploadAt,
+          trendingScore: recentPostCount * 2 + photoCount,
+          ownerIds,
+          friendsSupported: true
         },
+        uploads: uploads.map((upload) => ({
+          id: upload.id,
+          tripId: upload.tripId || null,
+          eventId: upload.eventId || null,
+          region: upload.region || null,
+          createdAt: upload.createdAt,
+          fileType: upload.fileType,
+          locationVisibility: upload.locationVisibility
+        })),
         preview
       };
     });
-    res.json({ locations: enriched });
+    const sorted = filter === "trending"
+      ? enriched.sort((a, b) => {
+          const scoreDelta = (b.mapMeta?.trendingScore || 0) - (a.mapMeta?.trendingScore || 0);
+          if (scoreDelta !== 0) return scoreDelta;
+          return new Date(b.mapMeta?.lastUploadAt || b.createdAt || 0) - new Date(a.mapMeta?.lastUploadAt || a.createdAt || 0);
+        })
+      : enriched;
+    res.json({ locations: sorted, filter, friendsSupported: true });
   } catch (error) {
     next(error);
   }
@@ -199,7 +296,6 @@ router.get("/", async (req, res, next) => {
           locationVisibility: true,
           locationName: true,
           region: true,
-          country: true,
           latitude: true,
           longitude: true,
           approximateLatitude: true,
@@ -250,7 +346,6 @@ router.get("/", async (req, res, next) => {
           caption: true,
           locationName: true,
           region: true,
-          country: true,
           latitude: true,
           longitude: true,
           approximateLatitude: true,
@@ -322,7 +417,11 @@ router.get("/:id", async (req, res, next) => {
       }
     }
     const photosRaw = await prisma.upload.findMany({
-      where: { locationId: id },
+      where: {
+        locationId: id,
+        status: 'approved',
+        locationVisibility: { not: 'hidden' }
+      },
       select: {
         id: true,
         fileUrl: true,

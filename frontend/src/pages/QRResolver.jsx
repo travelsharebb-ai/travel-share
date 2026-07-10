@@ -4,7 +4,8 @@ import { useParams, useNavigate } from "react-router-dom";
 
 export default function QRResolver() {
   const { t } = useLanguage();
-  const { qrToken } = useParams();
+  const params = useParams();
+  const qrToken = params.qrToken || params.code || params.token || "";
   const navigate = useNavigate();
   const [error, setError] = useState(null);
 
@@ -13,9 +14,14 @@ export default function QRResolver() {
       try {
         setError(null);
 
+        if (!qrToken || ["undefined", "null"].includes(String(qrToken).toLowerCase())) {
+          setError(t("hardcoded.qrCodeMissingOrInvalid"));
+          return;
+        }
+
         const base = import.meta.env.VITE_API_URL || "";
 
-        const res = await fetch(`${base}/api/public/qr/${qrToken}`, {
+        const res = await fetch(`${base}/api/public/qr/${encodeURIComponent(qrToken)}`, {
           credentials: "include"
         });
 
@@ -23,32 +29,40 @@ export default function QRResolver() {
 
         if (!res.ok) {
           console.error("QR error:", data);
-          setError("QR not found");
+          setError(t("hardcoded.qrNotFound"));
           return;
         }
 
         if (!data?.type || !data?.data) {
-          setError("Invalid QR response");
+          setError(t("hardcoded.qrCodeMissingOrInvalid"));
           return;
         }
 
-        // PUBLIC QR FLOW:
-        // Do NOT send guests to private /events or /trips pages.
-        navigate(`/qr/${qrToken}/upload`, {
-          state: {
-            qrType: data.type,
-            qrData: data.data,
-            guest: data.guest
-          }
-        });
+        const routeState = {
+          qrType: data.type,
+          qrData: data.data,
+          guest: data.guest
+        };
+
+        if (data.type === "event" && data.data?.id) {
+          navigate(`/events/${data.data.id}`, { state: routeState });
+          return;
+        }
+
+        if (data.type === "trip" && data.data?.id) {
+          navigate(`/trips/${data.data.id}`, { state: routeState });
+          return;
+        }
+
+        navigate(`/qr/${qrToken}/upload`, { state: routeState });
       } catch (err) {
         console.error("QR Resolver crash:", err);
-        setError("Failed to open QR");
+        setError(t("hardcoded.failedToOpenQr"));
       }
     }
 
     run();
-  }, [qrToken, navigate]);
+  }, [qrToken, navigate, t]);
 
   return (
     <main className="page-shell flex min-h-[calc(100vh-74px)] items-center justify-center py-10">

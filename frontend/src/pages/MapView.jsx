@@ -1,16 +1,19 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { api, currentUser } from '../lib/api.js';
 import { useLanguage } from '../lib/i18n.js';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
 const FILTER_OPTIONS = [
-  { id: 'all', icon: '🌍' },
-  { id: 'events', icon: '🎯' },
-  { id: 'trips', icon: '✈️' },
-  { id: 'photos', icon: '📸' },
-  { id: 'nearby', icon: '📍' }
+  { id: 'all', icon: '🌍', labelKey: 'map.all', fallback: 'All' },
+  { id: 'trending', icon: '🔥', labelKey: 'map.trending', fallback: 'Trending' },
+  { id: 'friends', icon: '👥', labelKey: 'map.friends', fallback: 'Friends', disabled: true },
+  { id: 'events', icon: '🎯', labelKey: 'map.events', fallback: 'Events' },
+  { id: 'trips', icon: '✈️', labelKey: 'map.trips', fallback: 'Trips' },
+  { id: 'photos', icon: '📸', labelKey: 'map.photos', fallback: 'Photos' },
+  { id: 'travel_posts', icon: '📝', labelKey: 'map.travelPosts', fallback: 'Travel Posts' },
+  { id: 'nearby', icon: '📍', labelKey: 'map.nearby', fallback: 'Nearby' }
 ];
 
 // Barbados bounding box for preferring local results
@@ -54,12 +57,15 @@ const STORAGE_KEY_MAP_STYLE = 'travelshare_map_style';
 
 export default function MapView() {
   const { t } = useLanguage();
+  const mapUser = currentUser();
+  const canUseFriendsFilter = Boolean(mapUser && mapUser.role !== "guest");
   const translatedFilterOptions = useMemo(
     () => FILTER_OPTIONS.map((item) => ({
       ...item,
-      label: t(`map.${item.id}`)
+      disabled: item.id === 'friends' ? !canUseFriendsFilter : Boolean(item.disabled),
+      label: t(item.labelKey, item.fallback)
     })),
-    [t]
+    [canUseFriendsFilter, t]
   );
 
   const translatedMapStyles = useMemo(
@@ -357,6 +363,7 @@ export default function MapView() {
   const [heatmapPoints, setHeatmapPoints] = useState([]);
   const [replayPoints, setReplayPoints] = useState([]);
   const [overlayError, setOverlayError] = useState('');
+  const [locationFilterMessage, setLocationFilterMessage] = useState('');
   const [replayIndex, setReplayIndex] = useState(0);
   const [replayPlaying, setReplayPlaying] = useState(false);
   const [replaySpeed, setReplaySpeed] = useState(1);
@@ -370,6 +377,15 @@ export default function MapView() {
   const controlsAddedRef = useRef(false);
 
   const navigate = useNavigate();
+  const routeLocation = useLocation();
+
+  const mapFocus = useMemo(() => {
+    const params = new URLSearchParams(routeLocation.search || "");
+    const lat = Number(params.get("lat"));
+    const lng = Number(params.get("lng"));
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+    return { latitude: lat, longitude: lng };
+  }, [routeLocation.search]);
 
   // Load map style from localStorage on mount
   useEffect(() => {
@@ -1046,10 +1062,10 @@ export default function MapView() {
 
         const previewImage = props.previewImage ? `<div style="margin-bottom:8px;"><img src="${props.previewImage}" alt="preview" style="width:220px;height:120px;object-fit:cover;border-radius:6px;display:block;"/></div>` : '';
         const previewTitle = props.previewTitle || props.title || t("map.communityPost");
-        const previewUser = props.previewUser ? `<small style="color:#444;">by ${escapeHtml(props.previewUser)}</small>` : `<small style="color:#444;">{t("map.communityPost")}</small>`;
-        const previewTime = props.previewCreatedAt ? `<div style="color:#666;font-size:12px;margin-top:6px;">${formatPreviewTime(new Date(props.previewCreatedAt))}</div>` : `<div style="color:#666;font-size:12px;margin-top:6px;">{t("map.recentlyShared")}</div>`;
+        const previewUser = props.previewUser ? `<small style="color:#444;">${escapeHtml(props.previewUser)}</small>` : `<small style="color:#444;">${escapeHtml(t("map.communityPost"))}</small>`;
+        const previewTime = props.previewCreatedAt ? `<div style="color:#666;font-size:12px;margin-top:6px;">${formatPreviewTime(new Date(props.previewCreatedAt))}</div>` : `<div style="color:#666;font-size:12px;margin-top:6px;">${escapeHtml(t("map.recentlyShared"))}</div>`;
 
-        const html = `<div style="padding:8px;font-size:14px;max-width:260px;">${previewImage}<strong>${escapeHtml(previewTitle)}</strong><br/><small>${escapeHtml(props.description || 'No address')}</small><br/>${previewUser}${previewTime}</div>`;
+        const html = `<div style="padding:8px;font-size:14px;max-width:260px;">${previewImage}<strong>${escapeHtml(previewTitle)}</strong><br/><small>${escapeHtml(props.description || t("map.noDescriptionAvailable"))}</small><br/>${previewUser}${previewTime}</div>`;
 
         new mapboxgl.Popup({ offset: 25 }).setLngLat(coords).setHTML(html).addTo(map);
       };
@@ -1074,27 +1090,27 @@ export default function MapView() {
   }
 
   useEffect(() => {
-    const apiBase = import.meta.env.VITE_API_URL || '';
-
     async function loadLocations() {
       try {
         setLoading(true);
         setError('');
+        setLocationFilterMessage('');
 
-        const response = await fetch(`${apiBase}/api/locations`);
-        if (!response.ok) {
-          throw new Error(`Request failed with status ${response.status}`);
-        }
-
-        const body = await response.json();
+        const serverFilters = new Set(['events', 'trips', 'photos', 'travel_posts', 'trending', 'friends']);
+        const filterParam = serverFilters.has(activeFilter) ? activeFilter : 'all';
+        const body = await api(`/api/locations?filter=${encodeURIComponent(filterParam)}`);
+        if (body?.message) setLocationFilterMessage(body.message);
         const rawLocations = Array.isArray(body?.locations) ? body.locations : [];
 
         const normalizedLocations = rawLocations.map((item) => {
           const eventCount = Number(item?.mapMeta?.eventCount || 0);
           const tripCount = Number(item?.mapMeta?.tripCount || 0);
           const photoCount = Number(item?.mapMeta?.photoCount || 0);
+          const travelPostCount = Number(item?.mapMeta?.travelPostCount || 0);
+          const recentPostCount = Number(item?.mapMeta?.recentPostCount || 0);
+          const trendingScore = Number(item?.mapMeta?.trendingScore || 0);
 
-          const normalizedType = eventCount > 0 ? 'event' : tripCount > 0 ? 'trip' : photoCount > 0 ? 'photo' : null;
+          const normalizedType = eventCount > 0 ? 'event' : tripCount > 0 ? 'trip' : travelPostCount > 0 ? 'travel_post' : photoCount > 0 ? 'photo' : null;
 
           const preview = item?.preview || null;
           const imageUrl = preview?.imageUrl || null;
@@ -1119,6 +1135,9 @@ export default function MapView() {
             eventId: eventCount > 0 ? null : null,
             tripId: tripCount > 0 ? null : null,
             hasPhoto: photoCount > 0,
+            hasTravelPost: travelPostCount > 0,
+            recentPostCount,
+            trendingScore,
             raw: item
           };
         });
@@ -1135,7 +1154,7 @@ export default function MapView() {
     }
 
     loadLocations();
-  }, []);
+  }, [activeFilter]);
 
   useEffect(() => {
     if (!isAdminUser || !isAdminView) return;
@@ -1308,6 +1327,9 @@ export default function MapView() {
     if (activeFilter === 'events') return location.type === 'event' || Boolean(location.raw?.mapMeta?.eventCount);
     if (activeFilter === 'trips') return location.type === 'trip' || Boolean(location.raw?.mapMeta?.tripCount);
     if (activeFilter === 'photos') return location.hasPhoto || Boolean(location.raw?.mapMeta?.photoCount);
+    if (activeFilter === 'travel_posts') return location.hasTravelPost || Boolean(location.raw?.mapMeta?.travelPostCount);
+    if (activeFilter === 'trending') return Boolean(location.trendingScore || location.raw?.mapMeta?.trendingScore || location.raw?.mapMeta?.recentPostCount);
+    if (activeFilter === 'friends') return true;
     if (activeFilter === 'nearby') {
       if (!userLocation) {
         return false;
@@ -1321,10 +1343,18 @@ export default function MapView() {
     }
 
     return true;
+  }).sort((a, b) => {
+    if (activeFilter !== 'trending') return 0;
+    const scoreDelta = (b.trendingScore || b.raw?.mapMeta?.trendingScore || 0) - (a.trendingScore || a.raw?.mapMeta?.trendingScore || 0);
+    if (scoreDelta !== 0) return scoreDelta;
+    return new Date(b.raw?.mapMeta?.lastUploadAt || b.previewCreatedAt || 0) - new Date(a.raw?.mapMeta?.lastUploadAt || a.previewCreatedAt || 0);
   });
 
   const nearbyMessage = activeFilter === 'nearby' && !userLocation
     ? 'Nearby requires location access before results can be shown.'
+    : '';
+  const friendsMessage = activeFilter === 'friends' && filteredLocations.length === 0
+    ? (locationFilterMessage || t('map.noFriendLocations', 'No friend locations yet.'))
     : '';
 
   const accuracyMessage = userLocation?.accuracy
@@ -1447,13 +1477,16 @@ export default function MapView() {
         const map = new mapboxgl.Map({
           container: containerRef.current,
           style: currentStyle.url,
-          center: [-95.7129, 37.0902], // Default center (USA center)
-          zoom: 3
+          center: mapFocus ? [mapFocus.longitude, mapFocus.latitude] : [-95.7129, 37.0902],
+          zoom: mapFocus ? 13 : 3
         });
 
         map.on('load', () => {
           mapLoadedRef.current = true;
           addMapControls(map);
+          if (mapFocus) {
+            createUserMarker({ latitude: mapFocus.latitude, longitude: mapFocus.longitude, source: 'saved' });
+          }
           if (userLocation) {
             // Marker will be created from userLocation useEffect once map is loaded
           }
@@ -1720,10 +1753,10 @@ export default function MapView() {
 
             const previewImage = props.previewImage ? `<div style="margin-bottom:8px;"><img src="${props.previewImage}" alt="preview" style="width:220px;height:120px;object-fit:cover;border-radius:6px;display:block;"/></div>` : '';
             const previewTitle = props.previewTitle || props.title || t("map.communityPost");
-            const previewUser = props.previewUser ? `<small style="color:#444;">by ${escapeHtml(props.previewUser)}</small>` : `<small style="color:#444;">{t("map.communityPost")}</small>`;
-            const previewTime = props.previewCreatedAt ? `<div style="color:#666;font-size:12px;margin-top:6px;">${formatPreviewTime(new Date(props.previewCreatedAt))}</div>` : `<div style="color:#666;font-size:12px;margin-top:6px;">{t("map.recentlyShared")}</div>`;
+            const previewUser = props.previewUser ? `<small style="color:#444;">${escapeHtml(props.previewUser)}</small>` : `<small style="color:#444;">${escapeHtml(t("map.communityPost"))}</small>`;
+            const previewTime = props.previewCreatedAt ? `<div style="color:#666;font-size:12px;margin-top:6px;">${formatPreviewTime(new Date(props.previewCreatedAt))}</div>` : `<div style="color:#666;font-size:12px;margin-top:6px;">${escapeHtml(t("map.recentlyShared"))}</div>`;
 
-            const html = `<div style="padding:8px;font-size:14px;max-width:260px;">${previewImage}<strong>${escapeHtml(previewTitle)}</strong><br/><small>${escapeHtml(props.description || 'No address')}</small><br/>${previewUser}${previewTime}</div>`;
+            const html = `<div style="padding:8px;font-size:14px;max-width:260px;">${previewImage}<strong>${escapeHtml(previewTitle)}</strong><br/><small>${escapeHtml(props.description || t("map.noDescriptionAvailable"))}</small><br/>${previewUser}${previewTime}</div>`;
 
             new mapboxgl.Popup({ offset: 25 }).setLngLat(coords).setHTML(html).addTo(map);
           };
@@ -2115,12 +2148,15 @@ export default function MapView() {
               <button
                 key={filter.id}
                 onClick={() => {
+                  if (filter.disabled) return;
                   setActiveFilter(filter.id);
                   setGeolocationError('');
                 }}
+                disabled={filter.disabled}
+                title={filter.disabled ? t('map.friendsSignInRequired', 'Sign in to view friend locations.') : undefined}
                 className={`px-4 py-2 rounded-full text-sm font-semibold transition whitespace-nowrap ${
                   activeFilter === filter.id ? 'btn-primary' : 'btn-ghost'
-                }`}
+                } ${filter.disabled ? 'opacity-60 cursor-not-allowed' : ''}`}
               >
                 <span className="mr-1">{filter.icon}</span>
                 {filter.label}
@@ -2722,42 +2758,42 @@ export default function MapView() {
                     <div className="space-y-3">
                       <label className="block text-sm font-semibold text-white mb-2">{t("map.locationPrivacy")}</label>
                       <div className="space-y-2">
-                        <label className="flex items-start gap-3 rounded-2xl border border-slate-700 bg-slate-900 p-3">
+                        <label className="form-option-panel flex items-start gap-3">
                           <input
                             type="radio"
                             name="post-privacy"
                             value="exact"
                             checked={pendingLocationPrivacy === 'exact'}
                             onChange={() => setPendingLocationPrivacy('exact')}
-                            className="mt-1"
+                            className="form-checkbox mt-1"
                           />
                           <div>
                             <div className="font-semibold text-white">{t("map.exactLocation")}</div>
                             <div className="text-slatebody text-sm">{t("map.exactLocationDescription")}</div>
                           </div>
                         </label>
-                        <label className="flex items-start gap-3 rounded-2xl border border-slate-700 bg-slate-900 p-3">
+                        <label className="form-option-panel flex items-start gap-3">
                           <input
                             type="radio"
                             name="post-privacy"
                             value="approximate"
                             checked={pendingLocationPrivacy === 'approximate'}
                             onChange={() => setPendingLocationPrivacy('approximate')}
-                            className="mt-1"
+                            className="form-checkbox mt-1"
                           />
                           <div>
                             <div className="font-semibold text-white">{t("map.approximateLocation")}</div>
                             <div className="text-slatebody text-sm">{t("map.approximateLocationDescription")}</div>
                           </div>
                         </label>
-                        <label className="flex items-start gap-3 rounded-2xl border border-slate-700 bg-slate-900 p-3">
+                        <label className="form-option-panel flex items-start gap-3">
                           <input
                             type="radio"
                             name="post-privacy"
                             value="city"
                             checked={pendingLocationPrivacy === 'city'}
                             onChange={() => setPendingLocationPrivacy('city')}
-                            className="mt-1"
+                            className="form-checkbox mt-1"
                           />
                           <div>
                             <div className="font-semibold text-white">{t("map.cityLevelOnly")}</div>
@@ -2796,6 +2832,10 @@ export default function MapView() {
                 <div className="card p-4 text-center">
                   <p className="text-slatebody">{error}</p>
                 </div>
+              ) : friendsMessage ? (
+                <div className="card p-4 text-center">
+                  <p className="text-slatebody">{friendsMessage}</p>
+                </div>
               ) : nearbyMessage ? (
                 <div className="card p-4 text-center">
                   <p className="text-slatebody">{nearbyMessage}</p>
@@ -2817,11 +2857,11 @@ export default function MapView() {
                         <img src={location.imageUrl} alt={location.previewTitle || location.title || 'preview'} style={{ width: '100%', height: '140px', objectFit: 'cover', borderRadius: 8 }} />
                       </div>
                     ) : null}
-                    <p className="text-slatebody text-sm">{location.description || 'No description available.'}</p>
+                    <p className="text-slatebody text-sm">{location.description || t("map.noDescriptionAvailable")}</p>
                     <div className="mt-3 text-sm text-slatebody">
                       <div>{location.previewTitle || t("map.communityPost")}</div>
                       <div className="text-xs text-muted">
-                        {location.previewUser ? `by ${location.previewUser}` : t("map.communityPost")} • {location.previewCreatedAt ? formatPreviewTime(location.previewCreatedAt) : t("map.recentlyShared")}
+                        {location.previewUser || t("map.communityPost")} • {location.previewCreatedAt ? formatPreviewTime(location.previewCreatedAt) : t("map.recentlyShared")}
                       </div>
                     </div>
                   </div>

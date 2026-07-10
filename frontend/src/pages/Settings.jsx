@@ -229,7 +229,7 @@ export default function Settings() {
               <div className="mt-3">
                 {typeof window !== 'undefined' && (guestAccessLink || user?.guestSession?.resumeAvailable) ? (
                   <div className="rounded-3xl border border-borderline bg-slate-950/90 p-4">
-                    <p className="text-sm">Use this link with your 4-digit passcode to return to this guest session from another device.</p>
+                    <p className="text-sm">{t("hardcoded.saveThisAccessLinkToResumeTheGuest")}</p>
                     <div className="mt-3 flex items-center gap-3">
                       {guestAccessLink ? (
                         <input className="field guest-link-field flex-1" readOnly value={guestAccessLink} />
@@ -265,7 +265,7 @@ export default function Settings() {
             <div>
               <label className="text-sm uppercase tracking-[0.28em] text-slatebody/70">{t('settingsPage.name', 'Name')}</label>
               <input
-                className="field w-full mt-2 bg-slate-950/70 text-white"
+                className="field w-full mt-2"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
               />
@@ -280,7 +280,7 @@ export default function Settings() {
             <div>
               <label className="text-sm uppercase tracking-[0.28em] text-slatebody/70">{t('settingsPage.changeEmail', 'Change email')}</label>
               <div className="flex gap-2 mt-2">
-                <input className="field flex-1 bg-slate-950/70 text-white" placeholder={t('settingsPage.newEmailPlaceholder', 'new@example.com')} value={newEmail} onChange={(e) => setNewEmail(e.target.value)} />
+                <input className="field flex-1" placeholder={t('settingsPage.newEmailPlaceholder', 'new@example.com')} value={newEmail} onChange={(e) => setNewEmail(e.target.value)} />
                     <button className="btn-primary" type="button" onClick={requestEmailChange} disabled={loading}>{t('settingsPage.requestEmailChange', 'Request email change')}</button>
               </div>
               {pendingEmail && (
@@ -331,7 +331,7 @@ export default function Settings() {
             <select
               value={settings.locationPrivacy}
               onChange={(e) => update("locationPrivacy", e.target.value)}
-              className="field w-full bg-slate-950/70 text-white"
+              className="field w-full"
             >
               <option value="exact">{t('settingsPage.exact', 'Exact')}</option>
               <option value="approximate">{t('settingsPage.approximate', 'Approximate')}</option>
@@ -343,7 +343,7 @@ export default function Settings() {
               <select
                 value={settings.themeMode}
                 onChange={(e) => update("themeMode", e.target.value)}
-                className="field w-full bg-slate-950/70 text-white"
+                className="field w-full"
               >
                 <option value="sun">{t('settings.themeSun', 'Sunrise / Sunset Auto')}</option>
                 <option value="light">{t('settings.themeLight', 'Light')}</option>
@@ -364,7 +364,7 @@ function Toggle({ label, checked, onChange }) {
   return (
     <label style={styles.toggle}>
       <span>{label}</span>
-      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      <input className="form-checkbox" type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
     </label>
   );
 }

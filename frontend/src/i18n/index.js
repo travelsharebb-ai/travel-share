@@ -52,7 +52,8 @@ function persistLanguage(language) {
   window.localStorage.setItem(STORAGE_KEY, language);
   try {
     document.documentElement.lang = language;
-    document.documentElement.dir = language === "ar" ? "rtl" : "ltr";
+    document.documentElement.dir = "ltr";
+    document.documentElement.dataset.localeDirection = language === "ar" ? "rtl" : "ltr";
   } catch (error) {
     // Ignore DOM access issues during SSR or tests.
   }

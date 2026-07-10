@@ -124,4 +124,36 @@ export async function api(path, options = {}) {
   return data;
 }
 
+export function listQRSpaces() {
+  return api("/api/qr-spaces");
+}
+
+export function createQRSpace(payload) {
+  return api("/api/qr-spaces", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
+export function getQRSpace(id) {
+  return api(`/api/qr-spaces/${encodeURIComponent(id)}`);
+}
+
+export function updateQRSpace(id, payload) {
+  return api(`/api/qr-spaces/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload)
+  });
+}
+
+export function deleteQRSpace(id) {
+  return api(`/api/qr-spaces/${encodeURIComponent(id)}`, {
+    method: "DELETE"
+  });
+}
+
+export function getQRSpaceQRCode(id) {
+  return api(`/api/qr-spaces/${encodeURIComponent(id)}/qr`);
+}
+
 export { API_URL };

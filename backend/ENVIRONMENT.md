@@ -58,9 +58,9 @@ For Netlify, set:
 - `VITE_API_URL`: Render backend URL, for example `https://travelshare-api.onrender.com`
 - `VITE_SUPPORT_EMAIL`
 - `VITE_MAPBOX_TOKEN` if Mapbox production maps are enabled
- - `VITE_GOOGLE_MAPS_API_KEY`: (optional) API key used by the Google Maps Embed API Street View preview in the browser.
+- `VITE_GOOGLE_MAPS_API_KEY`: (optional) API key used by browser-only Google Maps JavaScript/Embed features such as Street View preview.
 
-Note: This value is a frontend key and should be configured in your Netlify site's environment variables (frontend). Do NOT place the key in backend `.env` files because Street View runs client-side. When restricting the key in Google Cloud Console, restrict it to the "Maps Embed API" and to referrers such as `http://localhost:5173/*` and your production Netlify/domain origin.
+Note: `VITE_GOOGLE_MAPS_API_KEY` is a frontend key and should be configured in your Netlify site's environment variables (frontend). Do not use it for the Google Geocoding REST API from browser code because referrer-restricted keys are not valid for that REST call. If Google Geocoding REST is needed later, use a backend-only `GOOGLE_GEOCODING_API_KEY`, keep it out of frontend env vars, and restrict it by server/IP in Google Cloud Console.
 
 ## Stripe Product Sync
 

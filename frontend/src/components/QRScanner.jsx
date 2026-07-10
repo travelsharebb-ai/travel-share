@@ -14,6 +14,29 @@ export default function QRScanner() {
 
   const [status, setStatus] = useState("loading");
   const [error, setError] = useState("");
+  const statusCopy = {
+    loading: {
+      title: t("hardcoded.cameraAccessIsRequiredToScanQrCodes"),
+      body: t("hardcoded.cameraOrGallerySupported"),
+      pill: t("common.loading")
+    },
+    scanning: {
+      title: t("nav.scan"),
+      body: t("hardcoded.goodLightingAndSteadyHandsHelpQrCodes"),
+      pill: t("hardcoded.scan")
+    },
+    success: {
+      title: t("hardcoded.openingQr"),
+      body: t("hardcoded.pleaseWaitWhileWeLoadYourQrJourney"),
+      pill: t("hardcoded.openingQr")
+    },
+    error: {
+      title: t("hardcoded.cameraAccessIsRequiredToScanQrCodes"),
+      body: error || t("hardcoded.goodLightingAndSteadyHandsHelpQrCodes"),
+      pill: t("hardcoded.tip")
+    }
+  };
+  const activeStatus = statusCopy[status] || statusCopy.scanning;
 
   useEffect(() => {
     const scanner = new Html5QrcodeScanner(
@@ -43,7 +66,15 @@ export default function QRScanner() {
 
           let token = decodedText.trim();
           if (token.includes("/")) {
-            token = token.split("/").filter(Boolean).pop();
+            try {
+              const parsed = new URL(token);
+              token = parsed.pathname.split("/").filter(Boolean).pop() || "";
+            } catch (parseError) {
+              token = token.split("/").filter(Boolean).pop() || "";
+            }
+          }
+          if (!token || ["undefined", "null"].includes(token.toLowerCase())) {
+            throw new Error("Missing QR token");
           }
 
           setTimeout(() => navigate(`/qr/${token}`), 600);
@@ -109,31 +140,19 @@ export default function QRScanner() {
             <div style={styles.statusSpinner} />
 
             <div style={styles.statusCopy}>
-              <h2 style={styles.statusTitle}>
-                {status === "loading" && "Requesting camera"}
-                {status === "scanning" && "Ready to scan"}
-                {status === "success" && "QR detected"}
-                {status === "error" && "Scan failed"}
-              </h2>
+              <h2 style={styles.statusTitle}>{activeStatus.title}</h2>
 
-              <p style={styles.statusText}>
-                {status === "loading" && "Allow camera access when your browser asks."}
-                {status === "scanning" && "Hold steady and keep the QR code inside the frame."}
-                {status === "success" && "Opening your upload page..."}
-                {status === "error" && (error || "Try again.")}
-              </p>
+              <p style={styles.statusText}>{activeStatus.body}</p>
             </div>
 
-            <span style={styles.statusPill}>
-              {status === "success" ? "Opening..." : "Scanning..."}
-            </span>
+            <span style={styles.statusPill}>{activeStatus.pill}</span>
           </section>
 
           <section style={{ ...styles.actionGrid, zIndex: 2 }}>
             <button type="button" style={styles.actionCard}>
               <span style={styles.actionIcon}>🖼️</span>
-              <strong>{t("hardcoded.scanFromImage")}</strong>
-              <small>{t("hardcoded.useQrScreenshot")}</small>
+              <strong style={styles.actionLabel}>{t("hardcoded.scanFromImage")}</strong>
+              <small style={styles.actionHint}>{t("hardcoded.useQrScreenshot")}</small>
             </button>
 
             <button
@@ -145,8 +164,8 @@ export default function QRScanner() {
               }}
             >
               <span style={styles.actionIcon}>⌨️</span>
-              <strong>{t("hardcoded.enterCode")}</strong>
-              <small>{t("hardcoded.pasteTokenManually")}</small>
+              <strong style={styles.actionLabel}>{t("hardcoded.enterCode")}</strong>
+              <small style={styles.actionHint}>{t("hardcoded.pasteTokenManually")}</small>
             </button>
           </section>
 
@@ -417,7 +436,8 @@ const styles = {
   statusTitle: {
     margin: 0,
     fontSize: 18,
-    fontWeight: 900
+    fontWeight: 900,
+    color: "var(--text)"
   },
 
   statusText: {
@@ -425,6 +445,52 @@ const styles = {
     color: "var(--text-muted)",
     fontSize: 13,
     lineHeight: 1.35
+  },
+
+  actionGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+    gap: 14
+  },
+
+  actionCard: {
+    border: "1px solid var(--border)",
+    borderRadius: 20,
+    padding: 18,
+    minHeight: 112,
+    background: "var(--surface)",
+    color: "var(--text)",
+    display: "grid",
+    gridTemplateColumns: "34px 1fr",
+    gridTemplateRows: "auto auto",
+    columnGap: 12,
+    rowGap: 5,
+    alignItems: "center",
+    textAlign: "left",
+    cursor: "pointer"
+  },
+
+  actionIcon: {
+    gridRow: "1 / span 2",
+    fontSize: 24,
+    lineHeight: 1
+  },
+
+  actionLabel: {
+    display: "block",
+    minWidth: 0,
+    fontSize: 15,
+    lineHeight: 1.2,
+    fontWeight: 900,
+    color: "var(--text)"
+  },
+
+  actionHint: {
+    display: "block",
+    minWidth: 0,
+    color: "var(--text-muted)",
+    fontSize: 13,
+    lineHeight: 1.3
   },
 
   statusPill: {

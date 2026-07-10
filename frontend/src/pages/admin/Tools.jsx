@@ -10,6 +10,7 @@ export default function AdminTools() {
     { id: 'moderation', title: t('admin.tools.moderation','Moderation'), description: t('admin.tools.moderationDescription','Review reported uploads and activity.'), to: "/admin/moderation" },
     { id: 'reports', title: t('admin.tools.reports','Reports'), description: t('admin.tools.reportsDescription','View analytics and platform insights.'), to: "/admin/reports" },
     { id: 'map', title: t('admin.tools.map','Map'), description: t('admin.tools.mapDescription','Open the admin map workflow.'), to: "/map" },
+    { id: 'qr-spaces', title: t('qrSpaces.manageAdmin'), description: t('qrSpaces.manageAdminHelp'), to: "/qr-spaces" },
     { id: 'settings', title: t('admin.tools.settings','Settings'), description: t('admin.tools.settingsDescription','Review platform configuration settings.'), to: "/admin/settings" },
     { id: 'events', title: t('admin.tools.events','Events'), description: t('admin.tools.eventsDescription','Open the event dashboard.'), to: "/events" },
     { id: 'store', title: t('admin.tools.store','Store'), description: t('admin.tools.storeDescription','Open the store for premium items.'), to: "/store" }

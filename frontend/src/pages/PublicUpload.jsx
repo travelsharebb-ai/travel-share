@@ -1,6 +1,8 @@
 import { useLanguage } from "../lib/i18n";
+import { currentUser, getToken } from "../lib/api";
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
+import LocationField from "../components/LocationField";
 
 export default function PublicUpload() {
   const { t } = useLanguage();
@@ -11,6 +13,10 @@ export default function PublicUpload() {
   const [qrInfo, setQrInfo] = useState(location.state || null);
   const [file, setFile] = useState(null);
   const [caption, setCaption] = useState("");
+  const [locationName, setLocationName] = useState("");
+  const [latitude, setLatitude] = useState("");
+  const [longitude, setLongitude] = useState("");
+  const [locationVisibility, setLocationVisibility] = useState("approximate");
   const [loading, setLoading] = useState(!location.state);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -80,9 +86,12 @@ export default function PublicUpload() {
           ? qrInfo?.qrData?.event?.title || "Share from this event zone"
           : "Share your photo or video";
 
-  const guestState = qrInfo?.guest?.state;
-  const guestDaysRemaining = qrInfo?.guest?.daysRemaining;
-  const shouldPromptRegister = qrInfo?.guest?.shouldPromptRegister;
+  const user = currentUser();
+  const isRegisteredUser = Boolean(getToken() && user && user.role !== "guest");
+  const shouldShowGuestAccess = !isRegisteredUser && Boolean(qrInfo?.guest);
+  const guestState = shouldShowGuestAccess ? qrInfo?.guest?.state : null;
+  const guestDaysRemaining = shouldShowGuestAccess ? qrInfo?.guest?.daysRemaining : null;
+  const shouldPromptRegister = shouldShowGuestAccess && qrInfo?.guest?.shouldPromptRegister;
   const guestNotice = guestState === "active"
     ? "Guest access active. Register to save your uploads permanently."
     : guestState === "grace"
@@ -135,6 +144,10 @@ export default function PublicUpload() {
       setError("Please choose a photo or video first.");
       return;
     }
+    if (!locationName.trim() || latitude === "" || longitude === "") {
+      setError(t("upload.locationRequired", "Add a location name, latitude, and longitude so this memory can appear on the map."));
+      return;
+    }
 
     let interval;
 
@@ -146,6 +159,10 @@ export default function PublicUpload() {
       const formData = new FormData();
       formData.append("file", file);
       formData.append("caption", caption);
+      formData.append("locationName", locationName);
+      formData.append("latitude", latitude);
+      formData.append("longitude", longitude);
+      formData.append("locationVisibility", locationVisibility);
 
       const res = await fetch(`${base}/api/public/qr/${qrToken}/uploads`, {
         method: "POST",
@@ -236,7 +253,7 @@ export default function PublicUpload() {
               </section>
             ) : (
               <>
-            <label className="field rounded-[28px] border border-borderline bg-slate-950/70 p-6 text-center cursor-pointer">
+            <label className="form-panel block cursor-pointer p-6 text-center">
               {!previewUrl ? (
                 <>
                   <span className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-primary text-black text-3xl">＋</span>
@@ -249,6 +266,8 @@ export default function PublicUpload() {
                 <video src={previewUrl} controls className="mx-auto h-64 w-full max-w-full rounded-3xl object-cover" />
               )}
               <input
+                id="public-upload-file"
+                name="media"
                 type="file"
                 accept="image/*,video/*"
                 capture="environment"
@@ -262,12 +281,43 @@ export default function PublicUpload() {
             )}
 
             <textarea
+              id="public-upload-caption"
+              name="caption"
               placeholder={t("common.addCaption")}
+              aria-label={t("common.addCaption")}
               value={caption}
               onChange={(e) => setCaption(e.target.value)}
-              className="field min-h-[120px] bg-slate-950/70 text-white"
+              className="field min-h-[120px]"
               disabled={uploading}
             />
+
+            <div className="form-panel grid gap-4 p-4">
+              <div>
+                <div>
+                  <p className="form-label">{t("upload.locationTitle", "Upload location")}</p>
+                  <p className="form-help mt-1">{t("upload.locationHelp", "Location is required so approved memories can appear on the map and heatmap.")}</p>
+                </div>
+              </div>
+              <LocationField
+                id="public-upload-location"
+                name="locationName"
+                value={locationName}
+                onChange={setLocationName}
+                latitude={latitude}
+                longitude={longitude}
+                onLatChange={setLatitude}
+                onLngChange={setLongitude}
+                placeholder={t("upload.locationPlaceholder", "Search for the upload location or address")}
+              />
+              <label className="grid gap-2">
+                <span className="form-label">{t("settingsPage.defaultLocationPrivacy", "Default location privacy")}</span>
+                <select id="public-upload-location-privacy" name="locationVisibility" className="field" value={locationVisibility} onChange={(e) => setLocationVisibility(e.target.value)} disabled={uploading}>
+                  <option value="approximate">{t("settingsPage.approximate", "Approximate")}</option>
+                  <option value="city">{t("settingsPage.city", "City")}</option>
+                  <option value="exact">{t("settingsPage.exact", "Exact")}</option>
+                </select>
+              </label>
+            </div>
 
             {uploading && (
               <div className="relative h-4 overflow-hidden rounded-full bg-slate-900">
@@ -279,7 +329,7 @@ export default function PublicUpload() {
             {error && <p className="text-sm text-red-400">{error}</p>}
 
             <button disabled={uploading} type="submit" className="btn-primary w-full">
-              {uploading ? "Uploading..." : "Upload Memory"}
+              {uploading ? t("upload.uploading", "Uploading...") : t("common.uploadMemory")}
             </button>
 
             <button type="button" onClick={() => navigate("/scan")} className="btn-ghost w-full">{t("common.scanAnotherQr")}</button>

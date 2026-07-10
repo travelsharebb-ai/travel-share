@@ -19,8 +19,13 @@ import TouristDashboard from "./pages/TouristDashboard.jsx";
 import EventsDashboard from "./pages/EventsDashboard.jsx";
 import EventDetails from "./pages/EventDetails.jsx";
 import EventCreate from "./pages/EventCreate.jsx";
+import Trips from "./pages/Trips.jsx";
 import TripCreate from "./pages/TripCreate.jsx";
 import TripDetails from "./pages/TripDetails.jsx";
+import TripUpload from "./pages/TripUpload.jsx";
+import MyUploads from "./pages/MyUploads.jsx";
+import Approvals from "./pages/Approvals.jsx";
+import SharedAlbums from "./pages/SharedAlbums.jsx";
 import Store from "./pages/Store.jsx";
 import Settings from "./pages/Settings.jsx";
 import Admin from "./pages/Admin.jsx";
@@ -39,6 +44,9 @@ import PublicTripJoin from "./pages/PublicTripJoin.jsx";
 import PublicUpload from "./pages/PublicUpload.jsx";
 import QRResolver from "./pages/QRResolver.jsx";
 import GuestDashboard from "./pages/GuestDashboard.jsx";
+import QRSpaces from "./pages/QRSpaces.jsx";
+import QRSpaceCreate from "./pages/QRSpaceCreate.jsx";
+import QRSpaceDetails from "./pages/QRSpaceDetails.jsx";
 import { currentUser } from "./lib/api";
 
 export default function App() {
@@ -111,8 +119,13 @@ export default function App() {
       <Route path="/terms" element={<Legal type="terms" />} />
       <Route path="/verify-email-change" element={<VerifyEmailChange />} />
       <Route path="/map" element={<PrivateRoute><MapView /></PrivateRoute>} />
+      <Route path="/trips" element={<PrivateRoute><Trips /></PrivateRoute>} />
       <Route path="/trips/new" element={<PrivateRoute><TripCreate /></PrivateRoute>} />
+      <Route path="/trips/:tripId/upload" element={<PrivateRoute><TripUpload /></PrivateRoute>} />
       <Route path="/trips/:tripId" element={<PrivateRoute><TripDetails /></PrivateRoute>} />
+      <Route path="/my-uploads" element={<PrivateRoute><MyUploads /></PrivateRoute>} />
+      <Route path="/approvals" element={<PrivateRoute><Approvals /></PrivateRoute>} />
+      <Route path="/shared-albums" element={<PrivateRoute><SharedAlbums /></PrivateRoute>} />
       <Route path="/events/new" element={<PrivateRoute><EventCreate /></PrivateRoute>} />
       <Route path="/events/:eventId" element={<PrivateRoute><EventDetails /></PrivateRoute>} />
       <Route path="/events" element={<PrivateRoute><EventsRoute /></PrivateRoute>} />
@@ -120,6 +133,9 @@ export default function App() {
       <Route path="/tourist" element={<PrivateRoute><TouristDashboard /></PrivateRoute>} />
       <Route path="/store" element={<PrivateRoute><Store /></PrivateRoute>} />
       <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
+      <Route path="/qr-spaces" element={<PrivateRoute><QRSpaces /></PrivateRoute>} />
+      <Route path="/qr-spaces/new" element={<PrivateRoute><QRSpaceCreate /></PrivateRoute>} />
+      <Route path="/qr-spaces/:id" element={<PrivateRoute><QRSpaceDetails /></PrivateRoute>} />
       <Route path="/admin" element={<PrivateRoute roles={["platform_admin"]}><Admin /></PrivateRoute>} />
       <Route path="/admin/users" element={<PrivateRoute roles={["platform_admin"]}><AdminUsers /></PrivateRoute>} />
       <Route path="/admin/moderation" element={<PrivateRoute roles={["platform_admin"]}><AdminModeration /></PrivateRoute>} />
@@ -128,11 +144,12 @@ export default function App() {
       <Route path="/admin/tools" element={<PrivateRoute roles={["platform_admin"]}><AdminTools /></PrivateRoute>} />
       <Route path="/share/:token" element={<ShareAlbum />} />
       <Route path="/join/:tripId" element={<PublicTripJoin />} />
-      <Route path="/qr/:qrToken/upload" element={<PublicUpload />} />
+      <Route path="/qr/:qrToken/upload" element={<Shell><PublicUpload /></Shell>} />
       <Route path="/qr/:qrToken/success" element={<UploadSuccess />} />
       <Route path="/scan" element={<PrivateRoute><QRScanner /></PrivateRoute>} />
       <Route path="/oauth/callback" element={<OAuthCallback />} />
-      <Route path="/qr/:code" element={<QRResolver />} />
+      <Route path="/qr" element={<QRResolver />} />
+      <Route path="/qr/:qrToken" element={<QRResolver />} />
       <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <BottomAd />

@@ -28,7 +28,7 @@ export default function ResetPassword() {
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="field w-full bg-slate-950/70 text-white"
+            className="field w-full"
           />
         </div>
 
@@ -38,7 +38,7 @@ export default function ResetPassword() {
             type="password"
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
-            className="field w-full bg-slate-950/70 text-white"
+            className="field w-full"
           />
         </div>
 

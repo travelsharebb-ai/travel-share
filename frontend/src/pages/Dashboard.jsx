@@ -68,6 +68,8 @@ export default function Dashboard() {
 
   const quickActions = [
     { label: t("dashboard.quickActions.createTrip", "Create Trip"), icon: Plus, helper: t("dashboard.quickActions.createTripHelper", "Build an itinerary from scratch"), action: "create-trip" },
+    { label: t("qrSpaces.create"), icon: QrCode, helper: t("qrSpaces.createHelper"), action: "create-upload-qr" },
+    { label: t("qrSpaces.manage"), icon: QrCode, helper: t("qrSpaces.manageHelper"), action: "manage-qr-spaces" },
     { label: t("dashboard.quickActions.createEvent", "Create Event"), icon: CalendarDays, helper: canCreateEvent ? t("dashboard.quickActions.createEventHelper", "Plan a meetup or workshop") : t("dashboard.quickActions.organizerAccessRequired", "Organizer access required."), action: "create-event" },
     { label: t("dashboard.quickActions.exploreMap", "Explore Map"), icon: MapPin, helper: t("dashboard.quickActions.exploreMapHelper", "Discover trips, posts, and places nearby"), action: "map" },
     { label: t("dashboard.quickActions.scanQr", "Scan QR"), icon: QrCode, helper: t("dashboard.quickActions.scanQrHelper", "Add uploads from the field"), action: "scan" },
@@ -125,6 +127,8 @@ export default function Dashboard() {
                     if (action.action === "store") return navigate("/store");
                     if (action.action === "create-trip") return navigate('/trips/new');
                     if (action.action === "map") return navigate('/map');
+                    if (action.action === "create-upload-qr") return navigate('/qr-spaces/new');
+                    if (action.action === "manage-qr-spaces") return navigate('/qr-spaces');
                   };
 
                   const disabled = action.action === "create-event" && !canCreateEvent;

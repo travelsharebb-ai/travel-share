@@ -2796,3 +2796,309 @@ html[data-theme="dark"] .guest-link-field {
   border: 1px solid rgba(168, 85, 247, 0.55);
 }
 
+/* Shared theme-aware form controls */
+.input,
+.form-field,
+.form-select,
+.form-textarea,
+.form-date {
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--form-field-border, var(--border));
+  border-radius: 0.75rem;
+  background-color: var(--form-field-bg, var(--surface));
+  color: var(--form-field-text, var(--text));
+  font: inherit;
+  line-height: 1.5;
+  outline: none;
+  padding: 0.75rem 1rem;
+  transition: border-color 160ms ease, background-color 160ms ease, color 160ms ease;
+}
+
+.form-textarea,
+textarea.input {
+  min-height: 7rem;
+  resize: vertical;
+}
+
+.field,
+.input,
+.form-field,
+.form-select,
+.form-textarea,
+.form-date {
+  color-scheme: light;
+}
+
+.field::placeholder,
+.input::placeholder,
+.form-field::placeholder,
+.form-select::placeholder,
+.form-textarea::placeholder,
+.form-date::placeholder {
+  color: var(--form-placeholder, #78909c) !important;
+  opacity: 1;
+}
+
+.field:focus,
+.input:focus,
+.form-field:focus,
+.form-select:focus,
+.form-textarea:focus,
+.form-date:focus {
+  border-color: var(--form-field-focus, #0ea5b7) !important;
+  box-shadow: 0 0 0 3px var(--form-focus-ring, rgba(14, 165, 183, 0.18)) !important;
+}
+
+.field:disabled,
+.input:disabled,
+.form-field:disabled,
+.form-select:disabled,
+.form-textarea:disabled,
+.form-date:disabled {
+  background-color: var(--form-field-disabled-bg, rgba(148, 163, 184, 0.16)) !important;
+  border-color: var(--form-field-disabled-border, var(--form-field-border)) !important;
+  color: var(--form-field-disabled-text, var(--form-field-text)) !important;
+  cursor: not-allowed;
+  opacity: 0.72;
+}
+
+.form-panel,
+.form-option-panel {
+  border: 1px solid var(--form-panel-border, var(--border));
+  border-radius: 1rem;
+  background-color: var(--form-panel-bg, var(--surface));
+  color: var(--form-panel-text, var(--text));
+}
+
+.form-option-panel {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+}
+
+.form-option-panel.flex {
+  display: flex;
+}
+
+.form-label {
+  color: var(--form-label-text, var(--text));
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.form-help {
+  color: var(--form-help-text, var(--text-muted));
+  font-size: 0.875rem;
+}
+
+.form-checkbox,
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--form-check-accent, #0ea5b7);
+}
+
+.form-checkbox {
+  min-height: 1.125rem;
+  min-width: 1.125rem;
+}
+
+select.field,
+select.input,
+.form-select {
+  appearance: auto;
+}
+
+select.field option,
+select.input option,
+.form-select option {
+  background-color: var(--form-option-bg, var(--form-field-bg));
+  color: var(--form-option-text, var(--form-field-text));
+}
+
+input[type="date"].field,
+input[type="date"].input,
+input[type="date"].form-date,
+input[type="datetime-local"].field,
+input[type="datetime-local"].input,
+input[type="datetime-local"].form-date,
+input[type="time"].field,
+input[type="time"].input,
+input[type="time"].form-date {
+  min-height: 3rem;
+}
+
+html[data-theme="light"] {
+  --form-field-bg: #fbfeff;
+  --form-field-border: rgba(14, 165, 183, 0.34);
+  --form-field-text: #102a43;
+  --form-field-focus: #0ea5b7;
+  --form-field-disabled-bg: #eef7f8;
+  --form-field-disabled-border: rgba(14, 165, 183, 0.2);
+  --form-field-disabled-text: #486581;
+  --form-placeholder: #6b7f8f;
+  --form-panel-bg: #f5fbfc;
+  --form-panel-border: rgba(14, 165, 183, 0.24);
+  --form-panel-text: #102a43;
+  --form-label-text: #102a43;
+  --form-help-text: #486581;
+  --form-check-accent: #0ea5b7;
+  --form-option-bg: #ffffff;
+  --form-option-text: #102a43;
+  --form-focus-ring: rgba(14, 165, 183, 0.18);
+}
+
+html[data-theme="dark"] {
+  --form-field-bg: rgba(18, 10, 36, 0.96);
+  --form-field-border: rgba(167, 139, 250, 0.42);
+  --form-field-text: #f8f5ff;
+  --form-field-focus: #a78bfa;
+  --form-field-disabled-bg: rgba(31, 24, 54, 0.72);
+  --form-field-disabled-border: rgba(167, 139, 250, 0.24);
+  --form-field-disabled-text: #c9bff0;
+  --form-placeholder: #c0b5d9;
+  --form-panel-bg: rgba(16, 12, 38, 0.88);
+  --form-panel-border: rgba(167, 139, 250, 0.28);
+  --form-panel-text: #f8f5ff;
+  --form-label-text: #f8f5ff;
+  --form-help-text: #c0b5d9;
+  --form-check-accent: #a78bfa;
+  --form-option-bg: #120a24;
+  --form-option-text: #f8f5ff;
+  --form-focus-ring: rgba(167, 139, 250, 0.22);
+  color-scheme: dark;
+}
+
+html[data-theme="light"] input[type="text"],
+html[data-theme="light"] input[type="email"],
+html[data-theme="light"] input[type="password"],
+html[data-theme="light"] input[type="number"],
+html[data-theme="light"] input[type="date"],
+html[data-theme="light"] input[type="time"],
+html[data-theme="light"] input[type="datetime-local"],
+html[data-theme="light"] input[type="url"],
+html[data-theme="light"] input[type="search"],
+html[data-theme="light"] input[type="tel"],
+html[data-theme="light"] textarea,
+html[data-theme="light"] select,
+html[data-theme="light"] .field,
+html[data-theme="light"] .input,
+html[data-theme="light"] .form-field,
+html[data-theme="light"] .form-select,
+html[data-theme="light"] .form-textarea,
+html[data-theme="light"] .form-date {
+  background-color: var(--form-field-bg) !important;
+  border-color: var(--form-field-border) !important;
+  color: var(--form-field-text) !important;
+}
+
+html[data-theme="dark"] input[type="text"],
+html[data-theme="dark"] input[type="email"],
+html[data-theme="dark"] input[type="password"],
+html[data-theme="dark"] input[type="number"],
+html[data-theme="dark"] input[type="date"],
+html[data-theme="dark"] input[type="time"],
+html[data-theme="dark"] input[type="datetime-local"],
+html[data-theme="dark"] input[type="url"],
+html[data-theme="dark"] input[type="search"],
+html[data-theme="dark"] input[type="tel"],
+html[data-theme="dark"] textarea,
+html[data-theme="dark"] select,
+html[data-theme="dark"] .field,
+html[data-theme="dark"] .input,
+html[data-theme="dark"] .form-field,
+html[data-theme="dark"] .form-select,
+html[data-theme="dark"] .form-textarea,
+html[data-theme="dark"] .form-date {
+  background-color: var(--form-field-bg) !important;
+  border-color: var(--form-field-border) !important;
+  color: var(--form-field-text) !important;
+  color-scheme: dark;
+}
+
+html[data-theme="light"] .form-panel,
+html[data-theme="light"] .form-option-panel {
+  background-color: var(--form-panel-bg) !important;
+  border-color: var(--form-panel-border) !important;
+  color: var(--form-panel-text) !important;
+}
+
+html[data-theme="dark"] .form-panel,
+html[data-theme="dark"] .form-option-panel {
+  background-color: var(--form-panel-bg) !important;
+  border-color: var(--form-panel-border) !important;
+  color: var(--form-panel-text) !important;
+}
+
+html[data-theme="light"] .form-label,
+html[data-theme="dark"] .form-label {
+  color: var(--form-label-text) !important;
+}
+
+html[data-theme="light"] .form-help,
+html[data-theme="dark"] .form-help {
+  color: var(--form-help-text) !important;
+}
+
+html[data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator,
+html[data-theme="dark"] input[type="time"]::-webkit-calendar-picker-indicator,
+html[data-theme="dark"] input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  filter: invert(1) brightness(1.25);
+}
+
+html[data-theme="light"] input[type="file"],
+html[data-theme="dark"] input[type="file"] {
+  color: var(--form-field-text);
+}
+
+.location-clear-button {
+  z-index: 2;
+  border: 1px solid var(--form-field-border);
+  border-radius: 999px;
+  background-color: var(--form-panel-bg);
+  color: var(--form-field-text);
+  cursor: pointer;
+}
+
+.location-clear-button:hover {
+  border-color: var(--form-field-focus);
+  color: var(--form-field-focus);
+}
+
+.location-clear-button svg {
+  display: block;
+  stroke-width: 2.5;
+}
+
+.location-suggestions {
+  border-color: var(--form-panel-border);
+  background-color: var(--form-panel-bg);
+  color: var(--form-panel-text);
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.16);
+}
+
+.location-suggestion-option {
+  border-radius: 6px;
+  color: var(--form-panel-text);
+}
+
+.location-suggestion-option:hover,
+.location-suggestion-option:focus {
+  outline: none;
+  background-color: var(--form-field-focus);
+  color: #ffffff;
+}
+
+html[data-theme="light"] .location-suggestion-option:hover,
+html[data-theme="light"] .location-suggestion-option:focus {
+  background-color: #0ea5b7;
+  color: #ffffff;
+}
+
+html[data-theme="dark"] .location-suggestion-option:hover,
+html[data-theme="dark"] .location-suggestion-option:focus {
+  background-color: rgba(167, 139, 250, 0.24);
+  color: #f8f5ff;
+}

@@ -1,5 +1,5 @@
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
-import { ArrowLeft, Bell, CalendarDays, Camera, Compass, Globe2, LayoutDashboard, LogOut, Map, Menu, QrCode, ShieldCheck, ShoppingBag, Sparkles, UserCircle, X, ChevronsLeft, ChevronsRight } from "lucide-react";
+import { ArrowLeft, Bell, CalendarDays, Camera, CheckSquare, Compass, Globe2, Images, LayoutDashboard, LogOut, Map, Menu, QrCode, ShieldCheck, Share2, ShoppingBag, Sparkles, UserCircle, X, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { api, clearSession, currentUser } from "../lib/api";
 import { LANGUAGES, useLanguage } from "../lib/i18n";
 import { getTheme, setTheme } from "../lib/theme.js";
@@ -19,10 +19,15 @@ export default function Shell({ children }) {
     ? [
         [t("nav.dashboard", "Dashboard"), "/dashboard", LayoutDashboard],
         [t("nav.tourist", "Tourist"), "/tourist", Compass],
+        ...(!isGuest ? [[t("nav.trips", "Trips"), "/trips", Map]] : []),
         [t("nav.map", "Map"), "/map", Map],
         [t("nav.events", "Events"), "/events", CalendarDays],
-        [t("nav.store", "Store"), "/store", ShoppingBag],
+        ...(!isGuest ? [[t("nav.qrSpaces", "QR Spaces"), "/qr-spaces", QrCode]] : []),
         [t("nav.scan", "Scan QR"), "/scan", QrCode],
+        ...(!isGuest ? [[t("nav.myUploads", "My Memories"), "/my-uploads", Images]] : []),
+        ...(!isGuest ? [[t("nav.approvals", "Approvals"), "/approvals", CheckSquare]] : []),
+        ...(!isGuest ? [[t("nav.sharedAlbums", "Shared Albums"), "/shared-albums", Share2]] : []),
+        [t("nav.store", "Store"), "/store", ShoppingBag],
         [t("nav.settings", "Settings"), "/settings", ShieldCheck],
         ...(isAdmin ? [[t("nav.admin", "Admin"), "/admin", ShieldCheck]] : [])
       ]

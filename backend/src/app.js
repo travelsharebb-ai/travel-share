@@ -8,10 +8,12 @@ import uploadRoutes from "./routes/uploads.js";
 import locationRoutes from "./routes/locations.js";
 import adminRoutes from "./routes/admin.js";
 import eventRoutes from "./routes/events.js";
+import qrSpacesRoutes from "./routes/qrSpaces.js";
 import storeRoutes from "./routes/store.js";
 import downloadRoutes from "./routes/downloads.js";
 import skinRoutes from "./routes/skins.js";
 import notificationsRoutes from "./routes/notifications.js";
+import followsRoutes from "./routes/follows.js";
 import { requireAdmin, requireAuth, requireOrganizerOrAdmin } from "./middleware/auth.js";
 import requestLogger from "./middleware/requestLogger.js";
 import diagnostics from "./utils/diagnostics.js";
@@ -61,9 +63,11 @@ export function createApp() {
   app.use("/api/skins", skinRoutes);
   app.use("/api/trips", requireAuth, tripRoutes);
   app.use("/api/events", requireAuth, requireOrganizerOrAdmin, eventRoutes);
+  app.use("/api/qr-spaces", requireAuth, qrSpacesRoutes);
   // Allow read-only access to locations for the public map UI; write operations still require auth inside the routes.
   app.use("/api/locations", locationRoutes);
   app.use("/api/store", requireAuth, storeRoutes);
+  app.use("/api/follows", requireAuth, followsRoutes);
   app.use("/api/downloads", downloadRoutes);
   app.use("/api/notifications", requireAuth, notificationsRoutes);
   app.use("/api", requireAuth, uploadRoutes);
