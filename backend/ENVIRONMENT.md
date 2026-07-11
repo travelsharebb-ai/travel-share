@@ -9,7 +9,7 @@
 - `STORAGE_PROVIDER`: Use `cloudinary` for production.
 - `CLOUDINARY_URL`: Preferred Cloudinary credential format, or set `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, and `CLOUDINARY_API_SECRET`.
 - `FINGERPRINT_SECRET`: Secret used to generate uploader fingerprints and prevent counterfeit sessions.
-- `REDIS_URL`: Recommended for optional Redis-backed rate limiting and caching. If unset, the app falls back to in-memory rate limiting.
+- `REDIS_URL`: Render Key Value/Redis connection string used for shared OAuth state and one-time handoff records, plus Redis-backed rate limiting. Production deployments with multiple backend instances must set this. Local development and tests use an in-memory OAuth fallback.
 - `PAYMENT_PROVIDER`: Default payment routing provider, for example `stripe`.
  - `GUEST_ACCESS_DAYS`: Number of days a guest session is active before entering the grace period.
  - `GUEST_DELETION_DAYS`: Total number of days after guest session creation before the guest is considered expired and eligible for cleanup. Example: with `GUEST_ACCESS_DAYS=3` and `GUEST_DELETION_DAYS=14` the guest is active on days 0–3, in a grace period on days 3–14, and eligible for cleanup after day 14.
@@ -18,15 +18,13 @@
 
 - `PORT`: Render provides this automatically.
 - `SESSION_SECRET`: Not currently used because the app relies on JWT plus HttpOnly guest cookies. Keep available if Redis/session middleware is added later.
-- `REDIS_URL`: Optional future managed session/cache store. Current app does not require Redis.
- - `REDIS_URL`: Optional Redis connection string used for rate limiting when available.
 - `SENDGRID_API_KEY`: Required for password reset and upload notification email delivery.
 - `SENDGRID_FROM_EMAIL`: Sender address for SendGrid.
 - `SUPPORT_EMAIL`: Support contact shown in the app.
 - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`: Required to enable Google sign-in.
 - `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET`, `MICROSOFT_REDIRECT_URI`: Required to enable Microsoft/Hotmail sign-in.
 
-OAuth state records expire after 10 minutes and OAuth login handoff codes expire after 60 seconds. Both are one-time, process-local records. Run a single backend application instance for OAuth callbacks and exchanges until these temporary records are moved to a shared store such as Redis for horizontal scaling.
+OAuth state records expire after 10 minutes and OAuth login handoff codes expire after 60 seconds. When `REDIS_URL` (or `REDIS_TLS_URL`) is configured outside local/test environments, these hashed-key records use the shared Redis/Render Key Value store and are consumed atomically. Without Redis, the app logs a production warning and falls back to process-local memory, which is suitable only for one backend instance.
 - `STRIPE_SECRET_KEY`: Backend-only secret key required for Stripe Checkout.
 - `STRIPE_WEBHOOK_SECRET`: Backend-only signing secret required for `POST /api/webhooks/stripe`.
 - `STRIPE_CURRENCY`: Checkout currency. Defaults to `usd`.
@@ -118,7 +116,7 @@ Set these in your hosting provider's environment config (Render, Railway, Heroku
 	- Cloudinary: set `MEDIA_STORAGE_DRIVER=cloudinary` and either `CLOUDINARY_URL` (preferred) or `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`.
 	- S3: set `MEDIA_STORAGE_DRIVER=s3` (or `STORAGE_PROVIDER=s3`) and set `S3_BUCKET`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, and optional `S3_ENDPOINT` / `S3_PUBLIC_BASE_URL` for non-AWS providers.
 
-- `REDIS_URL` (recommended): connection string for a managed Redis instance (e.g. `rediss://:PASSWORD@host:6380/0`). When set, the app uses Redis-backed rate limiting for resilience.
+- `REDIS_URL` (recommended): connection string for managed Redis/Render Key Value (e.g. `rediss://:PASSWORD@host:6380/0`). When set, the app uses shared OAuth state/handoff storage and Redis-backed rate limiting.
 
 - Email: `SENDGRID_API_KEY` and `EMAIL_FROM` (or configure another email provider integration)
 

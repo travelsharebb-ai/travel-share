@@ -12,12 +12,13 @@ import { sendPasswordResetEmail, sendEmailChangeRequest } from "../utils/email.j
 import { cleanUpload, cleanUser } from "../utils/exportImport.js";
 import { createNotification } from "../services/notifications.js";
 import { ensureBasicSkinUnlocks } from "../utils/skins.js";
+import {
+  oauthTempStore,
+  OAUTH_HANDOFF_TTL_MS,
+  OAUTH_STATE_TTL_MS
+} from "../services/oauthTempStore.js";
 
 const router = Router();
-const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
-const OAUTH_HANDOFF_TTL_MS = 60 * 1000;
-const oauthStates = new Map();
-const oauthHandoffs = new Map();
 
 const credentialsSchema = z.object({
   email: z.string().email(),
@@ -144,15 +145,6 @@ function sameSecret(left, right) {
   return leftBuffer.length === rightBuffer.length && crypto.timingSafeEqual(leftBuffer, rightBuffer);
 }
 
-function pruneOAuthRecords(now = Date.now()) {
-  for (const [nonce, state] of oauthStates) {
-    if (state.expiresAt <= now) oauthStates.delete(nonce);
-  }
-  for (const [codeHash, handoff] of oauthHandoffs) {
-    if (handoff.expiresAt <= now) oauthHandoffs.delete(codeHash);
-  }
-}
-
 function oauthError(res, provider, message) {
   return res.redirect(frontendOAuthUrl({ error: message, provider }));
 }
@@ -206,41 +198,48 @@ router.post("/signup", authLimiter, async (req, res, next) => {
   }
 });
 
-router.get("/oauth/:provider", authLimiter, (req, res) => {
-  const provider = req.params.provider;
-  const config = providerConfig(provider);
-  if (!config) {
-    return res.status(404).json({ error: "OAuth provider not supported." });
+router.get("/oauth/:provider", authLimiter, async (req, res, next) => {
+  try {
+    const provider = req.params.provider;
+    const config = providerConfig(provider);
+    if (!config) {
+      return res.status(404).json({ error: "OAuth provider not supported." });
+    }
+
+    if (!oauthConfigured(config)) {
+      return oauthError(res, provider, `${config.name} sign-in is temporarily unavailable. Please use email and password instead.`);
+    }
+
+    const nonce = secureToken(24);
+    const codeVerifier = secureToken(48);
+    const codeChallenge = crypto.createHash("sha256").update(codeVerifier).digest("base64url");
+    const redirect = safeInternalRedirect(req.query.redirect);
+    const expiresAt = Date.now() + OAUTH_STATE_TTL_MS;
+    await oauthTempStore.setState(
+      nonce,
+      { provider, redirect, codeVerifier, expiresAt },
+      OAUTH_STATE_TTL_MS
+    );
+
+    const state = jwt.sign(
+      { provider, nonce, redirect, expiresAt },
+      process.env.JWT_SECRET,
+      { expiresIn: Math.floor(OAUTH_STATE_TTL_MS / 1000) }
+    );
+    const url = new URL(config.authUrl);
+    url.searchParams.set("client_id", config.clientId);
+    url.searchParams.set("redirect_uri", config.redirectUri);
+    url.searchParams.set("response_type", "code");
+    url.searchParams.set("scope", config.scope);
+    url.searchParams.set("state", state);
+    url.searchParams.set("code_challenge", codeChallenge);
+    url.searchParams.set("code_challenge_method", "S256");
+    url.searchParams.set("prompt", "select_account");
+    res.cookie(oauthStateCookieName(provider), nonce, oauthStateCookieOptions(provider));
+    res.redirect(url.toString());
+  } catch (error) {
+    next(error);
   }
-
-  if (!oauthConfigured(config)) {
-    return oauthError(res, provider, `${config.name} sign-in is temporarily unavailable. Please use email and password instead.`);
-  }
-
-  pruneOAuthRecords();
-  const nonce = secureToken(24);
-  const codeVerifier = secureToken(48);
-  const codeChallenge = crypto.createHash("sha256").update(codeVerifier).digest("base64url");
-  const redirect = safeInternalRedirect(req.query.redirect);
-  const expiresAt = Date.now() + OAUTH_STATE_TTL_MS;
-  oauthStates.set(nonce, { provider, redirect, codeVerifier, expiresAt });
-
-  const state = jwt.sign(
-    { provider, nonce, redirect, expiresAt },
-    process.env.JWT_SECRET,
-    { expiresIn: Math.floor(OAUTH_STATE_TTL_MS / 1000) }
-  );
-  const url = new URL(config.authUrl);
-  url.searchParams.set("client_id", config.clientId);
-  url.searchParams.set("redirect_uri", config.redirectUri);
-  url.searchParams.set("response_type", "code");
-  url.searchParams.set("scope", config.scope);
-  url.searchParams.set("state", state);
-  url.searchParams.set("code_challenge", codeChallenge);
-  url.searchParams.set("code_challenge_method", "S256");
-  url.searchParams.set("prompt", "select_account");
-  res.cookie(oauthStateCookieName(provider), nonce, oauthStateCookieOptions(provider));
-  res.redirect(url.toString());
 });
 
 router.get("/oauth/:provider/callback", authLimiter, async (req, res, next) => {
@@ -272,11 +271,11 @@ router.get("/oauth/:provider/callback", authLimiter, async (req, res, next) => {
     }
 
     const nonce = typeof payload.nonce === "string" ? payload.nonce : null;
-    const stateRecord = nonce ? oauthStates.get(nonce) : null;
-    if (!nonce || !sameSecret(nonce, stateCookie) || !stateRecord) {
+    if (!nonce || !sameSecret(nonce, stateCookie)) {
       return oauthError(res, provider, "OAuth sign-in could not be verified. Please try again.");
     }
-    oauthStates.delete(nonce);
+    const stateRecord = await oauthTempStore.takeState(nonce);
+    if (!stateRecord) return oauthError(res, provider, "OAuth sign-in could not be verified. Please try again.");
 
     if (stateRecord.provider !== provider) {
       return oauthError(res, provider, "OAuth provider mismatch. Please try again.");
@@ -334,35 +333,38 @@ router.get("/oauth/:provider/callback", authLimiter, async (req, res, next) => {
       console.error("Failed to grant basic skins on OAuth sign-in", error);
     });
 
-    pruneOAuthRecords();
     const handoffCode = secureToken(32);
-    oauthHandoffs.set(hashToken(handoffCode), {
-      user,
-      token: sign(user),
-      redirect,
-      expiresAt: Date.now() + OAUTH_HANDOFF_TTL_MS
-    });
+    await oauthTempStore.setHandoff(
+      handoffCode,
+      {
+        user,
+        token: sign(user),
+        redirect,
+        expiresAt: Date.now() + OAUTH_HANDOFF_TTL_MS
+      },
+      OAUTH_HANDOFF_TTL_MS
+    );
     res.redirect(frontendOAuthUrl({ code: handoffCode, provider }));
   } catch (error) {
     next(error);
   }
 });
 
-router.post("/oauth/exchange", authLimiter, (req, res) => {
-  res.setHeader("Cache-Control", "no-store");
-  const data = oauthExchangeSchema.safeParse(req.body);
-  if (!data.success) return res.status(400).json({ error: "Invalid OAuth handoff code." });
+router.post("/oauth/exchange", authLimiter, async (req, res, next) => {
+  try {
+    res.setHeader("Cache-Control", "no-store");
+    const data = oauthExchangeSchema.safeParse(req.body);
+    if (!data.success) return res.status(400).json({ error: "Invalid OAuth handoff code." });
 
-  pruneOAuthRecords();
-  const codeHash = hashToken(data.data.code);
-  const handoff = oauthHandoffs.get(codeHash);
-  oauthHandoffs.delete(codeHash);
+    const handoff = await oauthTempStore.takeHandoff(data.data.code);
+    if (!handoff || handoff.expiresAt <= Date.now()) {
+      return res.status(400).json({ error: "OAuth sign-in expired or was already used. Please try again." });
+    }
 
-  if (!handoff || handoff.expiresAt <= Date.now()) {
-    return res.status(400).json({ error: "OAuth sign-in expired or was already used. Please try again." });
+    return res.json({ user: handoff.user, token: handoff.token, redirect: handoff.redirect });
+  } catch (error) {
+    next(error);
   }
-
-  return res.json({ user: handoff.user, token: handoff.token, redirect: handoff.redirect });
 });
 
 router.post("/login", authLimiter, async (req, res, next) => {
