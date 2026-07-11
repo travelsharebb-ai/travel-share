@@ -8,6 +8,7 @@ export default function AdminTools() {
   const cards = [
     { id: 'users', title: t('admin.tools.users','Users'), description: t('admin.tools.usersDescription','Manage accounts and roles.'), to: "/admin/users" },
     { id: 'moderation', title: t('admin.tools.moderation','Moderation'), description: t('admin.tools.moderationDescription','Review reported uploads and activity.'), to: "/admin/moderation" },
+    { id: 'management', title: t('admin.tools.management','Management'), description: t('admin.tools.managementDescription','Manage guest sessions, catalog visibility, ads, and notifications.'), to: "/admin/management" },
     { id: 'reports', title: t('admin.tools.reports','Reports'), description: t('admin.tools.reportsDescription','View analytics and platform insights.'), to: "/admin/reports" },
     { id: 'map', title: t('admin.tools.map','Map'), description: t('admin.tools.mapDescription','Open the admin map workflow.'), to: "/map" },
     { id: 'qr-spaces', title: t('qrSpaces.manageAdmin'), description: t('qrSpaces.manageAdminHelp'), to: "/qr-spaces" },

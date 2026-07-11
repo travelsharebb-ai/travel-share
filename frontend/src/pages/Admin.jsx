@@ -34,7 +34,7 @@ export default function Admin() {
     { id: "events", to: "/events", title: t("admin.stats.events", "Events"), copy: t("admin.actions.reviewActivity", "Review platform events") },
     { id: "map", to: "/map", title: t("nav.map", "Map"), copy: t("admin.mapHelper", "View pins, uploads, locations, and public travel activity") },
     { id: "uploads", to: "/admin/moderation", title: t("admin.stats.uploads", "Uploads"), copy: t("admin.actions.moderateUploads", "Moderate guest content") },
-    { id: "store", to: "/store", title: t("nav.store", "Store"), copy: t("admin.actions.manageStore", "Manage premium items") },
+    { id: "store", to: "/admin/management", title: t("nav.store", "Store"), copy: t("admin.actions.manageStore", "Manage premium items") },
     { id: "settings", to: "/admin/settings", title: t("nav.settings", "Settings"), copy: t("admin.actions.platformConfig", "Platform configuration") },
     { id: "reports", to: "/admin/reports", title: t("admin.reports.title", "Reports"), copy: t("admin.actions.reviewActivity", "Review flagged activity") }
   ];
@@ -111,7 +111,6 @@ export default function Admin() {
             <div className="mt-5 space-y-3 text-slatebody text-sm">
               <p>• {loading ? t("common.loading", "Loading…") : t("admin.reports.reportedUploadsSummary", "{count} reported uploads").replace("{count}", stats?.reported ?? "—")}</p>
               <p>• {loading ? t("common.loading", "Loading…") : t("admin.reports.totalUploadsSummary", "{count} total uploads").replace("{count}", stats?.uploads ?? "—")}</p>
-              <p>• {t("admin.actions.accountFlags", "Account flags: coming soon")}</p>
             </div>
             <Link className="btn-primary mt-5 w-full" to="/admin/moderation">{t("admin.viewModeration", "View moderation")}</Link>
           </div>
@@ -124,16 +123,16 @@ export default function Admin() {
         <p className="text-sm uppercase tracking-[0.32em] text-primary">{t("admin.reports.badge", "Reports")}</p>
         <div className="mt-4 grid gap-4 sm:grid-cols-3">
           <div className="rounded-3xl border border-borderline bg-slate-950/70 p-4">
-            <p className="text-sm uppercase tracking-[0.28em] text-primary">{t("admin.actions.safetyAlerts", "Safety alerts")}</p>
-            <p className="mt-2 text-slatebody text-sm">{t("admin.actions.noCriticalAlerts", "No critical alerts in the last 24 hours.")}</p>
+            <p className="text-sm uppercase tracking-[0.28em] text-primary">{t("admin.stats.reported", "Reported")}</p>
+            <p className="mt-2 text-2xl font-black text-white">{loading ? t("common.loading", "Loading…") : stats?.reported ?? "—"}</p>
           </div>
           <div className="rounded-3xl border border-borderline bg-slate-950/70 p-4">
-            <p className="text-sm uppercase tracking-[0.28em] text-primary">{t("admin.actions.systemStatus", "System status")}</p>
-            <p className="mt-2 text-slatebody text-sm">{t("admin.actions.allServicesOnline", "All services online and responding normally.")}</p>
+            <p className="text-sm uppercase tracking-[0.28em] text-primary">{t("admin.stats.uploads", "Uploads")}</p>
+            <p className="mt-2 text-2xl font-black text-white">{loading ? t("common.loading", "Loading…") : stats?.uploads ?? "—"}</p>
           </div>
           <div className="rounded-3xl border border-borderline bg-slate-950/70 p-4">
-            <p className="text-sm uppercase tracking-[0.28em] text-primary">{t("admin.actions.contentQueue", "Content queue")}</p>
-            <p className="mt-2 text-slatebody text-sm">{t("admin.actions.pendingItems", "7 pending items awaiting review.")}</p>
+            <p className="text-sm uppercase tracking-[0.28em] text-primary">{t("admin.stats.guests", "Guests")}</p>
+            <p className="mt-2 text-2xl font-black text-white">{loading ? t("common.loading", "Loading…") : stats?.guests ?? "—"}</p>
           </div>
         </div>
       </section>
