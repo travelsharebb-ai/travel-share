@@ -92,6 +92,16 @@ export async function upload(file, options = {}) {
   try { file._options = options || {}; } catch (err) { /* ignore if immutable */ }
   // options.key: deterministic storage key/public id when provided
   const provider = (process.env.STORAGE_PROVIDER || process.env.MEDIA_STORAGE_DRIVER || "local").toLowerCase();
+  const localMediaAllowed = process.env.ALLOW_LOCAL_MEDIA_IN_PRODUCTION === "true" || process.env.ALLOW_LOCAL_STORAGE === "true";
+  const isProduction = process.env.NODE_ENV === "production";
+
+  if (isProduction && (provider === "local" || provider === "disk") && !localMediaAllowed) {
+    const err = new Error("Local/disk media storage is disabled in production unless ALLOW_LOCAL_MEDIA_IN_PRODUCTION=true or ALLOW_LOCAL_STORAGE=true is set explicitly.");
+    err.status = 500;
+    err.name = "StorageError";
+    err.expose = true;
+    throw err;
+  }
   try {
     if (provider === "mock") {
       return await uploadToCloudinary(file, options);
@@ -99,6 +109,13 @@ export async function upload(file, options = {}) {
 
     if (provider === "cloudinary") {
       if (!process.env.CLOUDINARY_URL && !(process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET)) {
+        if (isProduction) {
+          const error = new Error("Cloudinary storage is configured in production but credentials are missing. Set CLOUDINARY_URL or CLOUDINARY_CLOUD_NAME/CLOUDINARY_API_KEY/CLOUDINARY_API_SECRET.");
+          error.status = 500;
+          error.name = "StorageError";
+          error.expose = true;
+          throw error;
+        }
         if (process.env.NODE_ENV !== "production") {
           return uploadToDevelopmentDataUrl(file);
         }

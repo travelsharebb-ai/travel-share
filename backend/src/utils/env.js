@@ -12,6 +12,8 @@ function isPlaceholderSecret(value) {
 export function validateProductionEnv() {
   requireEnv(["DATABASE_URL", "JWT_SECRET", "FINGERPRINT_SECRET", "FRONTEND_URL"]);
 
+  const localMediaAllowed = process.env.ALLOW_LOCAL_MEDIA_IN_PRODUCTION === "true" || process.env.ALLOW_LOCAL_STORAGE === "true";
+
   const failures = [];
   if (isPlaceholderSecret(process.env.JWT_SECRET)) {
     failures.push("JWT_SECRET must be a strong non-placeholder secret.");
@@ -21,8 +23,8 @@ export function validateProductionEnv() {
   }
 
   const storageProvider = (process.env.STORAGE_PROVIDER || process.env.MEDIA_STORAGE_DRIVER || "local").toLowerCase();
-  if ((storageProvider === "local" || storageProvider === "disk") && process.env.ALLOW_LOCAL_STORAGE !== "true") {
-    failures.push("Local disk storage is disabled in production unless ALLOW_LOCAL_STORAGE=true is set explicitly.");
+  if ((storageProvider === "local" || storageProvider === "disk") && !localMediaAllowed) {
+    failures.push("Local/disk media storage is disabled in production unless ALLOW_LOCAL_MEDIA_IN_PRODUCTION=true or ALLOW_LOCAL_STORAGE=true is set explicitly.");
   }
   if (storageProvider === "cloudinary") {
     const hasCloudinary = process.env.CLOUDINARY_URL || (
