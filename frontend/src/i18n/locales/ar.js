@@ -182,6 +182,20 @@ const translations = {
     "privacy": "الخصوصية",
     "terms": "الشروط"
   },
+  "oauthCallback": {
+    "loadingTitle": "جارٍ تسجيل دخولك",
+    "loadingDescription": "جارٍ معالجة تسجيل الدخول عبر OAuth…",
+    "loadingMessage": "جارٍ معالجة تسجيل الدخول…",
+    "successTitle": "اكتمل تسجيل الدخول",
+    "successMessage": "جارٍ نقلك إلى حسابك…",
+    "errorTitle": "تعذر تسجيل الدخول",
+    "errorDefault": "تعذر إكمال تسجيل الدخول عبر OAuth.",
+    "invalidTitle": "عودة تسجيل الدخول غير صالحة",
+    "missingMessage": "تفتقد عودة تسجيل الدخول إلى المعلومات المطلوبة.",
+    "invalidUserMessage": "تحتوي عودة تسجيل الدخول على معلومات حساب غير صالحة.",
+    "storageMessage": "تعذر حفظ تسجيل دخولك. ارجع إلى صفحة تسجيل الدخول وحاول مرة أخرى.",
+    "returnToLogin": "العودة إلى تسجيل الدخول"
+  },
   "map": {
     "title": "الخريطة",
     "search": "بحث",

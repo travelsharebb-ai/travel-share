@@ -196,6 +196,20 @@ const translations = {
     "privacy": "プライバシー",
     "terms": "利用規約"
   },
+  "oauthCallback": {
+    "loadingTitle": "ログインしています",
+    "loadingDescription": "OAuth ログインを処理しています…",
+    "loadingMessage": "ログインを処理しています…",
+    "successTitle": "ログイン完了",
+    "successMessage": "アカウントへ移動しています…",
+    "errorTitle": "ログインできませんでした",
+    "errorDefault": "OAuth ログインを完了できませんでした。",
+    "invalidTitle": "ログインコールバックが無効です",
+    "missingMessage": "ログインコールバックに必要な情報がありません。",
+    "invalidUserMessage": "ログインコールバックに無効なアカウント情報が含まれています。",
+    "storageMessage": "ログイン情報を保存できませんでした。ログイン画面に戻って再試行してください。",
+    "returnToLogin": "ログインに戻る"
+  },
   "map": {
     "title": "マップ",
     "search": "検索",

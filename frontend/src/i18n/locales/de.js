@@ -332,6 +332,20 @@ const translations = {
     "privacy": "Datenschutz",
     "terms": "Nutzungsbedingungen"
   },
+  "oauthCallback": {
+    "loadingTitle": "Anmeldung läuft",
+    "loadingDescription": "Ihre OAuth-Anmeldung wird verarbeitet…",
+    "loadingMessage": "Anmeldung wird verarbeitet…",
+    "successTitle": "Anmeldung abgeschlossen",
+    "successMessage": "Sie werden zu Ihrem Konto weitergeleitet…",
+    "errorTitle": "Anmeldung nicht möglich",
+    "errorDefault": "Die OAuth-Anmeldung konnte nicht abgeschlossen werden.",
+    "invalidTitle": "Ungültige Anmelderückgabe",
+    "missingMessage": "In der Anmelderückgabe fehlen erforderliche Informationen.",
+    "invalidUserMessage": "Die Anmelderückgabe enthält ungültige Kontoinformationen.",
+    "storageMessage": "Ihre Anmeldung konnte nicht gespeichert werden. Kehren Sie zur Anmeldung zurück und versuchen Sie es erneut.",
+    "returnToLogin": "Zurück zur Anmeldung"
+  },
   "guestStatus": {
     "activeGuest": "Aktiver Gast",
     "graceGuest": "Gnadenfrist",

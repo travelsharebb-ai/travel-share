@@ -1,5 +1,5 @@
 import { Route, Routes, Navigate } from "react-router-dom";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import PrivateRoute from "./components/PrivateRoute.jsx";
 import SessionSync from "./components/SessionSync.jsx";
 import ScreenshotGuard from "./components/ScreenshotGuard.jsx";
@@ -50,7 +50,17 @@ import QRSpaceDetails from "./pages/QRSpaceDetails.jsx";
 import { currentUser } from "./lib/api";
 
 export default function App() {
-  const user = currentUser();
+  const [user, setUser] = useState(() => currentUser());
+
+  useEffect(() => {
+    const syncUser = () => setUser(currentUser());
+    window.addEventListener("travelShareUserChanged", syncUser);
+    window.addEventListener("storage", syncUser);
+    return () => {
+      window.removeEventListener("travelShareUserChanged", syncUser);
+      window.removeEventListener("storage", syncUser);
+    };
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -136,7 +146,7 @@ export default function App() {
       <Route path="/qr-spaces" element={<PrivateRoute><QRSpaces /></PrivateRoute>} />
       <Route path="/qr-spaces/new" element={<PrivateRoute><QRSpaceCreate /></PrivateRoute>} />
       <Route path="/qr-spaces/:id" element={<PrivateRoute><QRSpaceDetails /></PrivateRoute>} />
-      <Route path="/admin" element={<PrivateRoute roles={["platform_admin"]}><Admin /></PrivateRoute>} />
+      <Route path="/admin" element={<PrivateRoute roles={["admin", "platform_admin"]}><Admin /></PrivateRoute>} />
       <Route path="/admin/users" element={<PrivateRoute roles={["platform_admin"]}><AdminUsers /></PrivateRoute>} />
       <Route path="/admin/moderation" element={<PrivateRoute roles={["platform_admin"]}><AdminModeration /></PrivateRoute>} />
       <Route path="/admin/reports" element={<PrivateRoute roles={["platform_admin"]}><AdminReports /></PrivateRoute>} />

@@ -795,6 +795,20 @@ const translations = {
     "privacy": "Riservatezza",
     "terms": "Termini"
   },
+  "oauthCallback": {
+    "loadingTitle": "Accesso in corso",
+    "loadingDescription": "Elaborazione dell’accesso OAuth…",
+    "loadingMessage": "Elaborazione dell’accesso…",
+    "successTitle": "Accesso completato",
+    "successMessage": "Ti stiamo portando al tuo account…",
+    "errorTitle": "Impossibile accedere",
+    "errorDefault": "Non è stato possibile completare l’accesso OAuth.",
+    "invalidTitle": "Ritorno di accesso non valido",
+    "missingMessage": "Nel ritorno di accesso mancano informazioni obbligatorie.",
+    "invalidUserMessage": "Il ritorno di accesso contiene informazioni dell’account non valide.",
+    "storageMessage": "Non è stato possibile salvare l’accesso. Torna alla pagina di accesso e riprova.",
+    "returnToLogin": "Torna all’accesso"
+  },
   "guestStatus": {
     "activeGuest": "Ospite attivo",
     "graceGuest": "Periodo di grazia",

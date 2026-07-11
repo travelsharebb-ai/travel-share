@@ -86,12 +86,21 @@ export function setSession(data) {
   clearGuestToken();
   localStorage.setItem("travelShareToken", data.token);
   localStorage.setItem("travelShareUser", JSON.stringify(data.user));
+  try { window.dispatchEvent(new Event('travelShareUserChanged')); } catch (e) {}
+}
+
+export function exchangeOAuthCode(code) {
+  return api("/api/auth/oauth/exchange", {
+    method: "POST",
+    body: JSON.stringify({ code })
+  });
 }
 
 export function clearSession() {
   localStorage.removeItem("travelShareToken");
   localStorage.removeItem("travelShareUser");
   localStorage.removeItem("travelShareGuestToken");
+  try { window.dispatchEvent(new Event('travelShareUserChanged')); } catch (e) {}
 }
 
 export function currentUser() {

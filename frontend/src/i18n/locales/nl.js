@@ -795,6 +795,20 @@ const translations = {
     "privacy": "Gegevensbescherming",
     "terms": "Voorwaarden"
   },
+  "oauthCallback": {
+    "loadingTitle": "Bezig met inloggen",
+    "loadingDescription": "Je OAuth-aanmelding wordt verwerkt…",
+    "loadingMessage": "Aanmelding verwerken…",
+    "successTitle": "Aanmelding voltooid",
+    "successMessage": "Je wordt naar je account gebracht…",
+    "errorTitle": "Inloggen is niet gelukt",
+    "errorDefault": "De OAuth-aanmelding kon niet worden voltooid.",
+    "invalidTitle": "Ongeldige aanmeldingsreactie",
+    "missingMessage": "De aanmeldingsreactie mist vereiste informatie.",
+    "invalidUserMessage": "De aanmeldingsreactie bevat ongeldige accountinformatie.",
+    "storageMessage": "Je aanmelding kon niet worden opgeslagen. Ga terug naar inloggen en probeer het opnieuw.",
+    "returnToLogin": "Terug naar inloggen"
+  },
   "guestStatus": {
     "activeGuest": "Actieve gast",
     "graceGuest": "Uitstelperiode",

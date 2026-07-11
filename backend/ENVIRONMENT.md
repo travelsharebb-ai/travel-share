@@ -25,6 +25,8 @@
 - `SUPPORT_EMAIL`: Support contact shown in the app.
 - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`: Required to enable Google sign-in.
 - `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET`, `MICROSOFT_REDIRECT_URI`: Required to enable Microsoft/Hotmail sign-in.
+
+OAuth state records expire after 10 minutes and OAuth login handoff codes expire after 60 seconds. Both are one-time, process-local records. Run a single backend application instance for OAuth callbacks and exchanges until these temporary records are moved to a shared store such as Redis for horizontal scaling.
 - `STRIPE_SECRET_KEY`: Backend-only secret key required for Stripe Checkout.
 - `STRIPE_WEBHOOK_SECRET`: Backend-only signing secret required for `POST /api/webhooks/stripe`.
 - `STRIPE_CURRENCY`: Checkout currency. Defaults to `usd`.

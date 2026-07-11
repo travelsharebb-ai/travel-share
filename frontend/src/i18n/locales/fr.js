@@ -462,6 +462,20 @@ const translations = {
     "privacy": "Confidentialité",
     "terms": "Conditions"
   },
+  "oauthCallback": {
+    "loadingTitle": "Connexion en cours",
+    "loadingDescription": "Traitement de votre connexion OAuth…",
+    "loadingMessage": "Traitement de la connexion…",
+    "successTitle": "Connexion réussie",
+    "successMessage": "Redirection vers votre compte…",
+    "errorTitle": "Connexion impossible",
+    "errorDefault": "La connexion OAuth n’a pas pu être effectuée.",
+    "invalidTitle": "Retour de connexion non valide",
+    "missingMessage": "Le retour de connexion ne contient pas les informations requises.",
+    "invalidUserMessage": "Le retour de connexion contient des informations de compte non valides.",
+    "storageMessage": "Votre connexion n’a pas pu être enregistrée. Revenez à la page de connexion et réessayez.",
+    "returnToLogin": "Retour à la connexion"
+  },
   "guestStatus": {
     "activeGuest": "Invité actif",
     "graceGuest": "Délai de grâce",

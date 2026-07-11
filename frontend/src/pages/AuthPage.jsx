@@ -27,7 +27,7 @@ export default function AuthPage({ mode }) {
       }
       const data = await api(`/api/auth/${isSignup ? "signup" : "login"}`, { method: "POST", body: JSON.stringify(payload) });
       setSession(data);
-      const fallback = data.user?.role === "platform_admin" ? "/admin" : data.user?.role === "organizer" ? "/events" : "/dashboard";
+      const fallback = ["admin", "platform_admin"].includes(data.user?.role) ? "/admin" : data.user?.role === "organizer" ? "/events" : "/dashboard";
       const intended = location.state?.from?.pathname;
       if (intended && intended !== "/login" && intended !== "/signup") {
         navigate(intended, { replace: true });
@@ -42,7 +42,7 @@ export default function AuthPage({ mode }) {
   useEffect(() => {
     if (getToken() && currentUser()) {
       const role = currentUser()?.role;
-      const redirect = role === "platform_admin" ? "/admin" : role === "organizer" ? "/events" : "/dashboard";
+      const redirect = ["admin", "platform_admin"].includes(role) ? "/admin" : role === "organizer" ? "/events" : "/dashboard";
       navigate(redirect, { replace: true });
     }
   }, [navigate]);

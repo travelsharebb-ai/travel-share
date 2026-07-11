@@ -858,6 +858,20 @@ const translations = {
     "privacy": "Privacy",
     "terms": "Terms"
   },
+  "oauthCallback": {
+    "loadingTitle": "Signing you in",
+    "loadingDescription": "Processing your OAuth sign-in…",
+    "loadingMessage": "Processing login…",
+    "successTitle": "Sign-in complete",
+    "successMessage": "Taking you to your account…",
+    "errorTitle": "Unable to sign in",
+    "errorDefault": "OAuth login could not be completed.",
+    "invalidTitle": "Invalid sign-in callback",
+    "missingMessage": "The sign-in callback is missing required login information.",
+    "invalidUserMessage": "The sign-in callback contains invalid account information.",
+    "storageMessage": "Your sign-in could not be saved. Please return to login and try again.",
+    "returnToLogin": "Back to login"
+  },
   "hardcoded": {
     "loadingEvents": "Loading events…",
     "noPublicEventsFound": "No public events found.",
