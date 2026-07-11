@@ -89,6 +89,13 @@ export function setSession(data) {
   try { window.dispatchEvent(new Event('travelShareUserChanged')); } catch (e) {}
 }
 
+export function exchangeOAuthCode(code) {
+  return api("/api/auth/oauth/exchange", {
+    method: "POST",
+    body: JSON.stringify({ code })
+  });
+}
+
 export function clearSession() {
   localStorage.removeItem("travelShareToken");
   localStorage.removeItem("travelShareUser");

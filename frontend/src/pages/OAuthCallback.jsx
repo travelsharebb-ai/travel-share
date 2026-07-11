@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { setSession } from "../lib/api";
+import { exchangeOAuthCode, setSession } from "../lib/api";
 import { useLanguage } from "../lib/i18n";
 import { PageLayout, PageHeader, Section, Card, LoadingState } from "../components/ui";
 
@@ -42,6 +42,7 @@ export default function OAuthCallback() {
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
+    const handoffCode = params.get("code")?.trim();
     const token = params.get("token")?.trim();
     const encodedUser = params.get("user")?.trim();
     const callbackError = params.get("error");
@@ -65,35 +66,60 @@ export default function OAuthCallback() {
       return undefined;
     }
 
-    if (!token || !encodedUser) {
+    if (!handoffCode && (!token || !encodedUser)) {
       setStatus({ type: "error", reason: "missing", detail: null, provider });
       return undefined;
     }
 
-    let user;
-    try {
-      user = decodeUserPayload(encodedUser);
-    } catch {
-      setStatus({ type: "error", reason: "invalidUser", detail: null, provider });
-      return undefined;
+    let cancelled = false;
+    let redirectTimer;
+
+    async function completeSignIn() {
+      let session;
+      try {
+        if (handoffCode) {
+          session = await exchangeOAuthCode(handoffCode);
+        } else {
+          session = { token, user: decodeUserPayload(encodedUser) };
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setStatus({
+            type: "error",
+            reason: handoffCode ? "provider" : "invalidUser",
+            detail: handoffCode ? error.message : null,
+            provider
+          });
+        }
+        return;
+      }
+
+      if (!session?.token || !session?.user || typeof session.user !== "object" || Array.isArray(session.user)) {
+        if (!cancelled) setStatus({ type: "error", reason: "invalidUser", detail: null, provider });
+        return;
+      }
+
+      try {
+        setSession(session);
+      } catch {
+        if (!cancelled) setStatus({ type: "error", reason: "storage", detail: null, provider });
+        return;
+      }
+
+      const fallback = defaultRedirect(session.user);
+      const destination = safeInternalRedirect(session.redirect || requestedRedirect, fallback);
+      if (cancelled) return;
+      setStatus({ type: "success" });
+      redirectTimer = window.setTimeout(() => {
+        window.location.replace(destination);
+      }, 300);
     }
 
-    try {
-      setSession({ token, user });
-    } catch {
-      setStatus({ type: "error", reason: "storage", detail: null, provider });
-      return undefined;
-    }
-
-    const fallback = defaultRedirect(user);
-    const destination = safeInternalRedirect(requestedRedirect, fallback);
-    setStatus({ type: "success" });
-
-    const redirectTimer = window.setTimeout(() => {
-      window.location.replace(destination);
-    }, 300);
-
-    return () => window.clearTimeout(redirectTimer);
+    completeSignIn();
+    return () => {
+      cancelled = true;
+      if (redirectTimer) window.clearTimeout(redirectTimer);
+    };
   }, [location.hash, location.pathname, location.search]);
 
   const isError = status.type === "error";

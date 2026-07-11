@@ -14,6 +14,10 @@ import { createNotification } from "../services/notifications.js";
 import { ensureBasicSkinUnlocks } from "../utils/skins.js";
 
 const router = Router();
+const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
+const OAUTH_HANDOFF_TTL_MS = 60 * 1000;
+const oauthStates = new Map();
+const oauthHandoffs = new Map();
 
 const credentialsSchema = z.object({
   email: z.string().email(),
@@ -45,6 +49,10 @@ const profileSettingsSchema = z.object({
     uploadAlerts: z.boolean().optional(),
     promotionalEmails: z.boolean().optional()
   }).optional()
+});
+
+const oauthExchangeSchema = z.object({
+  code: z.string().min(32).max(256)
 });
 
 function sign(user) {
@@ -89,11 +97,64 @@ function oauthConfigured(config) {
   return Boolean(config?.clientId && config?.clientSecret);
 }
 
-function frontendOAuthUrl(payload) {
+function frontendOAuthUrl({ code, error, provider }) {
   const url = new URL("/oauth/callback", process.env.FRONTEND_URL || "http://localhost:5173");
-  url.searchParams.set("token", payload.token);
-  url.searchParams.set("user", Buffer.from(JSON.stringify(payload.user)).toString("base64url"));
+  if (code) url.searchParams.set("code", code);
+  if (error) url.searchParams.set("error", error);
+  if (provider) url.searchParams.set("provider", provider);
   return url.toString();
+}
+
+function safeInternalRedirect(value) {
+  if (typeof value !== "string" || !value.startsWith("/") || value.startsWith("//")) return null;
+
+  try {
+    const frontend = new URL(process.env.FRONTEND_URL || "http://localhost:5173");
+    const destination = new URL(value, frontend.origin);
+    if (destination.origin !== frontend.origin) return null;
+    return `${destination.pathname}${destination.search}${destination.hash}`;
+  } catch {
+    return null;
+  }
+}
+
+function oauthStateCookieName(provider) {
+  return `ts_oauth_${provider}`;
+}
+
+function oauthStateCookieOptions(provider) {
+  return {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    maxAge: OAUTH_STATE_TTL_MS,
+    path: `/api/auth/oauth/${provider}/callback`
+  };
+}
+
+function clearOAuthStateCookie(res, provider) {
+  const { maxAge: _maxAge, ...options } = oauthStateCookieOptions(provider);
+  res.clearCookie(oauthStateCookieName(provider), options);
+}
+
+function sameSecret(left, right) {
+  if (typeof left !== "string" || typeof right !== "string") return false;
+  const leftBuffer = Buffer.from(left);
+  const rightBuffer = Buffer.from(right);
+  return leftBuffer.length === rightBuffer.length && crypto.timingSafeEqual(leftBuffer, rightBuffer);
+}
+
+function pruneOAuthRecords(now = Date.now()) {
+  for (const [nonce, state] of oauthStates) {
+    if (state.expiresAt <= now) oauthStates.delete(nonce);
+  }
+  for (const [codeHash, handoff] of oauthHandoffs) {
+    if (handoff.expiresAt <= now) oauthHandoffs.delete(codeHash);
+  }
+}
+
+function oauthError(res, provider, message) {
+  return res.redirect(frontendOAuthUrl({ error: message, provider }));
 }
 
 async function ensureUserPreferences(userId) {
@@ -153,19 +214,32 @@ router.get("/oauth/:provider", authLimiter, (req, res) => {
   }
 
   if (!oauthConfigured(config)) {
-    return res.status(501).json({
-      error: `${config.name} sign-in is ready in code, but provider credentials are missing. Add ${provider.toUpperCase()}_CLIENT_ID and ${provider.toUpperCase()}_CLIENT_SECRET.`
-    });
+    return oauthError(res, provider, `${config.name} sign-in is temporarily unavailable. Please use email and password instead.`);
   }
 
-  const state = jwt.sign({ provider }, process.env.JWT_SECRET, { expiresIn: "10m" });
+  pruneOAuthRecords();
+  const nonce = secureToken(24);
+  const codeVerifier = secureToken(48);
+  const codeChallenge = crypto.createHash("sha256").update(codeVerifier).digest("base64url");
+  const redirect = safeInternalRedirect(req.query.redirect);
+  const expiresAt = Date.now() + OAUTH_STATE_TTL_MS;
+  oauthStates.set(nonce, { provider, redirect, codeVerifier, expiresAt });
+
+  const state = jwt.sign(
+    { provider, nonce, redirect, expiresAt },
+    process.env.JWT_SECRET,
+    { expiresIn: Math.floor(OAUTH_STATE_TTL_MS / 1000) }
+  );
   const url = new URL(config.authUrl);
   url.searchParams.set("client_id", config.clientId);
   url.searchParams.set("redirect_uri", config.redirectUri);
   url.searchParams.set("response_type", "code");
   url.searchParams.set("scope", config.scope);
   url.searchParams.set("state", state);
+  url.searchParams.set("code_challenge", codeChallenge);
+  url.searchParams.set("code_challenge_method", "S256");
   url.searchParams.set("prompt", "select_account");
+  res.cookie(oauthStateCookieName(provider), nonce, oauthStateCookieOptions(provider));
   res.redirect(url.toString());
 });
 
@@ -173,11 +247,55 @@ router.get("/oauth/:provider/callback", authLimiter, async (req, res, next) => {
   try {
     const provider = req.params.provider;
     const config = providerConfig(provider);
-    if (!config || !oauthConfigured(config)) return res.status(404).send("OAuth provider not configured.");
+    if (!config) return res.status(404).json({ error: "OAuth provider not supported." });
+    if (!oauthConfigured(config)) {
+      return oauthError(res, provider, `${config.name} sign-in is temporarily unavailable. Please use email and password instead.`);
+    }
 
-    const payload = jwt.verify(req.query.state, process.env.JWT_SECRET);
-    if (payload.provider !== provider) return res.status(400).send("Invalid OAuth state.");
-    if (!req.query.code) return res.status(400).send("Missing OAuth code.");
+    const stateToken = typeof req.query.state === "string" ? req.query.state : null;
+    const stateCookie = readCookie(req, oauthStateCookieName(provider));
+    clearOAuthStateCookie(res, provider);
+    if (!stateToken) return oauthError(res, provider, "OAuth sign-in could not be verified. Please try again.");
+
+    let payload;
+    try {
+      payload = jwt.verify(stateToken, process.env.JWT_SECRET);
+    } catch (error) {
+      const message = error?.name === "TokenExpiredError"
+        ? "OAuth sign-in expired. Please try again."
+        : "OAuth sign-in could not be verified. Please try again.";
+      return oauthError(res, provider, message);
+    }
+
+    if (payload.provider !== provider) {
+      return oauthError(res, provider, "OAuth provider mismatch. Please try again.");
+    }
+
+    const nonce = typeof payload.nonce === "string" ? payload.nonce : null;
+    const stateRecord = nonce ? oauthStates.get(nonce) : null;
+    if (!nonce || !sameSecret(nonce, stateCookie) || !stateRecord) {
+      return oauthError(res, provider, "OAuth sign-in could not be verified. Please try again.");
+    }
+    oauthStates.delete(nonce);
+
+    if (stateRecord.provider !== provider) {
+      return oauthError(res, provider, "OAuth provider mismatch. Please try again.");
+    }
+
+    if (stateRecord.expiresAt <= Date.now() || payload.expiresAt !== stateRecord.expiresAt) {
+      return oauthError(res, provider, "OAuth sign-in expired. Please try again.");
+    }
+
+    const redirect = safeInternalRedirect(payload.redirect);
+    if ((payload.redirect || stateRecord.redirect) && redirect !== stateRecord.redirect) {
+      return oauthError(res, provider, "OAuth redirect could not be verified. Please try again.");
+    }
+
+    if (req.query.error) {
+      return oauthError(res, provider, `${config.name} sign-in was cancelled or denied.`);
+    }
+
+    if (!req.query.code) return oauthError(res, provider, "OAuth sign-in did not return an authorization code. Please try again.");
 
     const tokenResponse = await fetch(config.tokenUrl, {
       method: "POST",
@@ -186,18 +304,19 @@ router.get("/oauth/:provider/callback", authLimiter, async (req, res, next) => {
         client_id: config.clientId,
         client_secret: config.clientSecret,
         code: req.query.code.toString(),
+        code_verifier: stateRecord.codeVerifier,
         grant_type: "authorization_code",
         redirect_uri: config.redirectUri
       })
     });
     const tokenData = await tokenResponse.json();
-    if (!tokenResponse.ok) return res.status(400).send(tokenData.error_description || tokenData.error || "OAuth token exchange failed.");
+    if (!tokenResponse.ok) return oauthError(res, provider, `${config.name} sign-in could not be completed. Please try again.`);
 
     const profileResponse = await fetch(config.userInfoUrl, {
       headers: { Authorization: `Bearer ${tokenData.access_token}` }
     });
     const profile = await profileResponse.json();
-    if (!profileResponse.ok || !profile.email) return res.status(400).send("Could not read OAuth profile email.");
+    if (!profileResponse.ok || !profile.email) return oauthError(res, provider, `${config.name} account information could not be read. Please try again.`);
 
     const email = profile.email.toLowerCase();
     const user = await prisma.user.upsert({
@@ -215,10 +334,35 @@ router.get("/oauth/:provider/callback", authLimiter, async (req, res, next) => {
       console.error("Failed to grant basic skins on OAuth sign-in", error);
     });
 
-    res.redirect(frontendOAuthUrl({ user, token: sign(user) }));
+    pruneOAuthRecords();
+    const handoffCode = secureToken(32);
+    oauthHandoffs.set(hashToken(handoffCode), {
+      user,
+      token: sign(user),
+      redirect,
+      expiresAt: Date.now() + OAUTH_HANDOFF_TTL_MS
+    });
+    res.redirect(frontendOAuthUrl({ code: handoffCode, provider }));
   } catch (error) {
     next(error);
   }
+});
+
+router.post("/oauth/exchange", authLimiter, (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  const data = oauthExchangeSchema.safeParse(req.body);
+  if (!data.success) return res.status(400).json({ error: "Invalid OAuth handoff code." });
+
+  pruneOAuthRecords();
+  const codeHash = hashToken(data.data.code);
+  const handoff = oauthHandoffs.get(codeHash);
+  oauthHandoffs.delete(codeHash);
+
+  if (!handoff || handoff.expiresAt <= Date.now()) {
+    return res.status(400).json({ error: "OAuth sign-in expired or was already used. Please try again." });
+  }
+
+  return res.json({ user: handoff.user, token: handoff.token, redirect: handoff.redirect });
 });
 
 router.post("/login", authLimiter, async (req, res, next) => {
