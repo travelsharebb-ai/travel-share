@@ -5,7 +5,7 @@ import { prisma } from "../utils/prisma.js";
 import { secureToken } from "../utils/tokens.js";
 import { uploadMedia } from "../utils/storage.js";
 import orchestrator from "../services/uploadOrchestrator.js";
-import { cleanUpload, cleanUser } from "../utils/exportImport.js";
+import { cleanEvent, cleanGuestSession, cleanTrip, cleanUpload, cleanUser } from "../utils/exportImport.js";
 import { createNotification } from "../services/notifications.js";
 
 const router = Router();
@@ -106,7 +106,8 @@ router.get("/map/locations", async (_req, res, next) => {
             moderationStatus: true
           }
         }
-      }
+      },
+      take: 200
     });
     res.json({ locations });
   } catch (error) {
@@ -130,12 +131,12 @@ router.get("/map/locations/:locationId", async (req, res, next) => {
         updatedAt: true,
         uploads: {
           orderBy: { createdAt: "desc" },
+          take: 100,
           select: {
             id: true,
             tripId: true,
             eventId: true,
             guestSessionId: true,
-            uploaderAnonId: true,
             caption: true,
             fileUrl: true,
             fileType: true,
@@ -254,8 +255,6 @@ router.patch("/map/uploads/:uploadId/moderation", async (req, res, next) => {
           eventId: true,
           zoneId: true,
           guestSessionId: true,
-          uploaderAnonId: true,
-          uploaderFingerprint: true,
           caption: true,
           fileUrl: true,
           fileType: true,
@@ -286,8 +285,6 @@ router.patch("/map/uploads/:uploadId/moderation", async (req, res, next) => {
           eventId: true,
           zoneId: true,
           guestSessionId: true,
-          uploaderAnonId: true,
-          uploaderFingerprint: true,
           caption: true,
           fileUrl: true,
           fileType: true,
@@ -307,6 +304,14 @@ router.patch("/map/uploads/:uploadId/moderation", async (req, res, next) => {
         }
       });
     }
+    await prisma.adminModerationLog.create({
+      data: {
+        uploadId: upload.id,
+        adminId: req.user.id,
+        action: data.action,
+        notes: data.locationVisibility ? `Visibility restored as ${data.locationVisibility}.` : null
+      }
+    });
     res.json({ upload });
   } catch (error) {
     next(error);
@@ -323,11 +328,8 @@ router.post("/export/site", async (req, res, next) => {
       eventId: true,
       zoneId: true,
       guestSessionId: true,
-      uploaderAnonId: true,
-      uploaderFingerprint: true,
       caption: true,
       fileUrl: true,
-      filePublicId: true,
       fileType: true,
       status: true,
       latitude: true,
@@ -359,14 +361,14 @@ router.post("/export/site", async (req, res, next) => {
       exportedAt: new Date().toISOString(),
       formatVersion: 1,
       users: users.map(cleanUser),
-      trips,
-      events,
+      trips: trips.map(cleanTrip),
+      events: events.map(cleanEvent),
       uploads: uploads.map(cleanUpload),
       settings,
       ads,
       storeItems,
       purchases,
-      guests
+      guests: guests.map(cleanGuestSession)
     });
   } catch (error) {
     next(error);
@@ -390,7 +392,7 @@ router.post("/import", async (req, res) => {
 });
 
 router.get("/users", async (req, res) => {
-  const q = req.query.q?.toString() || "";
+  const q = z.string().trim().max(100).catch("").parse(req.query.q?.toString() || "");
   const users = await prisma.user.findMany({
     where: q ? { OR: [{ name: { contains: q, mode: "insensitive" } }, { email: { contains: q, mode: "insensitive" } }] } : {},
     select: { id: true, name: true, email: true, role: true, createdAt: true, _count: { select: { trips: true, organizedEvents: true, purchases: true } } },
@@ -400,6 +402,44 @@ router.get("/users", async (req, res) => {
   res.json({ users });
 });
 
+router.get("/users/:userId", async (req, res, next) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.params.userId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        emailVerifiedAt: true,
+        createdAt: true,
+        updatedAt: true,
+        preferences: {
+          select: {
+            defaultLocationVisibility: true,
+            emailNotifications: true,
+            uploadAlerts: true,
+            promotionalEmails: true
+          }
+        },
+        _count: {
+          select: {
+            trips: true,
+            organizedEvents: true,
+            claimedGuestSessions: true,
+            purchases: true,
+            notifications: true
+          }
+        }
+      }
+    });
+    if (!user) return res.status(404).json({ error: "User not found." });
+    res.json({ user });
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.patch("/users/:userId", async (req, res, next) => {
   try {
     const schema = z.object({
@@ -407,20 +447,27 @@ router.patch("/users/:userId", async (req, res, next) => {
       name: z.string().min(2).max(80).optional()
     });
     const data = schema.parse(req.body);
-    // fetch existing to detect role changes
     const existing = await prisma.user.findUnique({ where: { id: req.params.userId }, select: { id: true, role: true, name: true } });
     if (!existing) return res.status(404).json({ error: "User not found." });
-    const user = await prisma.user.update({ where: { id: req.params.userId }, data, select: { id: true, name: true, email: true, role: true } });
+
+    const roleIsChanging = data.role && data.role !== existing.role;
+    if (roleIsChanging && req.user.role !== "platform_admin") {
+      return res.status(403).json({ error: "Platform admin access is required to change roles." });
+    }
+    if (roleIsChanging && existing.id === req.user.id) {
+      return res.status(400).json({ error: "You cannot change your own admin role." });
+    }
+    if (roleIsChanging && existing.role === "platform_admin" && data.role !== "platform_admin") {
+      const otherAdmins = await prisma.user.count({ where: { role: "platform_admin", id: { not: existing.id } } });
+      if (otherAdmins === 0) {
+        return res.status(400).json({ error: "Cannot demote the last platform_admin." });
+      }
+    }
+
+    const user = await prisma.user.update({ where: { id: req.params.userId }, data, select: { id: true, name: true, email: true, role: true, createdAt: true } });
 
     // If role changed, notify the affected user
-    if (data.role && data.role !== existing.role) {
-      // Prevent demoting the last platform_admin
-      if (existing.role === 'platform_admin' && data.role !== 'platform_admin') {
-        const otherAdmins = await prisma.user.count({ where: { role: 'platform_admin', id: { not: existing.id } } });
-        if (otherAdmins === 0) {
-          return res.status(400).json({ error: "Cannot demote the last platform_admin." });
-        }
-      }
+    if (roleIsChanging) {
       try {
         await createNotification(user.id, "Account role changed", `Your account role was changed to ${user.role}.`, "info", null);
       } catch (err) {
@@ -436,15 +483,43 @@ router.patch("/users/:userId", async (req, res, next) => {
 
 router.get("/events", async (_req, res) => {
   const events = await prisma.event.findMany({
-    include: { organizer: { select: { name: true, email: true } }, _count: { select: { uploads: true, zones: true } } },
-    orderBy: { startDate: "desc" }
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      category: true,
+      location: true,
+      startDate: true,
+      endDate: true,
+      visibility: true,
+      status: true,
+      coverImageUrl: true,
+      createdAt: true,
+      updatedAt: true,
+      organizer: { select: { id: true, name: true, email: true } },
+      _count: { select: { uploads: true, zones: true } }
+    },
+    orderBy: { startDate: "desc" },
+    take: 100
   });
   res.json({ events });
 });
 
 router.get("/guests", async (_req, res) => {
   const guests = await prisma.guestSession.findMany({
-    include: { claimedBy: { select: { name: true, email: true } }, _count: { select: { uploads: true } } },
+    select: {
+      id: true,
+      displayName: true,
+      scopeType: true,
+      scopeId: true,
+      expiresAt: true,
+      claimedById: true,
+      createdAt: true,
+      updatedAt: true,
+      lastGuestAccessAt: true,
+      claimedBy: { select: { id: true, name: true, email: true } },
+      _count: { select: { uploads: true, trips: true, events: true, qrUploadSpaces: true } }
+    },
     orderBy: { createdAt: "desc" },
     take: 100
   });
@@ -570,8 +645,20 @@ router.patch("/settings", async (req, res, next) => {
 router.post("/users/:userId/safe-delete", async (req, res, next) => {
   try {
     const userId = req.params.userId;
-    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (req.user.role !== "platform_admin") {
+      return res.status(403).json({ error: "Platform admin access is required to remove users." });
+    }
+    if (userId === req.user.id) {
+      return res.status(400).json({ error: "You cannot remove your own account." });
+    }
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, role: true } });
     if (!user) return res.status(404).json({ error: "User not found." });
+    if (user.role === "platform_admin") {
+      const otherAdmins = await prisma.user.count({ where: { role: "platform_admin", id: { not: user.id } } });
+      if (otherAdmins === 0) {
+        return res.status(400).json({ error: "Cannot remove the last platform_admin." });
+      }
+    }
 
     // Trips: if a trip has no approved uploads, delete it (and its uploads).
     // If it has approved uploads, dissociate the trip from the user so map pins remain.
@@ -650,38 +737,109 @@ router.post("/users/:userId/safe-delete", async (req, res, next) => {
   }
 });
 
-router.get("/moderation", async (_req, res) => {
+router.get("/moderation", async (req, res) => {
   try {
+    const query = z.object({
+      status: z.enum(["all", "pending", "approved", "rejected", "reported"]).default("reported"),
+      limit: z.coerce.number().int().min(1).max(100).default(50)
+    }).parse(req.query);
     const uploads = await prisma.upload.findMany({
-      where: { status: "reported" },
+      where: query.status === "all" ? {} : { status: query.status },
       select: {
         id: true,
         tripId: true,
         eventId: true,
         guestSessionId: true,
-        uploaderAnonId: true,
-        uploaderFingerprint: true,
         caption: true,
         fileUrl: true,
-        filePublicId: true,
         fileType: true,
         status: true,
+        aiFlagged: true,
+        reportReason: true,
         locationName: true,
+        locationVisibility: true,
         moderationStatus: true,
         createdAt: true,
         approvedAt: true,
         rejectedAt: true,
-        trip: { select: { title: true, destination: true, user: { select: { name: true, email: true } } } }
+        trip: { select: { title: true, destination: true, user: { select: { id: true, name: true, email: true } } } },
+        event: { select: { title: true, organizer: { select: { id: true, name: true, email: true } } } }
       },
-      orderBy: { createdAt: "desc" }
+      orderBy: { createdAt: "desc" },
+      take: query.limit
     });
-    res.json({ uploads });
+    res.json({ uploads, filter: { status: query.status, limit: query.limit } });
   } catch (error) {
     // If the database is missing optional columns (eg. skinId) this query
     // may fail with a Prisma P2022 error. Surface a helpful message rather
     // than allowing the process to crash.
+    if (error.name === "ZodError") return next(error);
     console.error("Moderation listing failed", error);
     res.status(500).json({ error: "Moderation listing failed. Database schema may be out of date." });
+  }
+});
+
+router.delete("/moderation/:uploadId", async (req, res, next) => {
+  try {
+    const upload = await prisma.upload.findUnique({ where: { id: req.params.uploadId }, select: { id: true } });
+    if (!upload) return res.status(404).json({ error: "Upload not found." });
+    await prisma.upload.delete({ where: { id: upload.id } });
+    res.status(204).end();
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get("/notifications", async (req, res, next) => {
+  try {
+    const query = z.object({ limit: z.coerce.number().int().min(1).max(100).default(50) }).parse(req.query);
+    const notifications = await prisma.notification.findMany({
+      select: {
+        id: true,
+        title: true,
+        message: true,
+        type: true,
+        targetUrl: true,
+        readAt: true,
+        createdAt: true,
+        user: { select: { id: true, name: true, email: true } }
+      },
+      orderBy: { createdAt: "desc" },
+      take: query.limit
+    });
+    res.json({ notifications });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post("/notifications", async (req, res, next) => {
+  try {
+    const data = z.object({
+      userId: z.string().min(1),
+      title: z.string().trim().min(2).max(120),
+      message: z.string().trim().min(2).max(500),
+      type: z.enum(["info", "success", "warning", "error"]).default("info"),
+      targetUrl: z.string().max(500).optional().nullable()
+    }).parse(req.body);
+    if (data.targetUrl && !/^\/(?!\/)[^\\\s]*$/.test(data.targetUrl)) {
+      return res.status(400).json({ error: "Notification target must be an internal path." });
+    }
+    const recipient = await prisma.user.findUnique({ where: { id: data.userId }, select: { id: true } });
+    if (!recipient) return res.status(404).json({ error: "User not found." });
+    const notification = await prisma.notification.create({
+      data: {
+        userId: recipient.id,
+        title: data.title,
+        message: data.message,
+        type: data.type,
+        targetUrl: data.targetUrl || null
+      },
+      select: { id: true, title: true, message: true, type: true, targetUrl: true, readAt: true, createdAt: true }
+    });
+    res.status(201).json({ notification });
+  } catch (error) {
+    next(error);
   }
 });
  
@@ -698,11 +856,8 @@ router.patch("/uploads/:uploadId/download-item", async (req, res, next) => {
         eventId: true,
         zoneId: true,
         guestSessionId: true,
-        uploaderAnonId: true,
-        uploaderFingerprint: true,
         caption: true,
         fileUrl: true,
-        filePublicId: true,
         fileType: true,
         status: true,
         latitude: true,
@@ -747,7 +902,8 @@ router.post("/moderation/:uploadId/log", async (req, res, next) => {
 
 router.get("/ads", async (_req, res) => {
   const ads = await prisma.internalAd.findMany({
-    orderBy: [{ active: "desc" }, { priority: "desc" }, { updatedAt: "desc" }]
+    orderBy: [{ active: "desc" }, { priority: "desc" }, { updatedAt: "desc" }],
+    take: 100
   });
   res.json({ ads });
 });
@@ -755,7 +911,8 @@ router.get("/ads", async (_req, res) => {
 router.get("/store", async (_req, res) => {
   const items = await prisma.purchaseItem.findMany({
     include: { _count: { select: { purchases: true } } },
-    orderBy: [{ active: "desc" }, { updatedAt: "desc" }]
+    orderBy: [{ active: "desc" }, { updatedAt: "desc" }],
+    take: 100
   });
   res.json({ items });
 });

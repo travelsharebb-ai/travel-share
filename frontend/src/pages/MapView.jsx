@@ -2028,6 +2028,7 @@ export default function MapView() {
 
   const handleAdminUpdateLocation = async (patchData) => {
     if (!selectedAdminLocationId) return;
+    if (patchData.hidden === true && !window.confirm(t("map.confirmHidePin", "Hide this map pin from public view?"))) return;
     setAdminError('');
     try {
       await api(`/api/admin/map/locations/${selectedAdminLocationId}`, {
@@ -2045,6 +2046,7 @@ export default function MapView() {
 
   const handleAdminDeleteLocation = async () => {
     if (!selectedAdminLocationId) return;
+    if (!window.confirm(t("map.confirmHidePin", "Hide this map pin from public view?"))) return;
     setAdminError('');
     try {
       await api(`/api/admin/map/locations/${selectedAdminLocationId}`, { method: 'DELETE' });
@@ -2058,6 +2060,7 @@ export default function MapView() {
   };
 
   const handleAdminUploadAction = async (uploadId, action, locationVisibility) => {
+    if (["hide", "reject"].includes(action) && !window.confirm(t(action === "hide" ? "map.confirmHideUpload" : "map.confirmRejectUpload", action === "hide" ? "Hide this upload from the map?" : "Reject this upload?"))) return;
     setAdminError('');
     try {
       await api(`/api/admin/map/uploads/${uploadId}/moderation`, {

@@ -35,6 +35,7 @@ import AdminModeration from "./pages/admin/Moderation.jsx";
 import AdminReports from "./pages/admin/Reports.jsx";
 import AdminSettings from "./pages/admin/Settings.jsx";
 import AdminTools from "./pages/admin/Tools.jsx";
+import AdminManagement from "./pages/admin/Management.jsx";
 import DiscoverEvents from "./pages/DiscoverEvents.jsx";
 import OAuthCallback from "./pages/OAuthCallback.jsx";
 import QRScanner from "./components/QRScanner.jsx";
@@ -147,11 +148,12 @@ export default function App() {
       <Route path="/qr-spaces/new" element={<PrivateRoute><QRSpaceCreate /></PrivateRoute>} />
       <Route path="/qr-spaces/:id" element={<PrivateRoute><QRSpaceDetails /></PrivateRoute>} />
       <Route path="/admin" element={<PrivateRoute roles={["admin", "platform_admin"]}><Admin /></PrivateRoute>} />
-      <Route path="/admin/users" element={<PrivateRoute roles={["platform_admin"]}><AdminUsers /></PrivateRoute>} />
-      <Route path="/admin/moderation" element={<PrivateRoute roles={["platform_admin"]}><AdminModeration /></PrivateRoute>} />
-      <Route path="/admin/reports" element={<PrivateRoute roles={["platform_admin"]}><AdminReports /></PrivateRoute>} />
-      <Route path="/admin/settings" element={<PrivateRoute roles={["platform_admin"]}><AdminSettings /></PrivateRoute>} />
-      <Route path="/admin/tools" element={<PrivateRoute roles={["platform_admin"]}><AdminTools /></PrivateRoute>} />
+      <Route path="/admin/users" element={<PrivateRoute roles={["admin", "platform_admin"]}><AdminUsers /></PrivateRoute>} />
+      <Route path="/admin/moderation" element={<PrivateRoute roles={["admin", "platform_admin"]}><AdminModeration /></PrivateRoute>} />
+      <Route path="/admin/reports" element={<PrivateRoute roles={["admin", "platform_admin"]}><AdminReports /></PrivateRoute>} />
+      <Route path="/admin/settings" element={<PrivateRoute roles={["admin", "platform_admin"]}><AdminSettings /></PrivateRoute>} />
+      <Route path="/admin/tools" element={<PrivateRoute roles={["admin", "platform_admin"]}><AdminTools /></PrivateRoute>} />
+      <Route path="/admin/management" element={<PrivateRoute roles={["admin", "platform_admin"]}><AdminManagement /></PrivateRoute>} />
       <Route path="/share/:token" element={<ShareAlbum />} />
       <Route path="/join/:tripId" element={<PublicTripJoin />} />
       <Route path="/qr/:qrToken/upload" element={<Shell><PublicUpload /></Shell>} />
