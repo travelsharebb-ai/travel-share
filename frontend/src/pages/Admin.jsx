@@ -124,16 +124,16 @@ export default function Admin() {
         <p className="text-sm uppercase tracking-[0.32em] text-primary">{t("admin.reports.badge", "Reports")}</p>
         <div className="mt-4 grid gap-4 sm:grid-cols-3">
           <div className="rounded-3xl border border-borderline bg-slate-950/70 p-4">
-            <p className="text-sm uppercase tracking-[0.28em] text-primary">{t("admin.actions.safetyAlerts", "Safety alerts")}</p>
-            <p className="mt-2 text-slatebody text-sm">{t("admin.actions.noCriticalAlerts", "No critical alerts in the last 24 hours.")}</p>
+            <p className="text-sm uppercase tracking-[0.28em] text-primary">{t("admin.stats.reported", "Reported")}</p>
+            <p className="mt-2 text-slatebody text-sm">{loading ? t("common.loading", "Loading…") : t("admin.reports.reportedUploadsSummary", "{count} reported uploads").replace("{count}", stats?.reported ?? "—")}</p>
           </div>
           <div className="rounded-3xl border border-borderline bg-slate-950/70 p-4">
-            <p className="text-sm uppercase tracking-[0.28em] text-primary">{t("admin.actions.systemStatus", "System status")}</p>
-            <p className="mt-2 text-slatebody text-sm">{t("admin.actions.allServicesOnline", "All services online and responding normally.")}</p>
+            <p className="text-sm uppercase tracking-[0.28em] text-primary">{t("admin.stats.uploads", "Uploads")}</p>
+            <p className="mt-2 text-slatebody text-sm">{loading ? t("common.loading", "Loading…") : t("admin.reports.totalUploadsSummary", "{count} total uploads").replace("{count}", stats?.uploads ?? "—")}</p>
           </div>
           <div className="rounded-3xl border border-borderline bg-slate-950/70 p-4">
-            <p className="text-sm uppercase tracking-[0.28em] text-primary">{t("admin.actions.contentQueue", "Content queue")}</p>
-            <p className="mt-2 text-slatebody text-sm">{t("admin.actions.pendingItems", "7 pending items awaiting review.")}</p>
+            <p className="text-sm uppercase tracking-[0.28em] text-primary">{t("admin.stats.guests", "Guests")}</p>
+            <p className="mt-2 text-slatebody text-sm">{loading ? t("common.loading", "Loading…") : t("admin.reports.guestSessionsSummary", "{count} guest sessions").replace("{count}", stats?.guests ?? "—")}</p>
           </div>
         </div>
       </section>

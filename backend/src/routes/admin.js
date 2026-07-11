@@ -7,6 +7,7 @@ import { uploadMedia } from "../utils/storage.js";
 import orchestrator from "../services/uploadOrchestrator.js";
 import { cleanUpload, cleanUser } from "../utils/exportImport.js";
 import { createNotification } from "../services/notifications.js";
+import { getAdminAnalytics } from "../services/analyticsService.js";
 
 const router = Router();
 const maxMb = Number(process.env.MAX_UPLOAD_SIZE_MB || 50);
@@ -42,6 +43,12 @@ const storeItemSchema = z.object({
   previewUrl: assetUrlSchema.optional().nullable(),
   active: z.boolean().optional(),
   metadata: z.any().optional().nullable()
+});
+
+const analyticsQuerySchema = z.object({
+  days: z.coerce.number().int().refine((value) => [7, 30].includes(value), {
+    message: "days must be 7 or 30"
+  }).default(30)
 });
 
 async function settingValue(key, fallback) {
@@ -451,25 +458,18 @@ router.get("/guests", async (_req, res) => {
   res.json({ guests });
 });
 
-router.get("/analytics", async (_req, res) => {
-  const zones = await prisma.mapZone.findMany({
-    include: { event: { select: { title: true } }, _count: { select: { uploads: true } } },
-    orderBy: { updatedAt: "desc" },
-    take: 50
-  });
-  const mapHotspots = await prisma.upload.groupBy({
-    by: ["locationName"],
-    where: { locationName: { not: null } },
-    _count: { id: true },
-    orderBy: { _count: { id: "desc" } },
-    take: 20
-  });
-  res.json({
-    analytics: {
-      popularZones: zones.map((zone) => ({ event: zone.event.title, zone: zone.name, count: zone._count.uploads, crowdStatus: zone.crowdStatus })),
-      mapHotspots: mapHotspots.map((item) => ({ locationName: item.locationName, count: item._count.id }))
-    }
-  });
+router.get("/analytics", async (req, res, next) => {
+  const query = analyticsQuerySchema.safeParse(req.query);
+  if (!query.success) {
+    return res.status(400).json({ error: query.error.errors[0]?.message || "Invalid analytics range." });
+  }
+
+  try {
+    const analytics = await getAdminAnalytics({ days: query.data.days });
+    return res.json({ analytics });
+  } catch (error) {
+    return next(error);
+  }
 });
 
 router.get("/settings", async (_req, res) => {
