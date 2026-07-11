@@ -28,6 +28,7 @@ const translations = {
     "freeUnlock": "Déverrouillage gratuit",
     "lockedPremium": "Premium verrouillé",
     "viewFull": "Voir en entier",
+    "download": "Télécharger",
     "approveAndSave": "Approuver et enregistrer",
     "reject": "Rejeter",
     "report": "Signaler",
@@ -37,6 +38,7 @@ const translations = {
     "downloadGated": "Téléchargement restreint",
     "photoFrame": "Cadre photo",
     "removePhotoFrame": "Supprimer le cadre photo",
+    "remove": "Supprimer",
     "availablePhotoFrames": "Cadres photo disponibles",
     "none": "Aucun",
     "choosePhotoOrVideo": "Choisir une photo ou une vidéo",
@@ -49,6 +51,7 @@ const translations = {
     "sharedAlbum": "Album partagé",
     "albumToken": "Jeton de l’album",
     "uploading": "Téléversement…",
+    "poweredByTravelShare": "Powered by Travel Share",
     "cannotDeleteSelf": "Vous ne pouvez pas supprimer votre propre compte ici.",
     "confirmDelete": "Êtes-vous sûr de vouloir supprimer (anonymiser) cet utilisateur en toute sécurité? Cela ne peut pas être annulé."
   },

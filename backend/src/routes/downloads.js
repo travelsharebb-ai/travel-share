@@ -67,8 +67,8 @@ router.get("/:uploadId", requireAuth, async (req, res) => {
     }
   }
 
-  const watermarkText = req.user?.email ? `Protected ${req.user.email}` : "Protected TravelShare";
-  const signedUrl = signedMediaUrl(upload, { watermarkText });
+  const watermarkText = "Powered by Travel Share";
+  const signedUrl = signedMediaUrl(upload, { watermarkText, attachment: req.query.download === "1" });
   if (!signedUrl) {
     await recordDownloadAudit({
       userId: req.user.id,
@@ -87,6 +87,9 @@ router.get("/:uploadId", requireAuth, async (req, res) => {
     reason: "ok",
     ip: req.ip
   });
+  if (req.query.format === "json") {
+    return res.json({ url: signedUrl });
+  }
   res.redirect(signedUrl);
 });
 

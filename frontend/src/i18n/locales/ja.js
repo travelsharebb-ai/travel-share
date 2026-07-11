@@ -44,6 +44,7 @@ const translations = {
     "cannotDeleteSelf": "ここでは自分のアカウントを削除することはできません。",
     "confirmDelete": "このユーザーを安全に削除 (匿名化) してもよろしいですか?これを元に戻すことはできません。",
     "viewFull": "全文を見る",
+    "download": "ダウンロード",
     "approveAndSave": "承認して保存",
     "reject": "拒否する",
     "report": "報告",
@@ -53,6 +54,7 @@ const translations = {
     "downloadGated": "ダウンロードゲート付き",
     "photoFrame": "フォトフレーム",
     "removePhotoFrame": "フォトフレームを外す",
+    "remove": "削除",
     "availablePhotoFrames": "利用可能なフォトフレーム",
     "none": "なし",
     "choosePhotoOrVideo": "写真またはビデオを選択してください",
@@ -64,7 +66,8 @@ const translations = {
     "backToTrip": "旅行に戻る",
     "sharedAlbum": "共有アルバム",
     "albumToken": "アルバムトークン",
-    "uploading": "アップロード中…"
+    "uploading": "アップロード中…",
+    "poweredByTravelShare": "Powered by Travel Share"
   },
   "qrSpaces": {
     "title": "QR Upload Spaces",

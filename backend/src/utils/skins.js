@@ -50,7 +50,7 @@ export async function userOwnsSkin(userId, skinId, prismaClient = prisma) {
 export async function attachFrameUrls(uploads, prismaClient = prisma) {
   if (!Array.isArray(uploads) || uploads.length === 0) return uploads;
   const skinIds = Array.from(new Set(uploads.filter((u) => u && u.skinId).map((u) => u.skinId)));
-  if (!skinIds.length) return uploads.map((u) => ({ ...u, skinId: u.skinId || null }));
+  if (!skinIds.length) return uploads.map((u) => ({ ...u, skinId: u.skinId || null, frameAssetUrl: null, skinFrameUrl: null }));
 
   const skins = await prismaClient.purchaseItem.findMany({ where: { id: { in: skinIds } } });
   const map = Object.fromEntries(skins.map((s) => [s.id, s]));
@@ -58,7 +58,7 @@ export async function attachFrameUrls(uploads, prismaClient = prisma) {
   return uploads.map((u) => {
     if (!u) return u;
     const skin = u.skinId ? map[u.skinId] : null;
-    return { ...u, skinId: u.skinId || null, frameAssetUrl: skin?.metadata?.frameAssetUrl || null };
+    return { ...u, skinId: u.skinId || null, frameAssetUrl: skin?.metadata?.frameAssetUrl || null, skinFrameUrl: skin?.metadata?.frameAssetUrl || null };
   });
 }
 

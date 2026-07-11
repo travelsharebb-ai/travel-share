@@ -30,6 +30,7 @@ const translations = {
     "cannotDeleteSelf": "لا يمكنك حذف حسابك الخاص هنا.",
     "confirmDelete": "هل أنت متأكد أنك تريد حذف (إخفاء هوية) هذا المستخدم بأمان؟ لا يمكن التراجع عن هذا.",
     "viewFull": "عرض كامل",
+    "download": "تنزيل",
     "approveAndSave": "الموافقة والحفظ",
     "reject": "يرفض",
     "report": "تقرير",
@@ -39,6 +40,7 @@ const translations = {
     "downloadGated": "تحميل بوابات",
     "photoFrame": "إطار الصورة",
     "removePhotoFrame": "إزالة إطار الصورة",
+    "remove": "إزالة",
     "availablePhotoFrames": "إطارات الصور المتاحة",
     "none": "لا أحد",
     "choosePhotoOrVideo": "اختر صورة أو فيديو",
@@ -50,7 +52,8 @@ const translations = {
     "backToTrip": "العودة إلى الرحلة",
     "sharedAlbum": "الألبوم المشترك",
     "albumToken": "رمز الألبوم",
-    "uploading": "جارٍ التحميل…"
+    "uploading": "جارٍ التحميل…",
+    "poweredByTravelShare": "Powered by Travel Share"
   },
   "qrSpaces": {
     "title": "QR Upload Spaces",

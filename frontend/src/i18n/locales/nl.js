@@ -30,6 +30,7 @@ const translations = {
     "cannotDeleteSelf": "Je kunt hier je eigen account niet verwijderen.",
     "confirmDelete": "Weet u zeker dat u deze gebruiker veilig wilt verwijderen (anonimiseren)? Dit kan niet ongedaan worden gemaakt.",
     "viewFull": "Bekijk volledig",
+    "download": "Downloaden",
     "approveAndSave": "Goedkeuren en opslaan",
     "reject": "Afwijzen",
     "report": "Rapport",
@@ -39,6 +40,7 @@ const translations = {
     "downloadGated": "Downloaden met poort",
     "photoFrame": "Fotolijst",
     "removePhotoFrame": "Fotolijst verwijderen",
+    "remove": "Verwijderen",
     "availablePhotoFrames": "Beschikbare fotolijsten",
     "none": "Geen",
     "choosePhotoOrVideo": "Kies foto of video",
@@ -50,7 +52,8 @@ const translations = {
     "backToTrip": "Terug naar reis",
     "sharedAlbum": "Gedeeld album",
     "albumToken": "Albumtoken",
-    "uploading": "Uploaden…"
+    "uploading": "Uploaden…",
+    "poweredByTravelShare": "Powered by Travel Share"
   },
   "qrSpaces": {
     "title": "QR Upload Spaces",

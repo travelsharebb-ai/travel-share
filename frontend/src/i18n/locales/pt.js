@@ -28,6 +28,7 @@ const translations = {
     "freeUnlock": "Desbloqueio gratuito",
     "lockedPremium": "Premium bloqueado",
     "viewFull": "Ver completo",
+    "download": "Baixar",
     "approveAndSave": "Aprovar e guardar",
     "reject": "Rejeitar",
     "report": "Denunciar",
@@ -37,6 +38,7 @@ const translations = {
     "downloadGated": "Download protegido",
     "photoFrame": "Moldura de foto",
     "removePhotoFrame": "Remover moldura",
+    "remove": "Remover",
     "availablePhotoFrames": "Molduras disponíveis",
     "none": "Nenhum",
     "choosePhotoOrVideo": "Escolher foto ou vídeo",
@@ -49,6 +51,7 @@ const translations = {
     "sharedAlbum": "Álbum partilhado",
     "albumToken": "Token do álbum",
     "uploading": "A enviar…",
+    "poweredByTravelShare": "Powered by Travel Share",
     "cannotDeleteSelf": "Você não pode excluir sua própria conta aqui.",
     "confirmDelete": "Tem certeza de que deseja excluir (anonimizar) este usuário com segurança? Isto não pode ser desfeito."
   },

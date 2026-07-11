@@ -28,6 +28,7 @@ const translations = {
     "freeUnlock": "Desbloqueo gratis",
     "lockedPremium": "Premium bloqueado",
     "viewFull": "Ver completo",
+    "download": "Descargar",
     "approveAndSave": "Aprobar y guardar",
     "reject": "Rechazar",
     "report": "Reportar",
@@ -37,6 +38,7 @@ const translations = {
     "downloadGated": "Descarga protegida",
     "photoFrame": "Marco de foto",
     "removePhotoFrame": "Quitar marco de foto",
+    "remove": "Quitar",
     "availablePhotoFrames": "Marcos de foto disponibles",
     "none": "Ninguno",
     "choosePhotoOrVideo": "Elegir foto o video",
@@ -49,6 +51,7 @@ const translations = {
     "sharedAlbum": "Álbum compartido",
     "albumToken": "Token del álbum",
     "uploading": "Subiendo…",
+    "poweredByTravelShare": "Powered by Travel Share",
     "cannotDeleteSelf": "No puedes eliminar tu propia cuenta aquí.",
     "confirmDelete": "¿Estás seguro de que deseas eliminar (anonimizar) de forma segura este usuario? Esto no se puede deshacer."
   },

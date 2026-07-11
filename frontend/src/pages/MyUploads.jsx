@@ -13,8 +13,10 @@ function uploadSource(upload, t) {
 export default function MyUploads() {
   const { t } = useLanguage();
   const [uploads, setUploads] = useState([]);
+  const [skinOptions, setSkinOptions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [feedback, setFeedback] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -38,6 +40,37 @@ export default function MyUploads() {
     };
   }, [t]);
 
+  useEffect(() => {
+    let active = true;
+    api("/api/store")
+      .then((data) => {
+        if (!active) return;
+        const unlockedSkins = (data.items || []).filter((item) => item.type === "image_skin" && item.owned);
+        setSkinOptions(unlockedSkins);
+      })
+      .catch(() => {
+        if (!active) return;
+        setSkinOptions([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  async function handleApplySkin(uploadId, skinId) {
+    setFeedback("");
+    try {
+      const data = await api(`/api/uploads/${uploadId}/skin`, {
+        method: "PATCH",
+        body: JSON.stringify({ skinId })
+      });
+      setUploads((current) => current.map((upload) => (upload.id === uploadId ? { ...upload, ...data.upload } : upload)));
+      setFeedback(skinId ? t("myUploads.frameApplied", "Frame applied to this memory.") : t("myUploads.frameRemoved", "Frame removed from this memory."));
+    } catch (err) {
+      setFeedback(err.message || t("myUploads.frameError", "Unable to update frame."));
+    }
+  }
+
   return (
     <main className="page-shell space-y-6">
       <section className="hero-copy-panel">
@@ -47,6 +80,7 @@ export default function MyUploads() {
       </section>
 
       {error ? <section className="card p-5 text-red-400">{error}</section> : null}
+      {feedback ? <section className="card p-4 text-sm font-semibold text-primary">{feedback}</section> : null}
 
       {loading ? (
         <section className="card p-5 text-slatebody">{t("myUploads.loading", "Loading memories...")}</section>
@@ -59,7 +93,7 @@ export default function MyUploads() {
         <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {uploads.map((upload) => (
             <div key={upload.id} className="space-y-3">
-              <MediaCard upload={upload} />
+              <MediaCard upload={upload} skinOptions={skinOptions} onApplySkin={handleApplySkin} />
               <div className="card p-3 text-sm text-slatebody">
                 <p className="font-semibold">{uploadSource(upload, t)}</p>
                 <p className="mt-1">{t("myUploads.status", "Status")}: {upload.status}</p>

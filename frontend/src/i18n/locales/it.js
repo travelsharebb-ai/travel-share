@@ -30,6 +30,7 @@ const translations = {
     "cannotDeleteSelf": "Non puoi eliminare il tuo account qui.",
     "confirmDelete": "Sei sicuro di voler eliminare in modo sicuro (anonimizzare) questo utente? Questa operazione non può essere annullata.",
     "viewFull": "Visualizza completo",
+    "download": "Scarica",
     "approveAndSave": "Approva e salva",
     "reject": "Rifiutare",
     "report": "Rapporto",
@@ -39,6 +40,7 @@ const translations = {
     "downloadGated": "Scarica recintato",
     "photoFrame": "Cornice per foto",
     "removePhotoFrame": "Rimuovere la cornice digitale",
+    "remove": "Rimuovi",
     "availablePhotoFrames": "Cornici per foto disponibili",
     "none": "Nessuno",
     "choosePhotoOrVideo": "Scegli foto o video",
@@ -50,7 +52,8 @@ const translations = {
     "backToTrip": "Ritorno al viaggio",
     "sharedAlbum": "Album condiviso",
     "albumToken": "Gettone dell'album",
-    "uploading": "Caricamento…"
+    "uploading": "Caricamento…",
+    "poweredByTravelShare": "Powered by Travel Share"
   },
   "qrSpaces": {
     "title": "QR Upload Spaces",

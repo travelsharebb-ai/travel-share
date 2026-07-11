@@ -30,6 +30,7 @@ const translations = {
     "freeUnlock": "Free unlock",
     "lockedPremium": "Locked premium",
     "viewFull": "View full",
+    "download": "Download",
     "approveAndSave": "Approve & Save",
     "reject": "Reject",
     "report": "Report",
@@ -39,6 +40,7 @@ const translations = {
     "downloadGated": "Download gated",
     "photoFrame": "Photo frame",
     "removePhotoFrame": "Remove photo frame",
+    "remove": "Remove",
     "availablePhotoFrames": "Available photo frames",
     "none": "None",
     "choosePhotoOrVideo": "Choose photo or video",
@@ -50,7 +52,8 @@ const translations = {
     "backToTrip": "Back to trip",
     "sharedAlbum": "Shared album",
     "albumToken": "Album token",
-    "uploading": "Uploading…"
+    "uploading": "Uploading…",
+    "poweredByTravelShare": "Powered by Travel Share"
   },
   "qrSpaces": {
     "title": "QR Upload Spaces",

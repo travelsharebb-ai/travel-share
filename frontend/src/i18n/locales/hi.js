@@ -44,6 +44,7 @@ const translations = {
     "cannotDeleteSelf": "आप यहां अपना खाता नहीं हटा सकते.",
     "confirmDelete": "क्या आप वाकई इस उपयोगकर्ता को सुरक्षित रूप से हटाना (गुमनाम करना) चाहते हैं? इसे असंपादित नहीं किया जा सकता है।",
     "viewFull": "पूरा देखें",
+    "download": "डाउनलोड करें",
     "approveAndSave": "स्वीकृत करें और सहेजें",
     "reject": "अस्वीकार करना",
     "report": "प्रतिवेदन",
@@ -53,6 +54,7 @@ const translations = {
     "downloadGated": "गेटेड डाउनलोड करें",
     "photoFrame": "फोटो फ्रेम",
     "removePhotoFrame": "फोटो फ्रेम हटाएं",
+    "remove": "हटाएं",
     "availablePhotoFrames": "उपलब्ध फोटो फ्रेम",
     "none": "कोई नहीं",
     "choosePhotoOrVideo": "फ़ोटो या वीडियो चुनें",
@@ -64,7 +66,8 @@ const translations = {
     "backToTrip": "यात्रा पर वापस जाएँ",
     "sharedAlbum": "साझा एल्बम",
     "albumToken": "एल्बम टोकन",
-    "uploading": "अपलोड हो रहा है..."
+    "uploading": "अपलोड हो रहा है...",
+    "poweredByTravelShare": "Powered by Travel Share"
   },
   "qrSpaces": {
     "title": "QR Upload Spaces",

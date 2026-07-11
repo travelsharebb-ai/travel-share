@@ -30,6 +30,7 @@ const translations = {
     "cannotDeleteSelf": "您无法在此处删除您自己的帐户。",
     "confirmDelete": "您确定要安全删除（匿名）该用户吗？此操作无法撤消。",
     "viewFull": "查看完整内容",
+    "download": "下载",
     "approveAndSave": "批准并保存",
     "reject": "拒绝",
     "report": "报告",
@@ -39,6 +40,7 @@ const translations = {
     "downloadGated": "下载门控",
     "photoFrame": "相框",
     "removePhotoFrame": "删除相框",
+    "remove": "移除",
     "availablePhotoFrames": "可用的相框",
     "none": "没有任何",
     "choosePhotoOrVideo": "选择照片或视频",
@@ -50,7 +52,8 @@ const translations = {
     "backToTrip": "返回行程",
     "sharedAlbum": "共享相册",
     "albumToken": "专辑代币",
-    "uploading": "正在上传..."
+    "uploading": "正在上传...",
+    "poweredByTravelShare": "Powered by Travel Share"
   },
   "qrSpaces": {
     "title": "QR Upload Spaces",

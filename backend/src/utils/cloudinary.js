@@ -64,7 +64,20 @@ export async function uploadMedia(file, options = {}) {
   };
 }
 
-export function signedMediaUrl({ filePublicId, fileType, expiresInSeconds = 300 }, options = {}) {
+function attachmentName({ id, caption, createdAt, filePublicId }) {
+  const title = String(caption || filePublicId || id || "memory")
+    .split("/")
+    .pop()
+    .replace(/\.[a-z0-9]+$/i, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60) || "memory";
+  const date = createdAt ? new Date(createdAt).toISOString().slice(0, 10) : "";
+  return ["travel-share", title, date].filter(Boolean).join("-");
+}
+
+export function signedMediaUrl({ id, caption, createdAt, filePublicId, fileType, expiresInSeconds = 300 }, options = {}) {
   if (!filePublicId || filePublicId.startsWith("mock/")) return null;
   if (!process.env.CLOUDINARY_URL && !(process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET)) {
     return null;
@@ -93,6 +106,7 @@ export function signedMediaUrl({ filePublicId, fileType, expiresInSeconds = 300 
     expires_at: Math.floor(Date.now() / 1000) + expiresInSeconds,
   };
   if (transformation) opts.transformation = transformation;
+  if (options.attachment) opts.flags = `attachment:${attachmentName({ id, caption, createdAt, filePublicId })}`;
 
   return cloudinary.url(filePublicId, opts);
 }

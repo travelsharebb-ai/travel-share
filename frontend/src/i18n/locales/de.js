@@ -28,6 +28,7 @@ const translations = {
     "freeUnlock": "Kostenlos entsperren",
     "lockedPremium": "Premium gesperrt",
     "viewFull": "Vollständig ansehen",
+    "download": "Herunterladen",
     "approveAndSave": "Genehmigen & speichern",
     "reject": "Ablehnen",
     "report": "Melden",
@@ -37,6 +38,7 @@ const translations = {
     "downloadGated": "Download gesichert",
     "photoFrame": "Foto-rahmen",
     "removePhotoFrame": "Foto-Rahmen entfernen",
+    "remove": "Entfernen",
     "availablePhotoFrames": "Verfügbare Foto-Rahmen",
     "none": "Keine",
     "choosePhotoOrVideo": "Foto oder Video auswählen",
@@ -49,6 +51,7 @@ const translations = {
     "sharedAlbum": "Geteiltes Album",
     "albumToken": "Album-Token",
     "uploading": "Wird hochgeladen…",
+    "poweredByTravelShare": "Powered by Travel Share",
     "cannotDeleteSelf": "Sie können Ihr eigenes Konto hier nicht löschen.",
     "confirmDelete": "Sind Sie sicher, dass Sie diesen Benutzer sicher löschen (anonymisieren) möchten? Dies kann nicht rückgängig gemacht werden."
   },
