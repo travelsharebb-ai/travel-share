@@ -18,6 +18,7 @@ async function recordDownloadAudit({ userId, uploadId, success, reason, ip }) {
 }
 
 router.get("/:uploadId", requireAuth, async (req, res) => {
+  if (!req.user) return res.status(401).json({ error: "Please sign up or log in to purchase or download this item." });
   const upload = await prisma.upload.findUnique({
     where: { id: req.params.uploadId },
     include: {
@@ -66,8 +67,8 @@ router.get("/:uploadId", requireAuth, async (req, res) => {
     }
   }
 
-  const watermarkText = req.user?.email ? `Protected ${req.user.email}` : "Protected TravelShare";
-  const signedUrl = signedMediaUrl(upload, { watermarkText });
+  const watermarkText = "Powered by Travel Share";
+  const signedUrl = signedMediaUrl(upload, { watermarkText, attachment: req.query.download === "1" });
   if (!signedUrl) {
     await recordDownloadAudit({
       userId: req.user.id,
@@ -86,6 +87,9 @@ router.get("/:uploadId", requireAuth, async (req, res) => {
     reason: "ok",
     ip: req.ip
   });
+  if (req.query.format === "json") {
+    return res.json({ url: signedUrl });
+  }
   res.redirect(signedUrl);
 });
 

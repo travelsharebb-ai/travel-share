@@ -4,6 +4,7 @@ import { prisma } from "../utils/prisma.js";
 import { attachFrameUrls, userOwnsSkin } from "../utils/skins.js";
 import { notifyReportedUpload } from "../utils/email.js";
 import { isPlatformAdmin } from "../middleware/auth.js";
+import { createNotification } from "../services/notifications.js";
 
 const router = Router();
 
@@ -34,6 +35,7 @@ async function ownedUpload(userId, uploadId) {
       createdAt: true,
       approvedAt: true,
       rejectedAt: true,
+      skinId: true,
       trip: true,
       event: true
     }
@@ -68,6 +70,7 @@ async function manageableUpload(req, uploadId) {
         createdAt: true,
         approvedAt: true,
         rejectedAt: true,
+        skinId: true,
         trip: true,
         event: true
       }
@@ -80,6 +83,47 @@ async function manageableUpload(req, uploadId) {
 async function hydrateUploads(uploads) {
   return attachFrameUrls(uploads);
 }
+
+function ownedUploadWhere(req, extra = {}) {
+  const ownership = isPlatformAdmin(req.user)
+    ? {}
+    : {
+        OR: [
+          { trip: { userId: req.user.id } },
+          { event: { organizerId: req.user.id } }
+        ]
+      };
+  return { ...ownership, ...extra };
+}
+
+const uploadListSelect = {
+  id: true,
+  tripId: true,
+  eventId: true,
+  zoneId: true,
+  guestSessionId: true,
+  uploaderAnonId: true,
+  uploaderFingerprint: true,
+  caption: true,
+  fileUrl: true,
+  filePublicId: true,
+  fileType: true,
+  status: true,
+  latitude: true,
+  longitude: true,
+  approximateLatitude: true,
+  approximateLongitude: true,
+  locationName: true,
+  region: true,
+  locationVisibility: true,
+  moderationStatus: true,
+  createdAt: true,
+  approvedAt: true,
+  rejectedAt: true,
+  skinId: true,
+  trip: { select: { id: true, title: true, destination: true } },
+  event: { select: { id: true, title: true, location: true } }
+};
 
 router.get("/trips/:tripId/uploads", async (req, res) => {
   const trip = await prisma.trip.findFirst({ where: { id: req.params.tripId, userId: req.user.id } });
@@ -111,9 +155,33 @@ router.get("/trips/:tripId/uploads", async (req, res) => {
       moderationStatus: true,
       createdAt: true,
       approvedAt: true,
-      rejectedAt: true
+      rejectedAt: true,
+      skinId: true
     },
     orderBy: { createdAt: "desc" }
+  });
+  const hydrated = await hydrateUploads(uploads);
+  res.json({ uploads: hydrated });
+});
+
+router.get("/uploads/mine", async (req, res) => {
+  const status = req.query.status ? String(req.query.status) : null;
+  const uploads = await prisma.upload.findMany({
+    where: ownedUploadWhere(req, status ? { status } : {}),
+    select: uploadListSelect,
+    orderBy: { createdAt: "desc" },
+    take: 200
+  });
+  const hydrated = await hydrateUploads(uploads);
+  res.json({ uploads: hydrated });
+});
+
+router.get("/uploads/pending-approvals", async (req, res) => {
+  const uploads = await prisma.upload.findMany({
+    where: ownedUploadWhere(req, { status: "pending" }),
+    select: uploadListSelect,
+    orderBy: { createdAt: "desc" },
+    take: 200
   });
   const hydrated = await hydrateUploads(uploads);
   res.json({ uploads: hydrated });
@@ -149,10 +217,20 @@ router.patch("/uploads/:uploadId/approve", async (req, res) => {
       moderationStatus: true,
       createdAt: true,
       approvedAt: true,
-      rejectedAt: true
+      rejectedAt: true,
+      skinId: true
     }
   });
   const hydrated = (await hydrateUploads([updated]))[0];
+  try {
+    // notify owner if present
+    const ownerId = updated.trip?.userId || updated.event?.organizerId || null;
+    if (ownerId) {
+      await createNotification(ownerId, "Upload approved", `An upload was approved: ${updated.caption || 'photo'}.`, "info", null);
+    }
+  } catch (err) {
+    console.error('notify upload approval failed', err?.message || err);
+  }
   res.json({ upload: hydrated });
 });
 
@@ -186,10 +264,19 @@ router.patch("/uploads/:uploadId/reject", async (req, res) => {
       moderationStatus: true,
       createdAt: true,
       approvedAt: true,
-      rejectedAt: true
+      rejectedAt: true,
+      skinId: true
     }
   });
   const hydrated = (await hydrateUploads([updated]))[0];
+  try {
+    const ownerId = updated.trip?.userId || updated.event?.organizerId || null;
+    if (ownerId) {
+      await createNotification(ownerId, "Upload rejected", `An upload was rejected by moderation.`, "warning", null);
+    }
+  } catch (err) {
+    console.error('notify upload rejection failed', err?.message || err);
+  }
   res.json({ upload: hydrated });
 });
 
@@ -223,6 +310,7 @@ router.patch("/uploads/:uploadId/report", async (req, res, next) => {
         createdAt: true,
         approvedAt: true,
         rejectedAt: true,
+        skinId: true,
         trip: true
       }
     });
@@ -247,6 +335,15 @@ router.patch("/uploads/:uploadId/report", async (req, res, next) => {
     notifyReportedUpload({ upload: updated }).catch((error) => {
       console.error("Reported upload notification failed", error);
     });
+
+    try {
+      const ownerId = updated.trip?.userId || (updated.trip?.user?.id) || null;
+      if (ownerId) {
+        await createNotification(ownerId, "Upload reported", `An upload was reported: ${updated.reportReason || 'reported'}.`, "warning", null);
+      }
+    } catch (err) {
+      console.error('notify reported upload failed', err?.message || err);
+    }
 
     const hydrated = (await hydrateUploads([updated]))[0];
     res.json({ upload: hydrated });
@@ -313,7 +410,8 @@ router.patch("/uploads/:uploadId/skin", async (req, res) => {
         moderationStatus: true,
         createdAt: true,
         approvedAt: true,
-        rejectedAt: true
+        rejectedAt: true,
+        skinId: true
       }
     });
     const hydrated = (await hydrateUploads([updated]))[0];

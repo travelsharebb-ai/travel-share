@@ -7,6 +7,551 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id                   String                 @id @default(cuid())
+  name                 String
+  email                String                 @unique
+  pendingEmail         String?
+  emailChangeTokenHash String?                @unique
+  emailChangeTokenExpiresAt DateTime?
+  emailVerifiedAt      DateTime?
+  passwordHash         String
+  role                 UserRole               @default(tourist)
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+  activeStoreItemId    String?
+  moderationLogs       AdminModerationLog[]   @relation("AdminModerationLogs")
+  downloadAuditLogs    DownloadAuditLog[]
+  emailLogs            EmailNotificationLog[]
+  organizedEvents      Event[]                @relation("OrganizerEvents")
+  claimedGuestSessions GuestSession[]         @relation("ClaimedGuestSessions")
+  ads                  InternalAd[]           @relation("AdCreator")
+  locations            Location[]
+  passwordResetTokens  PasswordResetToken[]
+  paymentTransactions  PaymentTransaction[]
+  trips                Trip[]
+  qrUploadSpaces       QRUploadSpace[]
+  activeStoreItem      PurchaseItem?          @relation("ActiveStoreItem", fields: [activeStoreItemId], references: [id])
+  preferences          UserPreference?
+  purchases            UserPurchase[]
+  skinUnlocks          UserSkinUnlock[]     @relation("UserSkinUnlockUser")
+  notifications         Notification[]
+  following            UserFollow[]          @relation("UserFollowing")
+  followers            UserFollow[]          @relation("UserFollowers")
+
+  @@index([activeStoreItemId])
+}
+
+model UserFollow {
+  id          String   @id @default(cuid())
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+  follower    User     @relation("UserFollowing", fields: [followerId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  following   User     @relation("UserFollowers", fields: [followingId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
+}
+
+model UserPreference {
+  id                        String             @id @default(cuid())
+  userId                    String             @unique
+  defaultLocationVisibility LocationVisibility @default(approximate)
+  emailNotifications        Boolean            @default(true)
+  uploadAlerts              Boolean            @default(true)
+  promotionalEmails         Boolean            @default(false)
+  createdAt                 DateTime           @default(now())
+  updatedAt                 DateTime           @updatedAt
+  user                      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model GuestSession {
+  id                String   @id @default(cuid())
+  token             String   @unique
+  deviceFingerprint String?
+  scopeType         String?
+  scopeId           String?
+  displayName       String?
+  resumeTokenHash   String?  @unique
+  resumeCode        String?  @unique
+  passcodeHash      String?
+  passcodeSetAt     DateTime?
+  lastGuestAccessAt DateTime?
+  expiresAt         DateTime
+  claimedById       String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  events            Event[]
+  claimedBy         User?    @relation("ClaimedGuestSessions", fields: [claimedById], references: [id])
+  trips             Trip[]
+  uploads           Upload[]
+  qrUploadSpaces    QRUploadSpace[]
+
+  @@index([scopeType, scopeId])
+  @@index([expiresAt])
+  @@index([claimedById])
+}
+
+model Trip {
+  id                        String             @id @default(cuid())
+  userId                    String?
+  title                     String
+  destination               String
+  startDate                 DateTime?
+  endDate                   DateTime?
+  qrToken                   String             @unique
+  qrActive                  Boolean            @default(true)
+  qrExpiresAt               DateTime?
+  qrMode                    QrMode             @default(open)
+  createdAt                 DateTime           @default(now())
+  updatedAt                 DateTime           @updatedAt
+  defaultLocationVisibility LocationVisibility @default(approximate)
+  guestSessionId            String?
+  blockedUploaders          BlockedUploader[]
+  shareLinks                ShareLink[]
+  guestSession              GuestSession?      @relation(fields: [guestSessionId], references: [id])
+  user                      User?              @relation(fields: [userId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  chapters                  TripChapter[]
+  uploads                   Upload[]
+
+  @@index([userId])
+  @@index([guestSessionId])
+}
+
+model TripChapter {
+  id        String   @id @default(cuid())
+  tripId    String
+  title     String
+  note      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  trip      Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@index([tripId, createdAt])
+}
+
+model Event {
+  id             String          @id @default(cuid())
+  organizerId    String?
+  title          String
+  description    String?
+  category       String?
+  location       String?
+  latitude       Float?
+  longitude      Float?
+  startDate      DateTime
+  endDate        DateTime?
+  visibility     EventVisibility @default(public)
+  status         EventStatus     @default(draft)
+  coverImageUrl  String?
+  qrToken        String          @unique
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  guestSessionId String?
+  guestSession   GuestSession?   @relation(fields: [guestSessionId], references: [id])
+  organizer      User?           @relation("OrganizerEvents", fields: [organizerId], references: [id])
+  maps           EventMap[]
+  zones          MapZone[]
+  uploads        Upload[]
+  shareLinks     ShareLink[]
+
+  @@index([organizerId])
+  @@index([guestSessionId])
+  @@index([status, visibility])
+  @@index([startDate])
+}
+
+model EventMap {
+  id          String   @id @default(cuid())
+  eventId     String
+  title       String
+  mapType     String   @default("image")
+  imageUrl    String?
+  mapboxStyle String?
+  centerLat   Float?
+  centerLng   Float?
+  zoom        Float?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId, active])
+}
+
+model MapZone {
+  id           String      @id @default(cuid())
+  eventId      String
+  name         String
+  type         String
+  description  String?
+  x            Float?
+  y            Float?
+  latitude     Float?
+  longitude    Float?
+  shape        Json?
+  crowdStatus  CrowdStatus @default(low)
+  qrToken      String      @unique
+  displayOrder Int         @default(0)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  event        Event       @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  uploads      Upload[]
+
+  @@index([eventId])
+  @@index([crowdStatus])
+}
+
+model Location {
+  id        String   @id @default(cuid())
+  name      String
+  address   String?
+  latitude  Float?
+  longitude Float?
+  featured  Boolean  @default(false)
+  hidden    Boolean  @default(false)
+  userId    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  uploads   Upload[]
+
+  @@index([userId])
+}
+
+model Upload {
+  id                     String                 @id @default(cuid())
+  tripId                 String?
+  uploaderAnonId         String
+  uploaderFingerprint    String?
+  fileUrl                String
+  filePublicId           String
+  fileType               FileType
+  status                 UploadStatus           @default(pending)
+  aiFlagged              Boolean                @default(false)
+  reportReason           String?
+  createdAt              DateTime               @default(now())
+  approvedAt             DateTime?
+  rejectedAt             DateTime?
+  moderationProvider     String?
+  moderationStatus       String?
+  moderationLabels       Json?
+  eventId                String?
+  zoneId                 String?
+  guestSessionId         String?
+  caption                String?
+  latitude               Float?
+  longitude              Float?
+  approximateLatitude    Float?
+  approximateLongitude   Float?
+  locationName           String?
+  region                 String?
+  locationVisibility     LocationVisibility     @default(approximate)
+  downloadPurchaseItemId String?
+  skinId                 String?
+  locationId             String?
+  qrUploadSpaceId        String?
+  moderationLogs         AdminModerationLog[]
+  downloadAuditLogs      DownloadAuditLog[]
+  emailLogs              EmailNotificationLog[]
+  downloadPurchaseItem   PurchaseItem?          @relation("UploadDownloadItem", fields: [downloadPurchaseItemId], references: [id])
+  skin                   PurchaseItem?          @relation("UploadSkin", fields: [skinId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  event                  Event?                 @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  guestSession           GuestSession?          @relation(fields: [guestSessionId], references: [id])
+  location               Location?              @relation(fields: [locationId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  qrUploadSpace          QRUploadSpace?          @relation(fields: [qrUploadSpaceId], references: [id], onDelete: SetNull)
+  trip                   Trip?                  @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  zone                   MapZone?               @relation(fields: [zoneId], references: [id])
+  uploadState            UploadState?
+
+  @@index([tripId, status])
+  @@index([eventId, status])
+  @@index([zoneId])
+  @@index([guestSessionId])
+  @@index([locationId])
+  @@index([qrUploadSpaceId])
+  @@index([uploaderFingerprint])
+  @@index([downloadPurchaseItemId])
+}
+
+model QRUploadSpace {
+  id                   String         @id @default(cuid())
+  token                String         @unique
+  title                String
+  targetType           QRTargetType
+  targetId             String?
+  createdByUserId      String?
+  guestSessionId       String?
+  visibility           QRVisibility   @default(unlisted)
+  expiresAt            DateTime?
+  allowGuests          Boolean        @default(true)
+  allowRegisteredUsers Boolean        @default(true)
+  requireApproval      Boolean        @default(true)
+  latitude             Float?
+  longitude            Float?
+  locationName         String?
+  disabledAt           DateTime?
+  deletedAt            DateTime?
+  scanCount            Int            @default(0)
+  lastScannedAt        DateTime?
+  metadata             Json?
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+  createdBy            User?          @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+  guestSession         GuestSession?  @relation(fields: [guestSessionId], references: [id], onDelete: SetNull)
+  uploads              Upload[]
+
+  @@index([token])
+  @@index([createdByUserId])
+  @@index([guestSessionId])
+  @@index([targetType, targetId])
+  @@index([expiresAt])
+  @@index([deletedAt])
+}
+
+model UploadState {
+  id              String           @id @default(cuid())
+  idempotencyKey  String           @unique
+  status          String
+  reservedToken   String?          @unique
+  filePublicId    String?
+  storageKey      String?
+  storageProvider String?
+  entityId        String
+  type            String
+  fingerprint     String?
+  uploadId        String?          @unique
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  uploadRetryJobs UploadRetryJob[]
+  upload          Upload?          @relation(fields: [uploadId], references: [id])
+}
+
+model UploadRetryJob {
+  id            String      @id @default(cuid())
+  uploadStateId String
+  filePublicId  String
+  attempts      Int         @default(0)
+  lastError     String?
+  nextAttemptAt DateTime?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  uploadState   UploadState @relation(fields: [uploadStateId], references: [id], onDelete: Cascade)
+
+  @@index([uploadStateId])
+  @@index([nextAttemptAt])
+}
+
+model ShareLink {
+  id        String   @id @default(cuid())
+  tripId    String?
+  eventId   String?
+  token     String   @unique
+  pinHash   String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  trip      Trip?    @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  event     Event?   @relation(fields: [eventId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([tripId])
+  @@index([eventId])
+}
+
+model BlockedUploader {
+  id                  String   @id @default(cuid())
+  tripId              String
+  uploaderFingerprint String
+  reason              String?
+  createdAt           DateTime @default(now())
+  trip                Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@unique([tripId, uploaderFingerprint])
+}
+
+model AdminModerationLog {
+  id        String   @id @default(cuid())
+  uploadId  String
+  adminId   String
+  action    String
+  notes     String?
+  createdAt DateTime @default(now())
+  admin     User     @relation("AdminModerationLogs", fields: [adminId], references: [id], onDelete: Cascade)
+  upload    Upload   @relation(fields: [uploadId], references: [id], onDelete: Cascade)
+}
+
+model EmailNotificationLog {
+  id           String   @id @default(cuid())
+  userId       String?
+  uploadId     String?
+  toEmail      String?
+  template     String
+  subject      String
+  provider     String?
+  status       String
+  errorMessage String?
+  createdAt    DateTime @default(now())
+  sentAt       DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  upload       Upload?  @relation(fields: [uploadId], references: [id])
+  user         User?    @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([uploadId])
+  @@index([template])
+}
+
+model DownloadAuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  uploadId  String?
+  success   Boolean  @default(false)
+  reason    String?
+  ip        String?
+  createdAt DateTime @default(now())
+  upload    Upload?  @relation(fields: [uploadId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([userId])
+  @@index([uploadId])
+}
+
+model InternalAd {
+  id             String      @id @default(cuid())
+  title          String
+  description    String?
+  mediaUrl       String
+  mediaType      AdMediaType
+  linkUrl        String?
+  active         Boolean     @default(true)
+  priority       Int         @default(0)
+  displaySeconds Int?
+  startsAt       DateTime?
+  endsAt         DateTime?
+  createdById    String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  placement      AdPlacement @default(global)
+  creator        User?       @relation("AdCreator", fields: [createdById], references: [id])
+
+  @@index([active, priority])
+  @@index([startsAt, endsAt])
+}
+
+model PurchaseItem {
+  id           String               @id @default(cuid())
+  name         String
+  description  String?
+  type         StoreItemType
+  priceCents   Int                  @default(0)
+  previewUrl   String?
+  active       Boolean              @default(true)
+  metadata     Json?
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+  sku          String?              @unique
+  transactions PaymentTransaction[]
+  gatedUploads Upload[]             @relation("UploadDownloadItem")
+  skinUploads  Upload[]             @relation("UploadSkin")
+  skinUnlocks  UserSkinUnlock[]     @relation("UserSkinUnlockSkin")
+  activeUsers  User[]               @relation("ActiveStoreItem")
+  purchases    UserPurchase[]
+
+  @@index([active, type])
+}
+
+model UserPurchase {
+  id        String       @id @default(cuid())
+  userId    String
+  itemId    String
+  status    String       @default("owned")
+  createdAt DateTime     @default(now())
+  item      PurchaseItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, itemId])
+  @@index([userId])
+}
+
+model PaymentTransaction {
+  id          String          @id @default(cuid())
+  userId      String
+  itemId      String
+  provider    PaymentProvider
+  status      PaymentStatus   @default(pending)
+  amountCents Int
+  currency    String?
+  providerRef String?
+  providerPaymentId String?
+  checkoutUrl String?
+  rawResponse Json?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  item        PurchaseItem    @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  webhookEvents PaymentWebhookEvent[]
+
+  @@index([userId])
+  @@index([provider, providerRef])
+  @@index([status])
+}
+
+model PaymentWebhookEvent {
+  id              String             @id @default(cuid())
+  provider        PaymentProvider
+  providerEventId String             @unique
+  transactionId   String?
+  eventType       String?
+  processed       Boolean            @default(false)
+  payload         Json?
+  errorMessage    String?
+  receivedAt      DateTime           @default(now())
+  processedAt     DateTime?
+  transaction     PaymentTransaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+
+  @@index([provider])
+  @@index([transactionId])
+  @@index([processed])
+  @@index([receivedAt])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model UserSkinUnlock {
+  id        String       @id @default(cuid())
+  userId    String
+  skinId    String
+  createdAt DateTime     @default(now())
+  user      User         @relation("UserSkinUnlockUser", fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  skin      PurchaseItem @relation("UserSkinUnlockSkin", fields: [skinId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([userId, skinId])
+  @@index([userId])
+  @@index([skinId])
+}
+
+model PlatformSetting {
+  key       String   @unique
+  value     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  id        String   @id @default(cuid())
+}
+
 enum UserRole {
   tourist
   admin
@@ -29,13 +574,27 @@ enum FileType {
 
 enum QrMode {
   open
+  paused
+  expired
+  revoked
   approval_required
   trusted
   time_limited
   family_safe
-  paused
-  expired
-  revoked
+}
+
+enum QRTargetType {
+  general
+  event
+  trip
+  album
+  location
+}
+
+enum QRVisibility {
+  public
+  private
+  unlisted
 }
 
 enum AdMediaType {
@@ -65,6 +624,7 @@ enum CrowdStatus {
 enum LocationVisibility {
   exact
   approximate
+  city
   hidden
 }
 
@@ -73,10 +633,10 @@ enum StoreItemType {
   photo_frame
   album_theme
   event_theme
-  download_asset
   premium_qr
   branded_page
   ad_free
+  download_asset
 }
 
 enum AdPlacement {
@@ -100,464 +660,18 @@ enum PaymentStatus {
   failed
 }
 
-model User {
-  id           String   @id @default(cuid())
-  name         String
-  email        String   @unique
-  passwordHash String
-  role         UserRole @default(tourist)
-
-  activeStoreItemId String?
-  activeStoreItem   PurchaseItem? @relation("ActiveStoreItem", fields: [activeStoreItemId], references: [id], onDelete: SetNull)
-
-  trips                Trip[]
-  organizedEvents      Event[]                @relation("OrganizerEvents")
-  claimedGuestSessions GuestSession[]         @relation("ClaimedGuestSessions")
-  purchases            UserPurchase[]
-  skinUnlocks          UserSkinUnlock[]
-  paymentTransactions  PaymentTransaction[]
-  preferences          UserPreference?
-  locations            Location[]
-  moderationLogs       AdminModerationLog[]   @relation("AdminModerationLogs")
-  emailLogs            EmailNotificationLog[]
-  downloadAuditLogs    DownloadAuditLog[]
-  ads                  InternalAd[]           @relation("AdCreator")
-  passwordResetTokens  PasswordResetToken[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([activeStoreItemId])
-}
-
-model UserPreference {
-  id                        String             @id @default(cuid())
-  userId                    String             @unique
-  user                      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  defaultLocationVisibility LocationVisibility @default(approximate)
-  emailNotifications        Boolean            @default(true)
-  uploadAlerts              Boolean            @default(true)
-  promotionalEmails         Boolean            @default(false)
-  createdAt                 DateTime           @default(now())
-  updatedAt                 DateTime           @updatedAt
-}
-
-model GuestSession {
-  id                String   @id @default(cuid())
-  token             String   @unique
-  deviceFingerprint String?
-  scopeType         String?
-  scopeId           String?
-  expiresAt         DateTime
-  claimedById       String?
-  claimedBy         User?    @relation("ClaimedGuestSessions", fields: [claimedById], references: [id], onDelete: SetNull)
-  uploads           Upload[]
-  trips             Trip[]
-  events            Event[]
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-
-  @@index([scopeType, scopeId])
-  @@index([expiresAt])
-  @@index([claimedById])
-}
-
-model Trip {
-  id                        String             @id @default(cuid())
-  userId                    String?
-  user                      User?              @relation(fields: [userId], references: [id], onDelete: SetNull)
-  guestSessionId            String?
-  guestSession              GuestSession?      @relation(fields: [guestSessionId], references: [id], onDelete: SetNull)
-  title                     String
-  destination               String
-  startDate                 DateTime?
-  endDate                   DateTime?
-  qrToken                   String             @unique
-  qrActive                  Boolean            @default(true)
-  qrExpiresAt               DateTime?
-  qrMode                    QrMode             @default(open)
-  defaultLocationVisibility LocationVisibility @default(approximate)
-  uploads                   Upload[]
-  shareLinks                ShareLink[]
-  chapters                  TripChapter[]
-  blockedUploaders          BlockedUploader[]
-  createdAt                 DateTime           @default(now())
-  updatedAt                 DateTime           @updatedAt
-
-  @@index([userId])
-  @@index([guestSessionId])
-}
-
-model TripChapter {
+model Notification {
   id        String   @id @default(cuid())
-  tripId    String
-  trip      Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   title     String
-  note      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([tripId])
-}
-
-model Event {
-  id             String          @id @default(cuid())
-  organizerId    String?
-  organizer      User?           @relation("OrganizerEvents", fields: [organizerId], references: [id], onDelete: SetNull)
-  guestSessionId String?
-  guestSession   GuestSession?   @relation(fields: [guestSessionId], references: [id], onDelete: SetNull)
-  title          String
-  description    String?
-  category       String?
-  location       String?
-  latitude       Float?
-  longitude      Float?
-  startDate      DateTime
-  endDate        DateTime?
-  visibility     EventVisibility @default(public)
-  status         EventStatus     @default(draft)
-  coverImageUrl  String?
-  qrToken        String          @unique
-  maps           EventMap[]
-  zones          MapZone[]
-  uploads        Upload[]
-  shareLinks     ShareLink[]
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-
-  @@index([organizerId])
-  @@index([guestSessionId])
-  @@index([status, visibility])
-  @@index([startDate])
-}
-
-model EventMap {
-  id          String   @id @default(cuid())
-  eventId     String
-  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  title       String
-  mapType     String   @default("image")
-  imageUrl    String?
-  mapboxStyle String?
-  centerLat   Float?
-  centerLng   Float?
-  zoom        Float?
-  active      Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@index([eventId, active])
-}
-
-model MapZone {
-  id           String      @id @default(cuid())
-  eventId      String
-  event        Event       @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  name         String
-  type         String
-  description  String?
-  x            Float?
-  y            Float?
-  latitude     Float?
-  longitude    Float?
-  shape        Json?
-  crowdStatus  CrowdStatus @default(low)
-  qrToken      String      @unique
-  displayOrder Int         @default(0)
-  uploads      Upload[]
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
-
-  @@index([eventId])
-  @@index([crowdStatus])
-}
-
-model Location {
-  id        String   @id @default(cuid())
-  name      String
-  address   String?
-  latitude  Float?
-  longitude Float?
-  userId    String?
-  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-  uploads   Upload[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([userId])
-}
-
-model Upload {
-  id                     String                 @id @default(cuid())
-  tripId                 String?
-  trip                   Trip?                  @relation(fields: [tripId], references: [id], onDelete: Cascade)
-  eventId                String?
-  event                  Event?                 @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  zoneId                 String?
-  zone                   MapZone?               @relation(fields: [zoneId], references: [id], onDelete: SetNull)
-  locationId             String?
-  location               Location?              @relation(fields: [locationId], references: [id], onDelete: SetNull)
-  guestSessionId         String?
-  guestSession           GuestSession?          @relation(fields: [guestSessionId], references: [id], onDelete: SetNull)
-  skinId                 String?
-  skin                   PurchaseItem?          @relation("UploadSkin", fields: [skinId], references: [id], onDelete: SetNull)
-  downloadPurchaseItemId String?
-  downloadPurchaseItem   PurchaseItem?          @relation("UploadDownloadItem", fields: [downloadPurchaseItemId], references: [id], onDelete: SetNull)
-  uploaderAnonId         String
-  uploaderFingerprint    String?
-  caption                String?
-  fileUrl                String
-  filePublicId           String
-  fileType               FileType
-  status                 UploadStatus           @default(pending)
-  aiFlagged              Boolean                @default(false)
-  moderationProvider     String?
-  moderationStatus       String?
-  moderationLabels       Json?
-  reportReason           String?
-  latitude               Float?
-  longitude              Float?
-  approximateLatitude    Float?
-  approximateLongitude   Float?
-  locationName           String?
-  region                 String?
-  locationVisibility     LocationVisibility     @default(approximate)
-  uploadState            UploadState?
-  moderationLogs         AdminModerationLog[]
-  emailLogs              EmailNotificationLog[]
-  downloadAuditLogs      DownloadAuditLog[]
-  createdAt              DateTime               @default(now())
-  approvedAt             DateTime?
-  rejectedAt             DateTime?
-
-  @@index([tripId, status])
-  @@index([eventId, status])
-  @@index([zoneId])
-  @@index([guestSessionId])
-  @@index([locationId])
-  @@index([uploaderFingerprint])
-  @@index([downloadPurchaseItemId])
-}
-
-model UploadState {
-  id              String           @id @default(cuid())
-  idempotencyKey  String           @unique
-  status          String
-  reservedToken   String?          @unique
-  filePublicId    String?
-  storageKey      String?
-  storageProvider String?
-  entityId        String
-  type            String
-  fingerprint     String?
-  uploadId        String?          @unique
-  upload          Upload?          @relation(fields: [uploadId], references: [id], onDelete: SetNull)
-  uploadRetryJobs UploadRetryJob[]
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-}
-
-model UploadRetryJob {
-  id            String      @id @default(cuid())
-  uploadStateId String
-  uploadState   UploadState @relation(fields: [uploadStateId], references: [id], onDelete: Cascade)
-  filePublicId  String
-  attempts      Int         @default(0)
-  lastError     String?
-  nextAttemptAt DateTime?
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-
-  @@index([uploadStateId])
-  @@index([nextAttemptAt])
-}
-
-model ShareLink {
-  id        String   @id @default(cuid())
-  tripId    String?
-  trip      Trip?    @relation(fields: [tripId], references: [id], onDelete: Cascade)
-  eventId   String?
-  event     Event?   @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  token     String   @unique
-  pinHash   String?
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([tripId])
-  @@index([eventId])
-}
-
-model BlockedUploader {
-  id                  String   @id @default(cuid())
-  tripId              String
-  trip                Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
-  uploaderFingerprint String
-  reason              String?
-  createdAt           DateTime @default(now())
-
-  @@unique([tripId, uploaderFingerprint])
-}
-
-model AdminModerationLog {
-  id        String   @id @default(cuid())
-  uploadId  String
-  upload    Upload   @relation(fields: [uploadId], references: [id], onDelete: Cascade)
-  adminId   String
-  admin     User     @relation("AdminModerationLogs", fields: [adminId], references: [id], onDelete: Cascade)
-  action    String
-  notes     String?
+  message   String
+  type      String   @default("info")
+  targetUrl String?
+  readAt    DateTime?
   createdAt DateTime @default(now())
 
-  @@index([uploadId])
-  @@index([adminId])
-}
-
-model EmailNotificationLog {
-  id           String   @id @default(cuid())
-  userId       String?
-  user         User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-  uploadId     String?
-  upload       Upload?  @relation(fields: [uploadId], references: [id], onDelete: SetNull)
-  toEmail      String?
-  template     String
-  subject      String
-  provider     String?
-  status       String
-  errorMessage String?
-  sentAt       DateTime @default(now())
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  @@index([userId])
-  @@index([uploadId])
-  @@index([template])
-}
-
-model DownloadAuditLog {
-  id        String   @id @default(cuid())
-  userId    String?
-  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-  uploadId  String?
-  upload    Upload?  @relation(fields: [uploadId], references: [id], onDelete: SetNull)
-  success   Boolean  @default(false)
-  reason    String?
-  ip        String?
-  createdAt DateTime @default(now())
-
-  @@index([userId])
-  @@index([uploadId])
-}
-
-model InternalAd {
-  id             String      @id @default(cuid())
-  createdById    String?
-  creator        User?       @relation("AdCreator", fields: [createdById], references: [id], onDelete: SetNull)
-  title          String
-  description    String?
-  mediaUrl       String
-  mediaType      AdMediaType
-  linkUrl        String?
-  active         Boolean     @default(true)
-  priority       Int         @default(0)
-  placement      AdPlacement @default(global)
-  displaySeconds Int?
-  startsAt       DateTime?
-  endsAt         DateTime?
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
-
-  @@index([active, priority])
-  @@index([startsAt, endsAt])
-  @@index([createdById])
-}
-
-model PurchaseItem {
-  id             String               @id @default(cuid())
-  sku            String?              @unique
-  name           String
-  description    String?
-  type           StoreItemType
-  priceCents     Int                  @default(0)
-  previewUrl     String?
-  active         Boolean              @default(true)
-  metadata       Json?
-  purchases      UserPurchase[]
-  skinUnlocks    UserSkinUnlock[]
-  activeUsers    User[]               @relation("ActiveStoreItem")
-  skinnedUploads Upload[]             @relation("UploadSkin")
-  gatedUploads   Upload[]             @relation("UploadDownloadItem")
-  transactions   PaymentTransaction[]
-  createdAt      DateTime             @default(now())
-  updatedAt      DateTime             @updatedAt
-
-  @@index([active, type])
-}
-
-model UserPurchase {
-  id        String       @id @default(cuid())
-  userId    String
-  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  itemId    String
-  item      PurchaseItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
-  status    String       @default("owned")
-  createdAt DateTime     @default(now())
-
-  @@unique([userId, itemId])
-  @@index([userId])
-  @@index([itemId])
-}
-
-model UserSkinUnlock {
-  id        String       @id
-  userId    String
-  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  skinId    String
-  skin      PurchaseItem @relation(fields: [skinId], references: [id], onDelete: Cascade)
-  createdAt DateTime     @default(now())
-
-  @@unique([userId, skinId])
-  @@index([userId])
-  @@index([skinId])
-}
-
-model PaymentTransaction {
-  id          String          @id @default(cuid())
-  userId      String
-  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  itemId      String
-  item        PurchaseItem    @relation(fields: [itemId], references: [id], onDelete: Cascade)
-  provider    PaymentProvider
-  status      PaymentStatus   @default(pending)
-  amountCents Int
-  providerRef String?
-  checkoutUrl String?
-  rawResponse Json?
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
-
-  @@index([userId])
-  @@index([itemId])
-  @@index([providerRef])
-}
-
-model PasswordResetToken {
-  id        String    @id @default(cuid())
-  userId    String
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tokenHash String    @unique
-  expiresAt DateTime
-  usedAt    DateTime?
-  createdAt DateTime  @default(now())
-
-  @@index([userId])
-  @@index([expiresAt])
-}
-
-model PlatformSetting {
-  id        String   @id @default(cuid())
-  key       String   @unique
-  value     String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  @@index([userId, createdAt])
+  @@index([userId, readAt])
 }

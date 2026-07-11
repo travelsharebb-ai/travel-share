@@ -1,7 +1,9 @@
+import { useLanguage } from "../lib/i18n";
 import React, { useEffect, useRef } from 'react';
 import mapboxgl from 'mapbox-gl';
 
 export default function PhotoMapModal({ open, onClose, location, photos = [] }) {
+  const { t } = useLanguage();
   const containerRef = useRef(null);
   const mapRef = useRef(null);
 
@@ -26,7 +28,7 @@ export default function PhotoMapModal({ open, onClose, location, photos = [] }) 
       <div style={{ width: '90%', height: '80%', background: '#fff', borderRadius: 8, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: 8, borderBottom: '1px solid #eee', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <strong>{location?.name || 'Location'}</strong>
-          <button onClick={onClose}>Close</button>
+          <button onClick={onClose}>{t("common.close")}</button>
         </div>
         <div style={{ display: 'flex', flex: 1 }}>
           <div style={{ flex: 1 }}>

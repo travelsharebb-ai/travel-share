@@ -14,8 +14,48 @@ const tripSchema = z.object({
   startDate: z.string().optional().nullable(),
   endDate: z.string().optional().nullable(),
   qrExpiresAt: z.string().optional().nullable(),
-  defaultLocationVisibility: z.enum(["exact", "approximate", "hidden"]).optional()
+  defaultLocationVisibility: z.enum(["exact", "approximate", "city", "hidden"]).optional()
 });
+
+function formatPublicLocationName(upload) {
+  if (upload.locationVisibility === "exact") {
+    return upload.locationName || upload.region || upload.country || "Travel memory";
+  }
+  return upload.region || upload.country || "Travel memory";
+}
+
+function publicLocationCoordinates(upload) {
+  if (upload.locationVisibility === "hidden") return { latitude: null, longitude: null };
+
+  const hasExact = upload.locationVisibility === "exact";
+  const hasApproximate = upload.locationVisibility === "approximate";
+  const hasCity = upload.locationVisibility === "city";
+  const baseLat = upload.latitude ?? upload.approximateLatitude ?? null;
+  const baseLng = upload.longitude ?? upload.approximateLongitude ?? null;
+
+  if (hasExact) {
+    return { latitude: upload.latitude, longitude: upload.longitude };
+  }
+
+  if (hasApproximate) {
+    return {
+      latitude: upload.approximateLatitude ?? (baseLat !== null ? Math.round(baseLat * 100) / 100 : null),
+      longitude: upload.approximateLongitude ?? (baseLng !== null ? Math.round(baseLng * 100) / 100 : null)
+    };
+  }
+
+  if (hasCity) {
+    return {
+      latitude: baseLat !== null ? Math.round(baseLat * 10) / 10 : null,
+      longitude: baseLng !== null ? Math.round(baseLng * 10) / 10 : null
+    };
+  }
+
+  return {
+    latitude: upload.approximateLatitude ?? upload.latitude ?? null,
+    longitude: upload.approximateLongitude ?? upload.longitude ?? null
+  };
+}
 
 router.get("/", async (req, res) => {
   const trips = await prisma.trip.findMany({
@@ -61,17 +101,16 @@ router.get("/:tripId/map", async (req, res) => {
 
   // Map uploads into the visible shape then attach frameAssetUrl in batch
   const visibleUploadsBase = trip.uploads.map((upload) => {
-    const lat = upload.locationVisibility === "exact" ? upload.latitude : upload.approximateLatitude;
-    const lng = upload.locationVisibility === "exact" ? upload.longitude : upload.approximateLongitude;
+    const coords = publicLocationCoordinates(upload);
     return {
       id: upload.id,
       fileUrl: upload.fileUrl,
       fileType: upload.fileType,
       caption: upload.caption,
-      locationName: upload.locationName || upload.region || "Travel memory",
+      locationName: formatPublicLocationName(upload),
       region: upload.region,
-      latitude: upload.locationVisibility === "hidden" ? null : lat,
-      longitude: upload.locationVisibility === "hidden" ? null : lng,
+      latitude: coords.latitude,
+      longitude: coords.longitude,
       createdAt: upload.createdAt,
       locationVisibility: upload.locationVisibility,
       skinId: upload.skinId || null

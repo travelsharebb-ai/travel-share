@@ -2,10 +2,11 @@ import { prisma } from "../utils/prisma.js";
 import { uploadMedia, deleteMedia } from "../utils/storage.js";
 import { anonId } from "../utils/tokens.js";
 import { extractExifGps } from "../utils/exif.js";
-import { getOrCreateGuestSession } from "../services/sessionService.js";
+import { getOrCreateGuestSession, getGuestLifecycle } from "../services/sessionService.js";
 import { notifyNewUploadSafe } from "../services/notificationService.js";
 import { moderateSafe } from "../services/moderationService.js";
 import { uploadBodySchema, qrTokenParam } from "../utils/validation.js";
+import { resolveQRUploadSpaceByToken } from "./qrSpaceService.js";
 
 function parseOptionalFloat(value) {
   if (value === undefined || value === null || value === "") return null;
@@ -16,7 +17,7 @@ function parseOptionalFloat(value) {
 function locationData(body = {}) {
   const latitude = parseOptionalFloat(body.latitude);
   const longitude = parseOptionalFloat(body.longitude);
-  const visibility = ["exact", "approximate", "hidden"].includes(body.locationVisibility) ? body.locationVisibility : "approximate";
+  const visibility = ["exact", "approximate", "city", "hidden"].includes(body.locationVisibility) ? body.locationVisibility : "approximate";
   return {
     caption: body.caption?.slice?.(0, 240) || null,
     latitude: visibility === "hidden" ? null : latitude,
@@ -98,6 +99,8 @@ export async function executeUploadPipeline({ file, body = {}, context = {}, ide
   let target = null;
   let scopeType = null;
   let scopeId = null;
+  let qrSpace = null;
+  let uploadStatus = 'pending';
   // validate request body according to upload schema
   async function validateQrAndBody({ params, body }) {
     const parsed = uploadBodySchema.safeParse(body || {});
@@ -143,11 +146,39 @@ export async function executeUploadPipeline({ file, body = {}, context = {}, ide
       target = await prisma.mapZone.findUnique({ where: { qrToken: entityId }, include: { event: true } });
       if (!target) throw Object.assign(new Error('Event zone not found.'), { status: 404 });
       scopeType = 'zone'; scopeId = target.id;
+    } else if (type === 'qr_space') {
+      const token = context.params?.qrToken || entityId;
+      qrSpace = await resolveQRUploadSpaceByToken(token, { incrementScan: false });
+      if (!qrSpace) throw Object.assign(new Error('QR not found'), { status: 404 });
+
+      const isRegistered = Boolean(context.registeredUser && context.registeredUser.role !== 'guest');
+      if (!isRegistered && qrSpace.allowGuests === false) {
+        throw Object.assign(new Error('Guest uploads are not allowed for this QR upload space.'), { status: 403 });
+      }
+      if (isRegistered && qrSpace.allowRegisteredUsers === false) {
+        throw Object.assign(new Error('Registered user uploads are not allowed for this QR upload space.'), { status: 403 });
+      }
+      uploadStatus = qrSpace.requireApproval ? 'pending' : 'approved';
+      scopeType = 'qr_space'; scopeId = qrSpace.id;
+
+      if (qrSpace.targetType === 'event') {
+        target = await prisma.event.findUnique({ where: { id: qrSpace.targetId || '' } });
+        if (!target) throw Object.assign(new Error('QR upload-space event target not found.'), { status: 404 });
+      } else if (qrSpace.targetType === 'trip' || qrSpace.targetType === 'album') {
+        target = await prisma.trip.findUnique({ where: { id: qrSpace.targetId || '' } });
+        if (!target) throw Object.assign(new Error('QR upload-space album target not found.'), { status: 404 });
+      } else if (qrSpace.targetType === 'location') {
+        target = qrSpace.targetId
+          ? await prisma.location.findUnique({ where: { id: qrSpace.targetId } })
+          : null;
+        if (qrSpace.targetId && !target) throw Object.assign(new Error('QR upload-space location target not found.'), { status: 404 });
+      }
     }
 
     const guest = await getOrCreateGuestSession({ token: sessionToken, deviceFingerprint: fingerprint, platformCache, scopeType, scopeId });
     if (!guest) throw Object.assign(new Error('Unable to create guest session.'), { status: 403 });
-    if (guest.expiresAt <= new Date()) throw Object.assign(new Error('Guest access expired.'), { status: 403 });
+    const guestLifecycle = await getGuestLifecycle(guest, { platformCache });
+    if (guestLifecycle.state === 'expired') throw Object.assign(new Error('Guest access expired.'), { status: 403 });
 
     // attach guest info to state object for response
     state = { ...state, guest };
@@ -211,7 +242,8 @@ export async function executeUploadPipeline({ file, body = {}, context = {}, ide
       moderationProvider: moderation?.provider || null,
       moderationStatus: moderation?.status || null,
       moderationLabels: moderation?.labels || null,
-      status: 'pending',
+      status: uploadStatus,
+      approvedAt: uploadStatus === 'approved' ? new Date() : null,
       fileUrl: media.fileUrl,
       filePublicId: media.filePublicId,
       fileType: media.fileType
@@ -222,6 +254,30 @@ export async function executeUploadPipeline({ file, body = {}, context = {}, ide
     if (type === 'zone') {
       createData.eventId = target?.eventId || target?.event?.id || null;
       createData.zoneId = scopeId;
+    }
+    if (type === 'qr_space') {
+      createData.qrUploadSpaceId = scopeId;
+      if (qrSpace.targetType === 'trip' || qrSpace.targetType === 'album') createData.tripId = target?.id || qrSpace.targetId;
+      if (qrSpace.targetType === 'event') createData.eventId = target?.id || qrSpace.targetId;
+      if (qrSpace.targetType === 'location') {
+        createData.locationId = target?.id || qrSpace.targetId || null;
+        createData.locationName = loc.locationName || qrSpace.locationName || target?.name || null;
+        createData.latitude = loc.latitude ?? qrSpace.latitude ?? target?.latitude ?? null;
+        createData.longitude = loc.longitude ?? qrSpace.longitude ?? target?.longitude ?? null;
+        createData.approximateLatitude = createData.latitude === null ? null : Math.round(createData.latitude * 100) / 100;
+        createData.approximateLongitude = createData.longitude === null ? null : Math.round(createData.longitude * 100) / 100;
+      }
+      if (qrSpace.targetType === 'general') {
+        createData.locationName = loc.locationName || qrSpace.locationName || null;
+        createData.latitude = loc.latitude ?? qrSpace.latitude ?? null;
+        createData.longitude = loc.longitude ?? qrSpace.longitude ?? null;
+        createData.approximateLatitude = createData.latitude === null ? null : Math.round(createData.latitude * 100) / 100;
+        createData.approximateLongitude = createData.longitude === null ? null : Math.round(createData.longitude * 100) / 100;
+      }
+    }
+
+    if (createData.locationVisibility === 'hidden' || createData.latitude === null || createData.longitude === null) {
+      throw Object.assign(new Error('Upload location is required so this memory can appear on the map.'), { status: 400 });
     }
 
     finalUpload = await prisma.$transaction(async (tx) => {
@@ -237,7 +293,9 @@ export async function executeUploadPipeline({ file, body = {}, context = {}, ide
     } catch (rbErr) {
       console.error('rollback after db failure failed', rbErr && rbErr.message ? rbErr.message : rbErr);
     }
-    throw Object.assign(new Error('Failed to save upload: ' + (err.message || String(err))), { status: 500 });
+    const status = err.status || 500;
+    const message = status === 500 ? `Failed to save upload: ${err.message || String(err)}` : err.message || String(err);
+    throw Object.assign(new Error(message), { status });
   }
 
   // 7) Fire-and-forget notify

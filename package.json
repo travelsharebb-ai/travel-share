@@ -10,6 +10,7 @@
     "dev:frontend": "npm run dev --workspace frontend",
     "dev:backend": "npm run dev --workspace backend",
     "build": "npm run build --workspace frontend && npm run build --workspace backend",
+    "smoke": "npm run smoke --workspace frontend",
     "start": "npm run start --workspace backend",
     "test:e2e": "npm run test:e2e --workspace backend",
     "prisma:migrate": "npm run prisma:migrate --workspace backend",

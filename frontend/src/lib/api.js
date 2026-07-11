@@ -17,7 +17,73 @@ export function clearGuestToken() {
   localStorage.removeItem("travelShareGuestToken");
 }
 
+export function setGuestSession(guestSession = {}) {
+  const user = {
+    id: "guest",
+    name: guestSession.displayName || "Guest",
+    email: null,
+    role: "guest",
+    guestSession
+  };
+  localStorage.setItem("travelShareUser", JSON.stringify(user));
+  try { window.dispatchEvent(new Event('travelShareUserChanged')); } catch (e) {}
+}
+
+export function clearGuestSession() {
+  clearGuestToken();
+  localStorage.removeItem("travelShareUser");
+  try { window.dispatchEvent(new Event('travelShareUserChanged')); } catch (e) {}
+}
+
+export function hasGuestSession() {
+  return Boolean(getGuestToken());
+}
+
+export async function validateGuestSession() {
+  const guestToken = getGuestToken();
+  if (!guestToken) {
+    return { valid: false };
+  }
+  try {
+    const data = await api("/api/public/guest/session");
+    return data;
+  } catch (err) {
+    return { valid: false, error: err.message };
+  }
+}
+
+export async function createGuestSession() {
+  try {
+    const data = await api("/api/public/guest/session", { method: "POST" });
+    return data;
+  } catch (err) {
+    throw err;
+  }
+}
+
+export async function createGuestSessionProfile({ displayName, passcode } = {}) {
+  try {
+    const body = {};
+    if (displayName) body.displayName = displayName;
+    if (passcode) body.passcode = passcode;
+    const data = await api("/api/public/guest/session", { method: "POST", body: JSON.stringify(body) });
+    return data;
+  } catch (err) {
+    throw err;
+  }
+}
+
+export async function resumeGuestSession({ resumeToken, passcode } = {}) {
+  try {
+    const data = await api("/api/public/guest/resume", { method: "POST", body: JSON.stringify({ resumeToken, passcode }) });
+    return data;
+  } catch (err) {
+    throw err;
+  }
+}
+
 export function setSession(data) {
+  clearGuestToken();
   localStorage.setItem("travelShareToken", data.token);
   localStorage.setItem("travelShareUser", JSON.stringify(data.user));
 }
@@ -25,6 +91,7 @@ export function setSession(data) {
 export function clearSession() {
   localStorage.removeItem("travelShareToken");
   localStorage.removeItem("travelShareUser");
+  localStorage.removeItem("travelShareGuestToken");
 }
 
 export function currentUser() {
@@ -35,6 +102,7 @@ export function currentUser() {
 export function updateStoredUser(user) {
   if (!user) return;
   localStorage.setItem("travelShareUser", JSON.stringify(user));
+  try { window.dispatchEvent(new Event('travelShareUserChanged')); } catch (e) {}
 }
 
 export async function api(path, options = {}) {
@@ -54,6 +122,63 @@ export async function api(path, options = {}) {
   const data = text ? JSON.parse(text) : null;
   if (!res.ok) throw new Error(data?.error || "Request failed.");
   return data;
+}
+
+export function listQRSpaces() {
+  return api("/api/qr-spaces");
+}
+
+export function createQRSpace(payload) {
+  return api("/api/qr-spaces", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
+export function getQRSpace(id) {
+  return api(`/api/qr-spaces/${encodeURIComponent(id)}`);
+}
+
+export function updateQRSpace(id, payload) {
+  return api(`/api/qr-spaces/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload)
+  });
+}
+
+export function deleteQRSpace(id) {
+  return api(`/api/qr-spaces/${encodeURIComponent(id)}`, {
+    method: "DELETE"
+  });
+}
+
+export function getQRSpaceQRCode(id) {
+  return api(`/api/qr-spaces/${encodeURIComponent(id)}/qr`);
+}
+
+export function getStoreItems() {
+  return api("/api/store");
+}
+
+export function unlockFreeStoreItem(itemId) {
+  return api(`/api/store/${encodeURIComponent(itemId)}/purchase`, {
+    method: "POST",
+    body: JSON.stringify({})
+  });
+}
+
+export function checkoutStoreItem(itemId, provider = "stripe") {
+  return api(`/api/store/${encodeURIComponent(itemId)}/checkout`, {
+    method: "POST",
+    body: JSON.stringify({ provider })
+  });
+}
+
+export function confirmStorePayment(transactionId) {
+  return api(`/api/store/payments/${encodeURIComponent(transactionId)}/confirm`, {
+    method: "POST",
+    body: JSON.stringify({})
+  });
 }
 
 export { API_URL };

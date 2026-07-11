@@ -1,6 +1,8 @@
+import { useLanguage } from "../lib/i18n";
 import { useEffect, useState } from "react";
 
 export default function ScreenshotGuard() {
+  const { t } = useLanguage();
   const [masked, setMasked] = useState(false);
 
   useEffect(() => {
@@ -12,8 +14,11 @@ export default function ScreenshotGuard() {
     }
 
     function onKeyDown(event) {
-      const key = event.key.toLowerCase();
-      const protectedCombo = event.key === "PrintScreen"
+      if (!event || typeof event !== "object") return;
+      const key = String(event.key || "").toLowerCase();
+      const code = String(event.code || "").toLowerCase();
+      const protectedCombo = code === "printscreen"
+        || event.key === "PrintScreen"
         || (event.metaKey && event.shiftKey && ["3", "4", "5"].includes(key))
         || (event.ctrlKey && ["p", "s"].includes(key));
       if (protectedCombo) {
@@ -40,7 +45,7 @@ export default function ScreenshotGuard() {
 
   return masked ? (
     <div className="screenshot-mask" aria-hidden="true">
-      <div>Protected TravelShare content</div>
+      <div>{t("hardcoded.protectedTravelshareContent")}</div>
     </div>
   ) : null;
 }

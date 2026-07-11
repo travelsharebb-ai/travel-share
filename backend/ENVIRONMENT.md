@@ -8,27 +8,35 @@
 - `CORS_ORIGIN`: Comma-separated allowed frontend origins. Example: `https://travelshare.netlify.app,http://localhost:5173`
 - `STORAGE_PROVIDER`: Use `cloudinary` for production.
 - `CLOUDINARY_URL`: Preferred Cloudinary credential format, or set `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, and `CLOUDINARY_API_SECRET`.
+- `FINGERPRINT_SECRET`: Secret used to generate uploader fingerprints and prevent counterfeit sessions.
+- `REDIS_URL`: Recommended for optional Redis-backed rate limiting and caching. If unset, the app falls back to in-memory rate limiting.
+- `PAYMENT_PROVIDER`: Default payment routing provider, for example `stripe`.
+ - `GUEST_ACCESS_DAYS`: Number of days a guest session is active before entering the grace period.
+ - `GUEST_DELETION_DAYS`: Total number of days after guest session creation before the guest is considered expired and eligible for cleanup. Example: with `GUEST_ACCESS_DAYS=3` and `GUEST_DELETION_DAYS=14` the guest is active on days 0–3, in a grace period on days 3–14, and eligible for cleanup after day 14.
 
 ## Optional / Provider Dependent
 
 - `PORT`: Render provides this automatically.
 - `SESSION_SECRET`: Not currently used because the app relies on JWT plus HttpOnly guest cookies. Keep available if Redis/session middleware is added later.
 - `REDIS_URL`: Optional future managed session/cache store. Current app does not require Redis.
+ - `REDIS_URL`: Optional Redis connection string used for rate limiting when available.
 - `SENDGRID_API_KEY`: Required for password reset and upload notification email delivery.
 - `SENDGRID_FROM_EMAIL`: Sender address for SendGrid.
 - `SUPPORT_EMAIL`: Support contact shown in the app.
 - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`: Required to enable Google sign-in.
 - `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET`, `MICROSOFT_REDIRECT_URI`: Required to enable Microsoft/Hotmail sign-in.
-- `STRIPE_SECRET_KEY`: Required for Stripe Checkout.
-- `STRIPE_CURRENCY`: Optional product sync currency. Defaults to `usd`.
+- `STRIPE_SECRET_KEY`: Backend-only secret key required for Stripe Checkout.
+- `STRIPE_WEBHOOK_SECRET`: Backend-only signing secret required for `POST /api/webhooks/stripe`.
+- `STRIPE_CURRENCY`: Checkout currency. Defaults to `usd`.
 - `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`: Required for PayPal checkout.
+- `PAYPAL_WEBHOOK_ID`: Reserved for future PayPal webhook verification.
 - `PAYPAL_API_BASE`: Optional. Defaults to PayPal sandbox: `https://api-m.sandbox.paypal.com`
 - `ALLOW_DEV_PURCHASES`: Set `true` only in local/dev if you want paid store items to unlock without checkout.
-- `PAYMENT_PROVIDER`: Example: `planned_stripe`.
+- `PAYMENT_PROVIDER`: Example: `stripe`.
 - `MODERATION_PROVIDER`: Optional moderation provider switch.
 - `MAX_UPLOAD_SIZE_MB`: Upload limit. Default: `50`.
 - `BACKGROUND_VIDEO_URL`: Default public landing/auth background video URL.
- - `GUEST_DELETION_DAYS`: Number of days after guest expiry to permanently remove guest-owned data. Default: `14`.
+ - `GUEST_DELETION_DAYS`: Total number of days after guest session creation (active + grace) before guest-owned data may be permanently removed. Default: `14`.
 - `BACKUP_S3_BUCKET`: S3 bucket used by `scripts/db-backup.sh`.
 - `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`: Required by AWS CLI for backups/restores.
 - `S3_BUCKET`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_ENDPOINT`, `S3_PUBLIC_BASE_URL`: Required only when `STORAGE_PROVIDER=s3`.
@@ -47,11 +55,17 @@ The backend `package.json` `start` script already runs that command.
 
 Set all env vars in Render Dashboard > Service > Environment. Never commit secrets to the repo.
 
+Stripe production purchase unlocks require signed webhooks. The frontend success redirect is only a receipt/status cue and must not unlock purchases by itself. Ownership is granted only after the backend verifies Stripe Checkout server-side through `POST /api/webhooks/stripe` or the authenticated confirm fallback.
+
 For Netlify, set:
 
 - `VITE_API_URL`: Render backend URL, for example `https://travelshare-api.onrender.com`
 - `VITE_SUPPORT_EMAIL`
 - `VITE_MAPBOX_TOKEN` if Mapbox production maps are enabled
+- `VITE_STRIPE_PUBLISHABLE_KEY`: Frontend-safe publishable Stripe key only. Never expose `STRIPE_SECRET_KEY` or `STRIPE_WEBHOOK_SECRET` to the frontend.
+- `VITE_GOOGLE_MAPS_API_KEY`: (optional) API key used by browser-only Google Maps JavaScript/Embed features such as Street View preview.
+
+Note: `VITE_GOOGLE_MAPS_API_KEY` is a frontend key and should be configured in your Netlify site's environment variables (frontend). Do not use it for the Google Geocoding REST API from browser code because referrer-restricted keys are not valid for that REST call. If Google Geocoding REST is needed later, use a backend-only `GOOGLE_GEOCODING_API_KEY`, keep it out of frontend env vars, and restrict it by server/IP in Google Cloud Console.
 
 ## Stripe Product Sync
 
@@ -143,11 +157,13 @@ To remove expired guest sessions and their guest-owned data (albums, uploads, QR
 
 ```bash
 cd backend
-# optional: set custom deletion window in days
+# optional: set custom total guest lifetime (in days) used as the cleanup cutoff
+# this value represents days since guest session creation; guests older than this
+# value are eligible for purge
 GUEST_DELETION_DAYS=14 npm run cleanup:guests
 ```
 
-The script uses the environment variable `GUEST_DELETION_DAYS` (or the `guestDeletionDays` `PlatformSetting`) to decide which guest sessions to purge. It will not remove public map aggregates or non-guest-owned data.
+The script uses the environment variable `GUEST_DELETION_DAYS` (or the `guestDeletionDays` `PlatformSetting`) as the total guest lifetime (days since session creation) to decide which guest sessions to purge. It will not remove public map aggregates or non-guest-owned data.
 
 You can also update these via the admin API (authenticated admin) with `PATCH /api/admin/settings` sending JSON with key/value pairs, for example:
 

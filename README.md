@@ -166,6 +166,10 @@ MAX_UPLOAD_SIZE_MB=50
 SUPPORT_EMAIL=
 APP_NAME=Travel Share
 FINGERPRINT_SECRET=
+REDIS_URL=
+PAYMENT_PROVIDER=planned_stripe
+GUEST_ACCESS_DAYS=3
+GUEST_DELETION_DAYS=14
 SENDGRID_API_KEY=
 EMAIL_FROM=
 ADMIN_EMAIL=
@@ -182,8 +186,23 @@ Frontend Netlify envs:
 ```bash
 VITE_API_URL=
 VITE_APP_NAME=Travel Share
+VITE_MAPBOX_TOKEN=
 VITE_SUPPORT_EMAIL=
+VITE_GOOGLE_MAPS_API_KEY=
 ```
+
+Add the following for Google Maps Street View previews (do not commit the real key):
+
+```bash
+# Used by the Google Maps Embed API Street View preview in the browser.
+# Local development: place the real key in `frontend/.env`.
+# Production: set the key in Netlify site environment variables (frontend).
+# Do NOT put this key in backend `.env` — Street View runs in the browser.
+# Example value:
+VITE_GOOGLE_MAPS_API_KEY=your_google_maps_embed_api_key
+```
+
+When restricting the key in Google Cloud Console, limit it to the "Maps Embed API" and to referrers such as `http://localhost:5173/*` and your production Netlify/domain origin.
 
 Optional later envs:
 
