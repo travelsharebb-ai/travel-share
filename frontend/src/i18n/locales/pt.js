@@ -359,6 +359,20 @@ const translations = {
     "privacy": "Privacidade",
     "terms": "Termos"
   },
+  "oauthCallback": {
+    "loadingTitle": "A iniciar sessão",
+    "loadingDescription": "A processar o início de sessão OAuth…",
+    "loadingMessage": "A processar o início de sessão…",
+    "successTitle": "Sessão iniciada",
+    "successMessage": "A encaminhá-lo para a sua conta…",
+    "errorTitle": "Não foi possível iniciar sessão",
+    "errorDefault": "Não foi possível concluir o início de sessão OAuth.",
+    "invalidTitle": "Retorno de início de sessão inválido",
+    "missingMessage": "Faltam informações obrigatórias no retorno de início de sessão.",
+    "invalidUserMessage": "O retorno contém informações de conta inválidas.",
+    "storageMessage": "Não foi possível guardar a sua sessão. Volte ao início de sessão e tente novamente.",
+    "returnToLogin": "Voltar ao início de sessão"
+  },
   "guestStatus": {
     "activeGuest": "Convidado ativo",
     "graceGuest": "Período de carência",

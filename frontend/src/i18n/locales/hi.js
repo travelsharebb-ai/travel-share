@@ -196,6 +196,20 @@ const translations = {
     "privacy": "गोपनीयता",
     "terms": "शर्तें"
   },
+  "oauthCallback": {
+    "loadingTitle": "आपको साइन इन किया जा रहा है",
+    "loadingDescription": "आपका OAuth साइन-इन संसाधित किया जा रहा है…",
+    "loadingMessage": "साइन-इन संसाधित किया जा रहा है…",
+    "successTitle": "साइन-इन पूरा हुआ",
+    "successMessage": "आपको आपके खाते पर ले जाया जा रहा है…",
+    "errorTitle": "साइन इन नहीं किया जा सका",
+    "errorDefault": "OAuth साइन-इन पूरा नहीं किया जा सका।",
+    "invalidTitle": "अमान्य साइन-इन कॉलबैक",
+    "missingMessage": "साइन-इन कॉलबैक में आवश्यक जानकारी मौजूद नहीं है।",
+    "invalidUserMessage": "साइन-इन कॉलबैक में अमान्य खाता जानकारी है।",
+    "storageMessage": "आपका साइन-इन सहेजा नहीं जा सका। लॉगिन पर लौटें और फिर प्रयास करें।",
+    "returnToLogin": "लॉगिन पर वापस जाएँ"
+  },
   "map": {
     "title": "मानचित्र",
     "search": "खोजें",

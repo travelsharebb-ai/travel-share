@@ -1071,6 +1071,20 @@ const translations = {
     "privacy": "Privacidad",
     "terms": "Términos"
   },
+  "oauthCallback": {
+    "loadingTitle": "Iniciando sesión",
+    "loadingDescription": "Procesando tu inicio de sesión OAuth…",
+    "loadingMessage": "Procesando inicio de sesión…",
+    "successTitle": "Inicio de sesión completado",
+    "successMessage": "Te estamos llevando a tu cuenta…",
+    "errorTitle": "No se pudo iniciar sesión",
+    "errorDefault": "No se pudo completar el inicio de sesión OAuth.",
+    "invalidTitle": "Retorno de inicio de sesión no válido",
+    "missingMessage": "Falta información de inicio de sesión obligatoria.",
+    "invalidUserMessage": "El retorno contiene información de cuenta no válida.",
+    "storageMessage": "No se pudo guardar tu sesión. Vuelve al inicio de sesión e inténtalo de nuevo.",
+    "returnToLogin": "Volver al inicio de sesión"
+  },
   "hardcoded": {
     "loadingEvents": "Cargando eventos…",
     "noPublicEventsFound": "No se encontraron eventos públicos.",

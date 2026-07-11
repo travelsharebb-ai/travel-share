@@ -86,12 +86,14 @@ export function setSession(data) {
   clearGuestToken();
   localStorage.setItem("travelShareToken", data.token);
   localStorage.setItem("travelShareUser", JSON.stringify(data.user));
+  try { window.dispatchEvent(new Event('travelShareUserChanged')); } catch (e) {}
 }
 
 export function clearSession() {
   localStorage.removeItem("travelShareToken");
   localStorage.removeItem("travelShareUser");
   localStorage.removeItem("travelShareGuestToken");
+  try { window.dispatchEvent(new Event('travelShareUserChanged')); } catch (e) {}
 }
 
 export function currentUser() {

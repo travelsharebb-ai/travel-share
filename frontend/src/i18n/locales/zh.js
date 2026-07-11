@@ -182,6 +182,20 @@ const translations = {
     "privacy": "隐私",
     "terms": "条款"
   },
+  "oauthCallback": {
+    "loadingTitle": "正在为你登录",
+    "loadingDescription": "正在处理你的 OAuth 登录…",
+    "loadingMessage": "正在处理登录…",
+    "successTitle": "登录完成",
+    "successMessage": "正在前往你的账户…",
+    "errorTitle": "无法登录",
+    "errorDefault": "无法完成 OAuth 登录。",
+    "invalidTitle": "登录回调无效",
+    "missingMessage": "登录回调缺少必需信息。",
+    "invalidUserMessage": "登录回调包含无效的账户信息。",
+    "storageMessage": "无法保存登录状态。请返回登录页面后重试。",
+    "returnToLogin": "返回登录"
+  },
   "map": {
     "title": "地图",
     "search": "搜索",
