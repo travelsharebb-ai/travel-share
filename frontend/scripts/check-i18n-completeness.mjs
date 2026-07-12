@@ -44,7 +44,7 @@ const untranslatedValues = [];
 
 const allowedUnchangedKeys = Object.fromEntries(Object.entries({
   es: ['common.no', 'qrSpaces.no', 'authPage.google', 'authPage.microsoft', 'publicUpload.qrLabel', 'uploadSuccess.defaultDestination'],
-  fr: ['qrSpaces.targetAlbum', 'qrSpaces.latitude', 'qrSpaces.longitude', 'qrSpaces.expiresAt', 'admin.reports.photos', 'admin.users.table.actions', 'admin.management.message', 'events.stats.zones', 'authPage.google', 'authPage.microsoft', 'eventDetails.zones', 'publicUpload.qrLabel', 'tripCreate.labelDestination', 'tripCreate.visibility.exact', 'uploadSuccess.defaultDestination'],
+  fr: ['qrSpaces.targetAlbum', 'qrSpaces.latitude', 'qrSpaces.longitude', 'qrSpaces.expiresAt', 'admin.reports.photos', 'admin.users.table.actions', 'admin.management.message', 'events.stats.zones', 'authPage.google', 'authPage.microsoft', 'eventDetails.zones', 'publicUpload.qrLabel', 'tripCreate.labelDestination', 'tripCreate.visibility.exact', 'uploadSuccess.defaultDestination', 'admin.tools.dryRunMessage'],
   pt: ['qrSpaces.latitude', 'qrSpaces.longitude', 'authPage.google', 'authPage.microsoft', 'publicUpload.qrLabel', 'uploadSuccess.defaultDestination'],
   de: ['qrSpaces.targetAlbum', 'shell.roles.admin', 'shell.roles.tourist', 'settingsPage.newEmailPlaceholder', 'settingsPage.guestStatusLabel', 'admin.reports.videos', 'admin.management.uploads', 'events.stats.uploads', 'authPage.google', 'authPage.microsoft', 'hardcoded.token', 'media.video', 'myUploads.status', 'publicTripJoin.tokenLabel', 'publicUpload.qrLabel', 'uploadSuccess.defaultDestination'],
   it: ['common.no', 'qrSpaces.targetAlbum', 'qrSpaces.no', 'authPage.google', 'authPage.microsoft', 'hardcoded.zoom', 'media.video', 'publicUpload.qrLabel', 'uploadSuccess.defaultDestination'],
@@ -54,6 +54,9 @@ const allowedUnchangedKeys = Object.fromEntries(Object.entries({
   zh: [],
   ja: []
 }).map(([lang, keys]) => [lang, new Set(keys)]));
+const globallyAllowedUnchangedKeys = new Set([
+  'admin.tools.confirmationPlaceholder'
+]);
 
 function valueAtPath(locale, key) {
   return key.split('.').reduce((acc, segment) => {
@@ -98,7 +101,8 @@ for (const [lang, locale] of Object.entries(normalizedLocales)) {
       typeof englishValue === 'string' &&
       /[A-Za-z]{2}/.test(englishValue) &&
       value === englishValue &&
-      !allowedUnchangedKeys[lang]?.has(key)
+      !allowedUnchangedKeys[lang]?.has(key) &&
+      !globallyAllowedUnchangedKeys.has(key)
     ) {
       untranslatedValues.push(`${lang}: untranslated ${key} = ${JSON.stringify(value)}`);
     }
