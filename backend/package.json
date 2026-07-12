@@ -16,6 +16,9 @@
     "prisma:deploy": "prisma migrate deploy",
     "worker:uploads": "RUN_WORKER=true node scripts/upload-retry-worker.mjs",
     "seed:platform-settings": "node scripts/seed-platform-settings.mjs",
+    "demo:seed": "node scripts/seed-demo-data.js",
+    "demo:clear": "node scripts/clear-demo-data.js",
+    "demo:reset": "node scripts/reset-demo-data.js",
     "cleanup:guests": "node scripts/cleanup-expired-guests.mjs"
   },
   "dependencies": {
