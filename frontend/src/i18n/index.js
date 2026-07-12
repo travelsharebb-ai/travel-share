@@ -74,7 +74,7 @@ if (!i18nInstance.isInitialized) {
       lng: getStoredLanguage(),
       fallbackLng: "en",
       supportedLngs: supportedLanguages.map(([code]) => code),
-      interpolation: { escapeValue: false },
+      interpolation: { escapeValue: false, prefix: "{", suffix: "}" },
       react: { useSuspense: false }
     });
 }

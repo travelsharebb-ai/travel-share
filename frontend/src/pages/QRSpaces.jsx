@@ -11,6 +11,24 @@ function qrSpaceStatus(space, t) {
   return t("qrSpaces.statusActive");
 }
 
+function qrVisibilityLabel(value, t) {
+  return {
+    public: t("qrSpaces.visibilityPublic"),
+    unlisted: t("qrSpaces.visibilityUnlisted"),
+    private: t("qrSpaces.visibilityPrivate")
+  }[value] || value;
+}
+
+function qrTargetLabel(value, t) {
+  return {
+    general: t("qrSpaces.targetGeneral"),
+    event: t("qrSpaces.targetEvent"),
+    trip: t("qrSpaces.targetTrip"),
+    location: t("qrSpaces.targetLocation"),
+    album: t("qrSpaces.targetAlbum")
+  }[value] || value;
+}
+
 function formatDate(value, t) {
   if (!value) return t("qrSpaces.noExpiration");
   return new Date(value).toLocaleString();
@@ -124,10 +142,10 @@ export default function QRSpaces() {
             <article key={space.id} className="card p-5">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
-                  <p className="text-sm uppercase tracking-[0.32em] text-primary">{space.targetType}</p>
+                  <p className="text-sm uppercase tracking-[0.32em] text-primary">{qrTargetLabel(space.targetType, t)}</p>
                   <h2 className="mt-2 text-2xl font-black">{space.title}</h2>
                   <div className="mt-3 flex flex-wrap gap-2 text-sm text-slatebody">
-                    <span className="rounded-full border border-borderline px-3 py-1">{space.visibility}</span>
+                    <span className="rounded-full border border-borderline px-3 py-1">{qrVisibilityLabel(space.visibility, t)}</span>
                     <span className="rounded-full border border-borderline px-3 py-1">{qrSpaceStatus(space, t)}</span>
                     <span className="rounded-full border border-borderline px-3 py-1">
                       {space.requireApproval ? t("qrSpaces.requireApproval") : t("qrSpaces.approvalNotRequired")}

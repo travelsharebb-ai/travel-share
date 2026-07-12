@@ -38,6 +38,33 @@ const normalizedLocales = Object.fromEntries(
 const englishKeys = new Set(flattenLocaleKeys(normalizedLocales.en));
 const missing = [];
 const emptyValues = [];
+const placeholderMismatches = [];
+const malformedValues = [];
+const untranslatedValues = [];
+
+const allowedUnchangedKeys = Object.fromEntries(Object.entries({
+  es: ['common.no', 'qrSpaces.no', 'authPage.google', 'authPage.microsoft', 'publicUpload.qrLabel', 'uploadSuccess.defaultDestination'],
+  fr: ['qrSpaces.targetAlbum', 'qrSpaces.latitude', 'qrSpaces.longitude', 'qrSpaces.expiresAt', 'admin.reports.photos', 'admin.users.table.actions', 'admin.management.message', 'events.stats.zones', 'authPage.google', 'authPage.microsoft', 'eventDetails.zones', 'publicUpload.qrLabel', 'tripCreate.labelDestination', 'tripCreate.visibility.exact', 'uploadSuccess.defaultDestination'],
+  pt: ['qrSpaces.latitude', 'qrSpaces.longitude', 'authPage.google', 'authPage.microsoft', 'publicUpload.qrLabel', 'uploadSuccess.defaultDestination'],
+  de: ['qrSpaces.targetAlbum', 'shell.roles.admin', 'shell.roles.tourist', 'settingsPage.newEmailPlaceholder', 'settingsPage.guestStatusLabel', 'admin.reports.videos', 'admin.management.uploads', 'events.stats.uploads', 'authPage.google', 'authPage.microsoft', 'hardcoded.token', 'media.video', 'myUploads.status', 'publicTripJoin.tokenLabel', 'publicUpload.qrLabel', 'uploadSuccess.defaultDestination'],
+  it: ['common.no', 'qrSpaces.targetAlbum', 'qrSpaces.no', 'authPage.google', 'authPage.microsoft', 'hardcoded.zoom', 'media.video', 'publicUpload.qrLabel', 'uploadSuccess.defaultDestination'],
+  nl: ['qrSpaces.targetAlbum', 'qrSpaces.details', 'shell.notificationTypes.info', 'settingsPage.guestStatusLabel', 'admin.management.uploads', 'events.actions.scanQr', 'events.stats.uploads', 'events.stats.zones', 'authPage.google', 'authPage.microsoft', 'hardcoded.token', 'hardcoded.zoom', 'media.video', 'qrScanner.title', 'eventDetails.zones', 'myUploads.status', 'publicTripJoin.tokenLabel', 'publicUpload.qrLabel', 'tripCreate.visibility.exact', 'uploadSuccess.defaultDestination'],
+  ar: ['settingsPage.newEmailPlaceholder', 'authPage.google', 'authPage.microsoft', 'publicUpload.qrLabel', 'uploadSuccess.defaultDestination'],
+  hi: ['settingsPage.newEmailPlaceholder', 'authPage.google', 'authPage.microsoft', 'hardcoded.token', 'publicTripJoin.tokenLabel', 'publicUpload.qrLabel', 'uploadSuccess.defaultDestination'],
+  zh: [],
+  ja: []
+}).map(([lang, keys]) => [lang, new Set(keys)]));
+
+function valueAtPath(locale, key) {
+  return key.split('.').reduce((acc, segment) => {
+    if (acc && typeof acc === 'object' && segment in acc) return acc[segment];
+    return undefined;
+  }, locale);
+}
+
+function interpolationTokens(value) {
+  return (String(value).match(/\{\{?[^{}]+\}\}?/g) || []).sort();
+}
 
 for (const [lang, locale] of Object.entries(normalizedLocales)) {
   if (lang === 'en') continue;
@@ -49,20 +76,36 @@ for (const [lang, locale] of Object.entries(normalizedLocales)) {
       continue;
     }
 
-    const value = key.split('.').reduce((acc, segment) => {
-      if (acc && typeof acc === 'object' && segment in acc) {
-        return acc[segment];
-      }
-      return undefined;
-    }, locale);
+    const value = valueAtPath(locale, key);
 
     if (typeof value !== 'string' || value.trim() === '') {
       emptyValues.push(`${lang}: empty ${key}`);
+      continue;
+    }
+
+    const englishValue = valueAtPath(normalizedLocales.en, key);
+    const expectedTokens = interpolationTokens(englishValue);
+    const actualTokens = interpolationTokens(value);
+    if (expectedTokens.join('|') !== actualTokens.join('|')) {
+      placeholderMismatches.push(`${lang}: ${key} expected [${expectedTokens.join(', ')}], found [${actualTokens.join(', ')}]`);
+    }
+
+    if (/Z[A-Z]{2,}[0-9]+[A-Z]+|TSSEP|QXZ/.test(value)) {
+      malformedValues.push(`${lang}: malformed translation marker in ${key}`);
+    }
+
+    if (
+      typeof englishValue === 'string' &&
+      /[A-Za-z]{2}/.test(englishValue) &&
+      value === englishValue &&
+      !allowedUnchangedKeys[lang]?.has(key)
+    ) {
+      untranslatedValues.push(`${lang}: untranslated ${key} = ${JSON.stringify(value)}`);
     }
   }
 }
 
-if (missing.length > 0 || emptyValues.length > 0) {
+if (missing.length > 0 || emptyValues.length > 0 || placeholderMismatches.length > 0 || malformedValues.length > 0 || untranslatedValues.length > 0) {
   console.error('i18n completeness check failed.');
   if (missing.length > 0) {
     console.error('Missing keys:');
@@ -71,6 +114,18 @@ if (missing.length > 0 || emptyValues.length > 0) {
   if (emptyValues.length > 0) {
     console.error('Empty values:');
     for (const entry of emptyValues) console.error(`- ${entry}`);
+  }
+  if (placeholderMismatches.length > 0) {
+    console.error('Placeholder mismatches:');
+    for (const entry of placeholderMismatches) console.error(`- ${entry}`);
+  }
+  if (malformedValues.length > 0) {
+    console.error('Malformed translated values:');
+    for (const entry of malformedValues) console.error(`- ${entry}`);
+  }
+  if (untranslatedValues.length > 0) {
+    console.error('English values copied into non-English locales:');
+    for (const entry of untranslatedValues) console.error(`- ${entry}`);
   }
   process.exit(1);
 }

@@ -233,14 +233,15 @@ html[data-theme="dark"] .hero-copy-panel .text-slatebody {
   color: var(--text-muted) !important;
 }
 
-html[data-theme="dark"] .sidebar-shell {
+html[data-theme="dark"] .sidebar-shell,
+html[data-theme="dark"] .shell-mobile-drawer-panel {
   background-image:
     linear-gradient(180deg, rgba(167, 139, 250, 0.08), rgba(167, 139, 250, 0)),
-    url("./assets/theme/tropical-sidebar-dark.png");
-  background-size: cover;
-  background-position: center 70%;
-  background-repeat: no-repeat;
-  background-color: #0a0e1a;
+    url("./assets/theme/tropical-sidebar-dark.png") !important;
+  background-size: cover !important;
+  background-position: center 70% !important;
+  background-repeat: no-repeat !important;
+  background-color: #0a0e1a !important;
   border-color: rgba(99, 64, 180, 0.35) !important;
 }
 
@@ -707,14 +708,15 @@ html[data-theme="light"] .hero-copy-panel .text-slatebody {
   color: var(--text-muted) !important;
 }
 
-html[data-theme="light"] .sidebar-shell {
+html[data-theme="light"] .sidebar-shell,
+html[data-theme="light"] .shell-mobile-drawer-panel {
   background-image:
     linear-gradient(180deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0)),
-    url("./assets/theme/tropical-sidebar.png");
-  background-size: cover;
-  background-position: center 70%;
-  background-repeat: no-repeat;
-  background-color: #ffffff;
+    url("./assets/theme/tropical-sidebar.png") !important;
+  background-size: cover !important;
+  background-position: center 70% !important;
+  background-repeat: no-repeat !important;
+  background-color: #ffffff !important;
   border-color: rgba(217, 230, 234, 0.45) !important;
 }
 
@@ -2305,6 +2307,11 @@ html:not([data-theme="light"]) .lang-option-active {
     width: calc(100vw - 24px);
     min-width: auto;
   }
+
+  .shell-mobile-topbar .notifications-panel {
+    position: fixed;
+    top: 4.5rem;
+  }
 }
 
 html[data-theme="light"] .notifications-panel {
@@ -3046,6 +3053,48 @@ html[data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator,
 html[data-theme="dark"] input[type="time"]::-webkit-calendar-picker-indicator,
 html[data-theme="dark"] input[type="datetime-local"]::-webkit-calendar-picker-indicator {
   filter: invert(1) brightness(1.25);
+}
+
+/* Shell breakpoint contract. Keep these explicit rules after component/theme
+   styles so sidebar and button display declarations cannot override them. */
+.shell-desktop-sidebar,
+.shell-desktop-topbar {
+  display: none !important;
+}
+
+.shell-mobile-topbar {
+  display: block !important;
+}
+
+.shell-mobile-drawer {
+  display: flex !important;
+}
+
+@media (min-width: 1024px) {
+  .shell-desktop-sidebar {
+    display: flex !important;
+    flex-direction: column;
+  }
+
+  .shell-desktop-topbar {
+    display: block !important;
+  }
+
+  .shell-mobile-topbar,
+  .shell-mobile-drawer {
+    display: none !important;
+  }
+}
+
+@media (max-width: 350px) {
+  .shell-mobile-topbar .topbar-icon-button,
+  .shell-mobile-topbar .mobile-menu-button {
+    width: 36px !important;
+    min-width: 36px !important;
+    height: 36px !important;
+    min-height: 36px !important;
+    padding: 0 !important;
+  }
 }
 
 html[data-theme="light"] input[type="file"],

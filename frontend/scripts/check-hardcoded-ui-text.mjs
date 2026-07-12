@@ -65,7 +65,6 @@ function hasHumanEnglish(text) {
   if (/^https?:\/\//i.test(value)) return false;
   if (/^\/[A-Za-z0-9/_:.-]*$/.test(value)) return false;
   if (/^[A-Z0-9_]+$/.test(value)) return false;
-  if (/^[a-z][A-Za-z0-9_.:-]*$/.test(value) && !/[A-Z]/.test(value)) return false;
   return /[A-Za-z]{2,}/.test(value);
 }
 
