@@ -1,11 +1,10 @@
-import React, { useState, useRef } from 'react';
+import React from 'react';
+import { useLanguage } from '../lib/i18n';
 
 export default function LocationSearchInput({ onSelect }) {
-  const inputRef = useRef(null);
-  const [mounted, setMounted] = useState(false);
+  const { language, t } = useLanguage();
 
   React.useEffect(() => {
-    if (mounted) return;
     const token = import.meta.env.VITE_MAPBOX_TOKEN;
     if (!token) {
       console.warn('VITE_MAPBOX_TOKEN is undefined');
@@ -15,7 +14,13 @@ export default function LocationSearchInput({ onSelect }) {
     (async () => {
       try {
         const Geocoder = (await import('@mapbox/mapbox-gl-geocoder')).default;
-        geocoder = new Geocoder({ accessToken: token, marker: false, types: 'place,locality,address' });
+        geocoder = new Geocoder({
+          accessToken: token,
+          marker: false,
+          types: 'place,locality,address',
+          language,
+          placeholder: t("map.searchPlaceholder")
+        });
         geocoder.on('result', (e) => {
           const c = (e.result && e.result.center) || [];
           if (c.length >= 2) {
@@ -26,7 +31,6 @@ export default function LocationSearchInput({ onSelect }) {
           }
         });
         geocoder.addTo('#mapbox-geocoder');
-        setMounted(true);
       } catch (err) {
         console.warn('Failed to load mapbox geocoder', err);
       }
@@ -35,7 +39,7 @@ export default function LocationSearchInput({ onSelect }) {
     return () => {
       try { if (geocoder) { geocoder.clear(); geocoder.off && geocoder.off(); } } catch (e) {}
     };
-  }, [onSelect, mounted]);
+  }, [language, onSelect, t]);
 
   return (
     <div id="mapbox-geocoder" style={{ position: 'absolute', left: 12, top: 12, zIndex: 20, width: 320 }} />

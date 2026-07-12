@@ -56,7 +56,7 @@ const STORAGE_KEY_MAP_STYLE = 'travelshare_map_style';
 // And layers for traffic visualization when needed.
 
 export default function MapView() {
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
   const mapUser = currentUser();
   const canUseFriendsFilter = Boolean(mapUser && mapUser.role !== "guest");
   const translatedFilterOptions = useMemo(
@@ -96,7 +96,7 @@ export default function MapView() {
   function formatPreviewTime(d) {
     if (!d) return t('map.recentlyShared');
     try {
-      return d.toLocaleString();
+      return d.toLocaleString(language);
     } catch (e) {
       return t('map.recentlyShared');
     }
@@ -289,6 +289,8 @@ export default function MapView() {
   const mapRef = useRef(null);
   const normalMarkersRef = useRef([]);
   const userMarkerRef = useRef(null);
+  const activeLocationPopupRef = useRef(null);
+  const activeLocationPopupDataRef = useRef(null);
   const clustersRef = useRef({ added: false, handlers: {} });
   
   const [searchText, setSearchText] = useState('');
@@ -376,6 +378,70 @@ export default function MapView() {
   const pendingPostMarkerRef = useRef(null);
   const controlsAddedRef = useRef(false);
 
+  function getLocationPopupHtml(props) {
+    const previewAlt = t("map.locationPreview", "Location preview");
+    const previewImage = props.previewImage
+      ? `<div style="margin-bottom:8px;"><img src="${escapeHtml(props.previewImage)}" alt=${JSON.stringify(previewAlt)} style="width:220px;height:120px;object-fit:cover;border-radius:6px;display:block;"/></div>`
+      : '';
+    const previewTitle = props.previewTitle || props.title || t("map.communityPost");
+    const previewUser = props.previewUser
+      ? `<small style="color:#444;">${escapeHtml(props.previewUser)}</small>`
+      : `<small style="color:#444;">${escapeHtml(t("map.communityPost"))}</small>`;
+    const previewTime = props.previewCreatedAt
+      ? `<div style="color:#666;font-size:12px;margin-top:6px;">${escapeHtml(formatPreviewTime(new Date(props.previewCreatedAt)))}</div>`
+      : `<div style="color:#666;font-size:12px;margin-top:6px;">${escapeHtml(t("map.recentlyShared"))}</div>`;
+
+    return `<div style="padding:8px;font-size:14px;max-width:260px;">${previewImage}<strong>${escapeHtml(previewTitle)}</strong><br/><small>${escapeHtml(props.description || t("map.noDescriptionAvailable"))}</small><br/>${previewUser}${previewTime}</div>`;
+  }
+
+  function openLocationPopup(map, coordinates, props) {
+    const popup = new mapboxgl.Popup({ offset: 25 })
+      .setLngLat(coordinates)
+      .setHTML(getLocationPopupHtml(props))
+      .addTo(map);
+    activeLocationPopupRef.current = popup;
+    activeLocationPopupDataRef.current = props;
+    popup.on('close', () => {
+      if (activeLocationPopupRef.current === popup) {
+        activeLocationPopupRef.current = null;
+        activeLocationPopupDataRef.current = null;
+      }
+    });
+  }
+
+  function getLocationTypeLabel(type) {
+    if (type === 'event') return t('map.events');
+    if (type === 'trip') return t('map.trips');
+    if (type === 'photo') return t('map.photos');
+    if (type === 'travel_post') return t('map.travelPosts', 'Travel Posts');
+    return t('map.location', 'Location');
+  }
+
+  function getUploadStatusLabel(status) {
+    if (status === 'pending') return t('map.pending', 'Pending');
+    if (status === 'approved') return t('map.approved', 'Approved');
+    if (status === 'rejected') return t('map.rejected', 'Rejected');
+    return status || t('common.none', 'None');
+  }
+
+  function getVisibilityLabel(visibility) {
+    if (visibility === 'exact') return t('map.exactLocation', 'Exact Location');
+    if (visibility === 'approximate') return t('map.approximateLocation', 'Approximate Location');
+    if (visibility === 'city') return t('map.cityLevelOnly', 'City-Level Only');
+    if (visibility === 'hidden') return t('map.hidden', 'Hidden');
+    return visibility || t('common.none', 'None');
+  }
+
+  function getSourceLabel(source) {
+    if (source === 'geolocation' || source === 'userLocation' || source === 'saved') {
+      return t('map.yourLocation', 'Your location');
+    }
+    if (source === 'mapCenter') return t('map.mapCenter', 'Map center');
+    if (source === 'search') return t('map.search', 'Search');
+    if (source === 'addPost' || source === 'map') return t('map.addPostLocation', 'Add Post location');
+    return source || t('common.none', 'None');
+  }
+
   const navigate = useNavigate();
   const routeLocation = useLocation();
 
@@ -439,7 +505,7 @@ export default function MapView() {
       .setLngLat([markerLng, markerLat])
       .setPopup(
         new mapboxgl.Popup({ offset: 20 }).setHTML(
-          `<strong>${escapeHtml(t('map.youAreHere'))}</strong><br/>${escapeHtml(t('map.accuracy', { meters: Math.round(accuracy || 0) }))}`
+          `<strong>${escapeHtml(t('map.youAreHere'))}</strong><br/>${escapeHtml(t('map.accuracy').replace('{meters}', String(Math.round(accuracy || 0))))}`
         )
       )
       .addTo(mapRef.current);
@@ -578,7 +644,7 @@ export default function MapView() {
     const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY?.trim();
     if (!apiKey) {
       setStreetViewLocation(null);
-      setStreetViewError(t('map.streetViewApiKey', 'Street View needs a Google Maps API key.'));
+      setStreetViewError('map.streetViewApiKey');
       setStreetViewUrl('');
       setStreetViewOpen(true);
       return;
@@ -587,7 +653,7 @@ export default function MapView() {
     const location = getBestStreetViewLocation();
     if (!location) {
       setStreetViewLocation(null);
-      setStreetViewError(t('map.streetViewZoomFirst', 'Zoom in closer or search/select a specific place first.'));
+      setStreetViewError('map.streetViewZoomFirst');
       setStreetViewUrl('');
       setStreetViewOpen(true);
       return;
@@ -693,7 +759,7 @@ export default function MapView() {
       features: points
         .filter((point) => point.latitude != null && point.longitude != null)
         .map((point, index) => ({
-          type: t("map.feature"),
+          type: 'Feature',
           geometry: { type: 'Point', coordinates: [point.longitude, point.latitude] },
           properties: {
             id: point.id || index,
@@ -710,7 +776,7 @@ export default function MapView() {
         .slice(0, index + 1)
         .filter((point) => point.latitude != null && point.longitude != null)
         .map((point, idx) => ({
-          type: t("map.feature"),
+          type: 'Feature',
           geometry: { type: 'Point', coordinates: [point.longitude, point.latitude] },
           properties: {
             id: point.id || idx
@@ -727,7 +793,7 @@ export default function MapView() {
     return {
       type: 'FeatureCollection',
       features: [{
-        type: t("map.feature"),
+        type: 'Feature',
         geometry: { type: 'Point', coordinates: [point.longitude, point.latitude] },
         properties: { id: point.id }
       }]
@@ -909,7 +975,7 @@ export default function MapView() {
       };
     } catch (err) {
       console.error('Reverse geocoding failed:', err);
-      setReverseGeocodeError('Unable to resolve address for this location. Showing coordinates only.');
+      setReverseGeocodeError('map.reverseGeocodeError');
       return null;
     } finally {
       setIsReverseGeocoding(false);
@@ -1060,14 +1126,7 @@ export default function MapView() {
         const coords = feature.geometry.coordinates.slice();
         const props = feature.properties || {};
 
-        const previewImage = props.previewImage ? `<div style="margin-bottom:8px;"><img src="${props.previewImage}" alt="preview" style="width:220px;height:120px;object-fit:cover;border-radius:6px;display:block;"/></div>` : '';
-        const previewTitle = props.previewTitle || props.title || t("map.communityPost");
-        const previewUser = props.previewUser ? `<small style="color:#444;">${escapeHtml(props.previewUser)}</small>` : `<small style="color:#444;">${escapeHtml(t("map.communityPost"))}</small>`;
-        const previewTime = props.previewCreatedAt ? `<div style="color:#666;font-size:12px;margin-top:6px;">${formatPreviewTime(new Date(props.previewCreatedAt))}</div>` : `<div style="color:#666;font-size:12px;margin-top:6px;">${escapeHtml(t("map.recentlyShared"))}</div>`;
-
-        const html = `<div style="padding:8px;font-size:14px;max-width:260px;">${previewImage}<strong>${escapeHtml(previewTitle)}</strong><br/><small>${escapeHtml(props.description || t("map.noDescriptionAvailable"))}</small><br/>${previewUser}${previewTime}</div>`;
-
-        new mapboxgl.Popup({ offset: 25 }).setLngLat(coords).setHTML(html).addTo(map);
+        openLocationPopup(map, coords, props);
       };
 
       const onMouseEnter = () => map.getCanvas().style.cursor = 'pointer';
@@ -1099,7 +1158,7 @@ export default function MapView() {
         const serverFilters = new Set(['events', 'trips', 'photos', 'travel_posts', 'trending', 'friends']);
         const filterParam = serverFilters.has(activeFilter) ? activeFilter : 'all';
         const body = await api(`/api/locations?filter=${encodeURIComponent(filterParam)}`);
-        if (body?.message) setLocationFilterMessage(body.message);
+        if (body?.message) setLocationFilterMessage('map.noFriendLocations');
         const rawLocations = Array.isArray(body?.locations) ? body.locations : [];
 
         const normalizedLocations = rawLocations.map((item) => {
@@ -1146,7 +1205,7 @@ export default function MapView() {
         updateFilterOptions(normalizedLocations);
       } catch (loadError) {
         console.error('Failed to load locations', loadError);
-        setError('Unable to load locations right now.');
+        setError(() => 'map.loadLocationsError');
         setLocations([]);
       } finally {
         setLoading(false);
@@ -1166,7 +1225,7 @@ export default function MapView() {
         setAdminLocations(Array.isArray(data.locations) ? data.locations.map(normalizeAdminLocation) : []);
       } catch (err) {
         console.error('Failed to load admin map locations', err);
-        setAdminError('Unable to load admin map locations.');
+        setAdminError('map.loadAdminLocationsError');
         setAdminLocations([]);
       } finally {
         setAdminLoading(false);
@@ -1217,12 +1276,12 @@ export default function MapView() {
           hadOverlayError = true;
         }
 
-        setOverlayError(hadOverlayError ? 'Heatmap/replay data is unavailable right now.' : '');
+        setOverlayError(hadOverlayError ? 'map.overlayUnavailable' : '');
       } catch (err) {
         console.error('Failed to load heatmap/replay data:', err);
         setHeatmapPoints([]);
         setReplayPoints([]);
-        setOverlayError('Heatmap/replay data is unavailable right now.');
+        setOverlayError('map.overlayUnavailable');
       }
     }
     loadOverlayData();
@@ -1286,7 +1345,7 @@ export default function MapView() {
         setSelectedAdminLocation(data.location || null);
       } catch (err) {
         console.error('Failed to load selected admin location', err);
-        setAdminError('Unable to load selected location details.');
+        setAdminError('map.loadLocationDetailsError');
         setSelectedAdminLocation(null);
       }
     }
@@ -1351,14 +1410,14 @@ export default function MapView() {
   });
 
   const nearbyMessage = activeFilter === 'nearby' && !userLocation
-    ? 'Nearby requires location access before results can be shown.'
+    ? t('map.nearbyRequiresLocation', 'Nearby requires location access before results can be shown.')
     : '';
   const friendsMessage = activeFilter === 'friends' && filteredLocations.length === 0
-    ? (locationFilterMessage || t('map.noFriendLocations', 'No friend locations yet.'))
+    ? (locationFilterMessage ? t(locationFilterMessage) : t('map.noFriendLocations', 'No friend locations yet.'))
     : '';
 
   const accuracyMessage = userLocation?.accuracy
-    ? `Location accuracy: about ${Math.round(userLocation.accuracy)} meters`
+    ? t('map.locationAccuracy', 'Location accuracy: about {meters} meters').replace('{meters}', String(Math.round(userLocation.accuracy)))
     : '';
 
   // Handle map style change
@@ -1397,7 +1456,7 @@ export default function MapView() {
       const features = (filteredLocations || locations)
         .filter((loc) => loc.lat != null && loc.lng != null)
         .map((loc) => ({
-          type: t("map.feature"),
+          type: 'Feature',
           geometry: { type: 'Point', coordinates: [loc.lng, loc.lat] },
           properties: {
             id: loc.id,
@@ -1462,7 +1521,7 @@ export default function MapView() {
     const token = import.meta.env.VITE_MAPBOX_TOKEN;
     
     if (!token) {
-      setMapError('Mapbox token required');
+      setMapError('map.mapboxTokenRequired');
       return;
     }
 
@@ -1494,14 +1553,14 @@ export default function MapView() {
 
         map.on('error', (e) => {
           console.error('Mapbox error:', e);
-          setMapError('Map Error: Unable to load map');
+          setMapError('map.mapLoadError');
         });
 
         mapRef.current = map;
       }
     } catch (initError) {
       console.error('Mapbox initialization error:', initError);
-      setMapError('Map Error: Unable to initialize');
+      setMapError('map.mapInitializeError');
     }
 
     // Cleanup on unmount
@@ -1638,6 +1697,27 @@ export default function MapView() {
     };
   }, [userLocation]);
 
+  useEffect(() => {
+    if (userMarkerRef.current) {
+      const markerElement = userMarkerRef.current.getElement?.();
+      if (markerElement) {
+        markerElement.setAttribute('aria-label', t('map.yourCurrentLocation'));
+        markerElement.title = t('map.yourCurrentLocation');
+      }
+      const popup = userMarkerRef.current.getPopup?.();
+      if (popup) {
+        const meters = Math.round(userLocation?.accuracy || 0);
+        popup.setHTML(
+          `<strong>${escapeHtml(t('map.youAreHere'))}</strong><br/>${escapeHtml(t('map.accuracy').replace('{meters}', String(meters)))}`
+        );
+      }
+    }
+
+    if (activeLocationPopupRef.current && activeLocationPopupDataRef.current) {
+      activeLocationPopupRef.current.setHTML(getLocationPopupHtml(activeLocationPopupDataRef.current));
+    }
+  }, [language, t, userLocation?.accuracy]);
+
   // Use a GeoJSON source with Mapbox clustering for filtered locations
   useEffect(() => {
     if (!mapRef.current) return;
@@ -1647,7 +1727,7 @@ export default function MapView() {
     const features = filteredLocations
       .filter((loc) => loc.lat != null && loc.lng != null)
       .map((loc) => ({
-        type: t("map.feature"),
+        type: 'Feature',
         geometry: { type: 'Point', coordinates: [loc.lng, loc.lat] },
         properties: {
           id: loc.id,
@@ -1751,14 +1831,7 @@ export default function MapView() {
             const coords = feature.geometry.coordinates.slice();
             const props = feature.properties || {};
 
-            const previewImage = props.previewImage ? `<div style="margin-bottom:8px;"><img src="${props.previewImage}" alt="preview" style="width:220px;height:120px;object-fit:cover;border-radius:6px;display:block;"/></div>` : '';
-            const previewTitle = props.previewTitle || props.title || t("map.communityPost");
-            const previewUser = props.previewUser ? `<small style="color:#444;">${escapeHtml(props.previewUser)}</small>` : `<small style="color:#444;">${escapeHtml(t("map.communityPost"))}</small>`;
-            const previewTime = props.previewCreatedAt ? `<div style="color:#666;font-size:12px;margin-top:6px;">${formatPreviewTime(new Date(props.previewCreatedAt))}</div>` : `<div style="color:#666;font-size:12px;margin-top:6px;">${escapeHtml(t("map.recentlyShared"))}</div>`;
-
-            const html = `<div style="padding:8px;font-size:14px;max-width:260px;">${previewImage}<strong>${escapeHtml(previewTitle)}</strong><br/><small>${escapeHtml(props.description || t("map.noDescriptionAvailable"))}</small><br/>${previewUser}${previewTime}</div>`;
-
-            new mapboxgl.Popup({ offset: 25 }).setLngLat(coords).setHTML(html).addTo(map);
+            openLocationPopup(map, coords, props);
           };
 
           const onMouseEnter = () => map.getCanvas().style.cursor = 'pointer';
@@ -1856,7 +1929,7 @@ export default function MapView() {
 
       clustersRef.current = { added: false, handlers: {} };
     };
-  }, [filteredLocations]);
+  }, [filteredLocations, language, t]);
 
   const handleCenterOnMe = () => {
     const map = mapRef.current;
@@ -1864,7 +1937,7 @@ export default function MapView() {
       clearTimeout(locatingTimerRef.current);
       setIsLocating(false);
       setLocationStatusMessage('');
-      setGeolocationError('Map is not ready yet.');
+      setGeolocationError('map.mapNotReady');
       return;
     }
 
@@ -1881,7 +1954,7 @@ export default function MapView() {
       }
       createUserMarker({ ...userLocation, source: 'saved' });
       setGeolocationError('');
-      setLocationStatusMessage('Centered on your location.');
+      setLocationStatusMessage('map.centeredOnLocation');
       setIsLocating(false);
 
       if (navigator.geolocation) {
@@ -1897,17 +1970,17 @@ export default function MapView() {
             };
             setUserLocation(nextLocation);
             setGeolocationError('');
-            setLocationStatusMessage('Location found');
+            setLocationStatusMessage('map.locationFound');
             createUserMarker(nextLocation);
           },
           (error) => {
-            let errorMsg = 'Unable to retrieve your location.';
+            let errorMsg = 'map.locationRetrieveError';
             if (error.code === error.PERMISSION_DENIED) {
-              errorMsg = 'Location permission was denied. Enable location access in your browser.';
+              errorMsg = 'map.locationPermissionDenied';
             } else if (error.code === error.POSITION_UNAVAILABLE) {
-              errorMsg = 'Location information is currently unavailable.';
+              errorMsg = 'map.locationInformationUnavailable';
             } else if (error.code === error.TIMEOUT) {
-              errorMsg = 'The request to get your location timed out. Please try again.';
+              errorMsg = 'map.locationTimeout';
             }
             setGeolocationError(errorMsg);
           },
@@ -1923,10 +1996,10 @@ export default function MapView() {
 
     setIsLocating(true);
     setGeolocationError('');
-    setLocationStatusMessage('Getting your location...');
+    setLocationStatusMessage('map.gettingLocation');
     if (!navigator.geolocation) {
       clearTimeout(locatingTimerRef.current);
-      setGeolocationError('Location is not available in this browser.');
+      setGeolocationError('map.locationUnavailableBrowser');
       setIsLocating(false);
       setLocationStatusMessage('');
       return;
@@ -1934,7 +2007,7 @@ export default function MapView() {
 
     clearTimeout(locatingTimerRef.current);
     locatingTimerRef.current = window.setTimeout(() => {
-      setGeolocationError('Still waiting for browser location permission. Check Chrome location permission.');
+      setGeolocationError('map.locationPermissionPending');
     }, 10000);
 
     navigator.geolocation.getCurrentPosition(
@@ -1952,11 +2025,11 @@ export default function MapView() {
         setLastStreetViewTarget({
           latitude: Number(latitude),
           longitude: Number(longitude),
-          label: 'Your location',
+          label: t('map.yourLocation', 'Your location'),
           source: 'userLocation'
         });
         setGeolocationError('');
-        setLocationStatusMessage('Location found');
+        setLocationStatusMessage('map.locationFound');
         setIsLocating(false);
         setActiveFilter('nearby');
         if (map) {
@@ -1985,13 +2058,13 @@ export default function MapView() {
         clearTimeout(locatingTimerRef.current);
         setIsLocating(false);
         setLocationStatusMessage('');
-        let errorMsg = 'Unable to retrieve your location.';
+        let errorMsg = 'map.locationRetrieveError';
         if (error.code === error.PERMISSION_DENIED) {
-          errorMsg = 'Location permission was denied. Enable location access in your browser.';
+          errorMsg = 'map.locationPermissionDenied';
         } else if (error.code === error.POSITION_UNAVAILABLE) {
-          errorMsg = 'Location information is currently unavailable.';
+          errorMsg = 'map.locationInformationUnavailable';
         } else if (error.code === error.TIMEOUT) {
-          errorMsg = 'The request to get your location timed out. Please try again.';
+          errorMsg = 'map.locationTimeout';
         }
         setGeolocationError(errorMsg);
       },
@@ -2020,7 +2093,7 @@ export default function MapView() {
       setAdminLocations(Array.isArray(data.locations) ? data.locations.map(normalizeAdminLocation) : []);
     } catch (err) {
       console.error('Failed to refresh admin map locations', err);
-      setAdminError('Unable to refresh admin locations.');
+      setAdminError('map.refreshAdminLocationsError');
     } finally {
       setAdminLoading(false);
     }
@@ -2040,7 +2113,7 @@ export default function MapView() {
       setSelectedAdminLocation(refreshed.location || null);
     } catch (err) {
       console.error('Admin location update failed', err);
-      setAdminError(err.message || 'Location update failed.');
+      setAdminError('map.locationUpdateError');
     }
   };
 
@@ -2055,7 +2128,7 @@ export default function MapView() {
       setSelectedAdminLocation(null);
     } catch (err) {
       console.error('Admin delete failed', err);
-      setAdminError(err.message || 'Location hide failed.');
+      setAdminError('map.locationHideError');
     }
   };
 
@@ -2074,7 +2147,7 @@ export default function MapView() {
       await refreshAdminLocations();
     } catch (err) {
       console.error('Admin upload moderation action failed', err);
-      setAdminError(err.message || 'Upload moderation failed.');
+      setAdminError('map.uploadModerationError');
     }
   };
 
@@ -2223,7 +2296,7 @@ export default function MapView() {
               <div className="rounded-lg border border-dashed border-slate-500 bg-slate-900/70 p-6 flex min-h-96 flex-col items-center justify-center text-center">
                 <div>
                   <div className="text-4xl mb-3">⚠️</div>
-                  <h3 className="text-xl font-bold text-white mb-2">{mapError}</h3>
+                  <h3 className="text-xl font-bold text-white mb-2">{t(mapError)}</h3>
                   <p className="text-slatebody text-sm mb-4">{t("map.mapUnavailableMessage")}</p>
                 </div>
               </div>
@@ -2263,7 +2336,7 @@ export default function MapView() {
                       fontSize: '13px'
                     }}
                   >
-                    {overlayError}
+                    {t(overlayError)}
                   </div>
                 ) : null}
                 {!overlayError && mapMode === 'heatmap' && !heatmapPoints.length ? (
@@ -2397,7 +2470,7 @@ export default function MapView() {
                             </div>
                           </div>
                         ) : null}
-                      {Object.values(MAP_STYLES).map((style) => (
+                      {Object.values(translatedMapStyles).map((style) => (
                         <button
                           key={style.id}
                           onClick={() => handleChangeMapStyle(style.id)}
@@ -2535,7 +2608,7 @@ export default function MapView() {
                   <div>
                   <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700 }}>{t('map.streetView','Street View')}</h2>
                   <p style={{ margin: '6px 0 0', color: '#cbd5e1', fontSize: '0.95rem' }}>
-                    {t('map.streetViewCoverage','Street View availability depends on Google coverage.')}
+                    {t('map.streetViewSubtitle','Street View availability depends on Google coverage.')}
                   </p>
                 </div>
                 <button
@@ -2554,17 +2627,17 @@ export default function MapView() {
               </div>
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                   <div style={{ padding: '12px 16px', background: '#0f172a', color: '#e2e8f0', fontSize: '0.95rem' }}>
-                  {streetViewError || t('map.openingStreetView','Opening Street View...')}
+                  {streetViewError ? t(streetViewError) : t('map.openingStreetView','Opening Street View...')}
                 </div>
                 <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
                   {streetViewError ? (
                     <div style={{ padding: '16px', color: '#ef5350', fontSize: '0.95rem' }}>
-                      {streetViewError}
+                      {t(streetViewError)}
                     </div>
                   ) : streetViewUrl ? (
                     <>
                       <iframe
-                        title={t("hardcoded.streetViewPreview")}
+                        title={t("map.streetViewPreview", "Street View preview")}
                         src={streetViewUrl}
                         width="100%"
                         height="100%"
@@ -2583,10 +2656,10 @@ export default function MapView() {
                 </div>
                 <div style={{ padding: '12px 16px', background: '#0f172a', color: '#64748b', fontSize: '0.85rem', borderTop: '1px solid #1e293b' }}>
                   <div>{t('map.apiKeyLabel','API key')}: {import.meta.env.VITE_GOOGLE_MAPS_API_KEY ? t('map.present','present') : t('map.missing','missing')}</div>
-                  <div>{t('map.latitudeLabel','Latitude')}: {streetViewLocation?.latitude ?? 'N/A'}</div>
-                  <div>{t('map.longitudeLabel','Longitude')}: {streetViewLocation?.longitude ?? 'N/A'}</div>
-                  <div>{t('map.urlReadyLabel','URL ready')}: {streetViewUrl ? t('map.yes','yes') : t('map.no','no')}</div>
-                  {streetViewLocation?.source && <div>{t('map.sourceLabel','Source')}: {streetViewLocation.source}</div>}
+                  <div>{t('map.latitude','Latitude')}: {streetViewLocation?.latitude ?? t('common.noValue', '—')}</div>
+                  <div>{t('map.longitude','Longitude')}: {streetViewLocation?.longitude ?? t('common.noValue', '—')}</div>
+                  <div>{t('map.urlReady','URL ready')}: {streetViewUrl ? t('map.yes','yes') : t('map.no','no')}</div>
+                  {streetViewLocation?.source && <div>{t('map.source','Source')}: {getSourceLabel(streetViewLocation.source)}</div>}
                 </div>
               </div>
             </div>
@@ -2627,7 +2700,7 @@ export default function MapView() {
                 </div>
                 {isAdminView ? (
                   <div className="space-y-3">
-                    {adminError ? <div className="text-sm text-red-400">{adminError}</div> : null}
+                    {adminError ? <div className="text-sm text-red-400">{t(adminError)}</div> : null}
                     <div>
                       <label className="block text-sm font-semibold text-white mb-2">{t('map.selectPin','Select pin')}</label>
                       <select
@@ -2638,7 +2711,7 @@ export default function MapView() {
                         <option value="">{t("map.chooseLocation")}</option>
                         {adminLocations.map((loc) => (
                           <option key={loc.id} value={loc.id}>
-                            {loc.title || 'Untitled'} {loc.hidden ? '(hidden)' : ''} {loc.featured ? '★' : ''}
+                            {loc.title || t('map.untitledLocation')} {loc.hidden ? `(${t('map.hidden')})` : ''} {loc.featured ? '★' : ''}
                           </option>
                         ))}
                       </select>
@@ -2646,23 +2719,23 @@ export default function MapView() {
                     {selectedAdminLocation ? (
                       <div className="space-y-3">
                         <div className="text-sm text-slatebody">
-                          <div><strong>{t("hardcoded.name")}</strong> {selectedAdminLocation.name}</div>
-                          <div><strong>{t("map.addressLabelShort")}</strong> {selectedAdminLocation.address || 'None'}</div>
-                          <div><strong>{t("hardcoded.coordinates")}</strong> {selectedAdminLocation.latitude?.toFixed(5) ?? 'N/A'}, {selectedAdminLocation.longitude?.toFixed(5) ?? 'N/A'}</div>
-                          <div><strong>{t("hardcoded.status")}</strong> {selectedAdminLocation.hidden ? 'Hidden' : 'Visible'}{selectedAdminLocation.featured ? ' · Featured' : ''}</div>
+                          <div><strong>{t("map.nameLabel")}</strong> {selectedAdminLocation.name || t('common.none', 'None')}</div>
+                          <div><strong>{t("map.addressLabel")}</strong> {selectedAdminLocation.address || t('common.none', 'None')}</div>
+                          <div><strong>{t("map.coordinatesLabel")}</strong> {selectedAdminLocation.latitude?.toFixed(5) ?? t('common.noValue', '—')}, {selectedAdminLocation.longitude?.toFixed(5) ?? t('common.noValue', '—')}</div>
+                          <div><strong>{t("map.statusLabel")}</strong> {selectedAdminLocation.hidden ? t('map.hidden') : t('map.visible')}{selectedAdminLocation.featured ? ` · ${t('map.featured')}` : ''}</div>
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                           <button
                             onClick={() => handleAdminUpdateLocation({ hidden: !selectedAdminLocation.hidden })}
                             className="btn-ghost w-full"
                           >
-                            {selectedAdminLocation.hidden ? 'Unhide pin' : 'Hide pin'}
+                            {selectedAdminLocation.hidden ? t('map.unhidePin') : t('map.hidePin')}
                           </button>
                           <button
                             onClick={() => handleAdminUpdateLocation({ featured: !selectedAdminLocation.featured })}
                             className="btn-ghost w-full"
                           >
-                            {selectedAdminLocation.featured ? 'Unfeature pin' : 'Feature pin'}
+                            {selectedAdminLocation.featured ? t('map.unfeaturePin') : t('map.featurePin')}
                           </button>
                         </div>
                         <div className="grid grid-cols-2 gap-2">
@@ -2678,14 +2751,14 @@ export default function MapView() {
                         </div>
                         {adminMoveMode ? (
                           <div className="text-sm text-slatebody">
-                            Click a new location on the map to move the selected pin.
+                            {t('map.movePinInstructions', 'Click a new location on the map to move the selected pin.')}
                             {adminPendingMove ? (
                               <div className="mt-2 text-white">
-                                New coordinates: {adminPendingMove.lat.toFixed(5)}, {adminPendingMove.lng.toFixed(5)}
+                                {t('map.newCoordinates', 'New coordinates')}: {adminPendingMove.lat.toFixed(5)}, {adminPendingMove.lng.toFixed(5)}
                                 <button
                                   onClick={() => handleAdminUpdateLocation({ latitude: adminPendingMove.lat, longitude: adminPendingMove.lng })}
                                   className="btn-ghost w-full mt-2"
-                                >{t("hardcoded.confirmMove")}</button>
+                                >{t("map.confirmMove", "Confirm move")}</button>
                                 <button
                                   onClick={() => setAdminPendingMove(null)}
                                   className="btn-ghost w-full"
@@ -2699,8 +2772,8 @@ export default function MapView() {
                             <div className="text-sm font-semibold text-white">{t("tourist.recentUploads.title")}</div>
                             {selectedAdminLocation.uploads.slice(0, 5).map((upload) => (
                               <div key={upload.id} className="rounded-lg border border-slate-700 p-3 bg-slate-900">
-                                <div className="text-sm mb-1">{upload.caption || upload.fileType || 'Upload'}</div>
-                                <div className="text-xs text-slatebody mb-2">{upload.status} • {upload.locationVisibility}</div>
+                                <div className="text-sm mb-1">{upload.caption || upload.fileType || t('map.upload')}</div>
+                                <div className="text-xs text-slatebody mb-2">{getUploadStatusLabel(upload.status)} • {getVisibilityLabel(upload.locationVisibility)}</div>
                                 <div className="grid grid-cols-2 gap-2">
                                   <button
                                     onClick={() => handleAdminUploadAction(upload.id, 'approve')}
@@ -2713,7 +2786,7 @@ export default function MapView() {
                                   <button
                                     onClick={() => handleAdminUploadAction(upload.id, upload.locationVisibility === 'hidden' ? 'unhide' : 'hide')}
                                     className="btn-ghost w-full"
-                                  >{upload.locationVisibility === 'hidden' ? 'Unhide' : 'Hide'}</button>
+                                  >{upload.locationVisibility === 'hidden' ? t('map.unhide') : t('map.hide')}</button>
                                   <button
                                     onClick={() => handleAdminUploadAction(upload.id, upload.locationId ? 'feature' : 'unfeature')}
                                     className="btn-ghost w-full"
@@ -2739,7 +2812,7 @@ export default function MapView() {
 
             {!isLocating && locationStatusMessage ? (
               <div className="card p-4 text-center">
-                <p className="text-slatebody text-sm">{locationStatusMessage}</p>
+                <p className="text-slatebody text-sm">{t(locationStatusMessage)}</p>
               </div>
             ) : null}
 
@@ -2756,7 +2829,7 @@ export default function MapView() {
                       <strong>{t("map.longitudeLabel")}</strong> {pendingPostLocation.lng.toFixed(5)}
                     </div>
                     <div>
-                      <strong>{t("map.addressLabelShort")}</strong> {pendingPostAddress?.address || 'Coordinates only'}
+                      <strong>{t("map.addressLabelShort")}</strong> {pendingPostAddress?.address || t('map.coordinatesOnly')}
                     </div>
                     <div className="space-y-3">
                       <label className="block text-sm font-semibold text-white mb-2">{t("map.locationPrivacy")}</label>
@@ -2806,7 +2879,7 @@ export default function MapView() {
                       </div>
                     </div>
                     {reverseGeocodeError ? (
-                      <p className="text-xs text-red-400">{reverseGeocodeError}</p>
+                      <p className="text-xs text-red-400">{t(reverseGeocodeError)}</p>
                     ) : null}
                     <button onClick={handleConfirmAddPost} className="btn-primary w-full mt-2" disabled={!pendingPostLocation || !pendingLocationPrivacy}>{t("map.confirmLocation")}</button>
                     <button onClick={handleCancelAddPost} className="btn-ghost w-full">{t("common.cancel")}</button>
@@ -2825,7 +2898,7 @@ export default function MapView() {
               ) : null}
               {geolocationError ? (
                 <div className="card p-4 text-center">
-                  <p className="text-slatebody text-sm">{geolocationError}</p>
+                  <p className="text-slatebody text-sm">{t(geolocationError)}</p>
                 </div>
               ) : loading ? (
                 <div className="card p-4 text-center">
@@ -2833,7 +2906,7 @@ export default function MapView() {
                 </div>
               ) : error ? (
                 <div className="card p-4 text-center">
-                  <p className="text-slatebody">{error}</p>
+                  <p className="text-slatebody">{t(error)}</p>
                 </div>
               ) : friendsMessage ? (
                 <div className="card p-4 text-center">
@@ -2847,17 +2920,17 @@ export default function MapView() {
                 filteredLocations.map((location) => (
                   <div key={location.id ?? `${location.title}-${location.type}`} className="card p-4">
                     <div className="flex items-center justify-between mb-2">
-                      <h3 className="font-semibold text-white">{location.title || 'Untitled location'}</h3>
+                      <h3 className="font-semibold text-white">{location.title || t('map.untitledLocation')}</h3>
                           <span className="text-xs uppercase tracking-wide text-primary">
-                        {location.type || 'location'}
+                        {getLocationTypeLabel(location.type)}
                       </span>
                           {location.featured ? (
-                            <span className="ml-2 text-xs uppercase tracking-wide text-amber-300">{t("hardcoded.featured")}</span>
+                            <span className="ml-2 text-xs uppercase tracking-wide text-amber-300">{t("map.featured")}</span>
                           ) : null}
                     </div>
                     {location.imageUrl ? (
                       <div className="mb-3">
-                        <img src={location.imageUrl} alt={location.previewTitle || location.title || 'preview'} style={{ width: '100%', height: '140px', objectFit: 'cover', borderRadius: 8 }} />
+                        <img src={location.imageUrl} alt={location.previewTitle || location.title || t('map.locationPreview', 'Location preview')} style={{ width: '100%', height: '140px', objectFit: 'cover', borderRadius: 8 }} />
                       </div>
                     ) : null}
                     <p className="text-slatebody text-sm">{location.description || t("map.noDescriptionAvailable")}</p>

@@ -4,7 +4,7 @@ import { api } from "../lib/api.js";
 import { useLanguage } from "../lib/i18n";
 
 export default function EventsDashboard() {
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -21,7 +21,7 @@ export default function EventsDashboard() {
       .catch((err) => {
         if (!active) return;
         setEvents([]);
-        setError(err.message || t("events.error.load", "Unable to load events."));
+        setError(true);
       })
       .finally(() => {
         if (!active) return;
@@ -109,7 +109,7 @@ export default function EventsDashboard() {
 
           <div className="mt-6 space-y-4">
             {loading && <p className="text-slatebody">{t("events.loading", "Loading your events…")}</p>}
-            {error && <p className="text-slatebody">{error}</p>}
+            {error && <p className="text-slatebody">{t("events.error.load")}</p>}
             {!loading && !events.length && (
               <div className="rounded-3xl border border-borderline p-6 text-slatebody">
                 <p className="font-semibold">{t("events.empty.title", "No events found yet.")}</p>
@@ -125,11 +125,11 @@ export default function EventsDashboard() {
                     <p className="mt-2 text-slatebody">{event.location || t("events.defaultLocation", "Private location")}</p>
                   </div>
                   <span className="text-sm text-slatebody">
-                    {event.startDate ? new Date(event.startDate).toLocaleDateString() : t("events.upcoming.scheduled", "Scheduled")}
+                    {event.startDate ? new Date(event.startDate).toLocaleDateString(language) : t("events.upcoming.scheduled", "Scheduled")}
                   </span>
                 </div>
                 <div className="mt-4 flex flex-wrap gap-2 text-sm text-slatebody">
-                  <span>{event.status?.toUpperCase() || t("events.statusDraft", "DRAFT")}</span>
+                  <span>{event.status === "live" ? t("events.statuses.live") : event.status === "ended" ? t("events.statuses.ended") : t("events.statuses.draft")}</span>
                   <span>{t("events.stats.uploads", "Uploads")}: {event._count?.uploads || 0}</span>
                   <span>{t("events.stats.zones", "Zones")}: {event._count?.zones || 0}</span>
                 </div>

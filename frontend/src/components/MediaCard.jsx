@@ -21,7 +21,7 @@ function downloadName(upload) {
 }
 
 export default function MediaCard({ upload, selected, onSelect, onApprove, onReject, onReport, onDelete, downloadOptions, currentDownloadItemId, onChangeDownloadItem, skinOptions = [], onApplySkin, canApplySkin = Boolean(onApplySkin) }) {
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
   const overlayRaw = upload.frameAssetUrl || upload.skinFrameUrl;
   const overlayUrl = assetUrl(overlayRaw);
   const showSkinControls = Boolean(onApplySkin) && canApplySkin;
@@ -91,8 +91,10 @@ export default function MediaCard({ upload, selected, onSelect, onApprove, onRej
               </div>
             )}
             <p className="break-words text-sm font-black">{upload.uploaderAnonId}</p>
-            <p className="text-xs text-slatebody">{new Date(upload.createdAt).toLocaleString()}</p>
-            <p className="text-xs font-bold uppercase tracking-wide text-report">{upload.fileType} • AI check: {upload.aiFlagged ? "Flagged" : "Clear"}</p>
+            <p className="text-xs text-slatebody">{new Date(upload.createdAt).toLocaleString(language)}</p>
+            <p className="text-xs font-bold uppercase tracking-wide text-report">
+              {upload.fileType === "video" ? t("media.video") : t("media.photo")} • {t("media.aiCheck")}: {upload.aiFlagged ? t("media.flagged") : t("media.clear")}
+            </p>
           </div>
           {onSelect && (
             <input
@@ -145,7 +147,7 @@ export default function MediaCard({ upload, selected, onSelect, onApprove, onRej
                     type="button"
                     className={selectedSkin ? "btn-primary shrink-0" : "btn-ghost shrink-0"}
                     onClick={() => onApplySkin(upload.id, skin.id)}
-                    aria-label={`Apply ${skin.name}`}
+                    aria-label={t("media.applyFrame").replace("{name}", skin.name)}
                     title={skin.name}
                   >
                     {frameUrl ? <img src={frameUrl} alt="" className="h-7 w-7 rounded object-cover" /> : <Lock size={16} />}

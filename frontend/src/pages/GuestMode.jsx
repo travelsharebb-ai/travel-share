@@ -21,7 +21,7 @@ export default function GuestMode() {
   const navigate = useNavigate();
   const [guestMode, setGuestMode] = useState("choices");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [errorKey, setErrorKey] = useState(null);
   const [displayName, setDisplayName] = useState("");
   const [passcodeInput, setPasscodeInput] = useState("");
   const [resumeTokenInput, setResumeTokenInput] = useState("");
@@ -38,9 +38,9 @@ export default function GuestMode() {
 
   async function createProfileAndAccess(e) {
     e?.preventDefault();
-    setError(null);
+    setErrorKey(null);
     if (!/^[0-9]{4}$/.test(passcodeInput.trim())) {
-      setError("Enter a 4-digit passcode.");
+      setErrorKey("guestMode.error.passcode");
       return;
     }
     setLoading(true);
@@ -50,7 +50,7 @@ export default function GuestMode() {
       const resumeToken = data.resumeToken || data.guestSession?.resumeToken || data.guestSession?.resume?.token;
       const accessLink = data.accessLink || data.guestSession?.accessLink || data.guestAccessLink || (resumeToken ? `${window.location.origin}/guest/access/${resumeToken}` : "");
       if (!createdGuestToken) {
-        throw new Error("Guest session was not created. Please try again.");
+        throw new Error("guest-session-not-created");
       }
       if (accessLink) {
         localStorage.setItem("travelShareGuestAccessLink", accessLink);
@@ -60,7 +60,7 @@ export default function GuestMode() {
       setGuestSession(data.guestSession);
       setGuestMode("created");
     } catch (err) {
-      setError(err.message || "Unable to create guest access.");
+      setErrorKey(err.message === "guest-session-not-created" ? "guestMode.error.notCreated" : "guestMode.error.createFailed");
     } finally {
       setLoading(false);
     }
@@ -78,13 +78,13 @@ export default function GuestMode() {
 
   async function continueViaResume(e) {
     e?.preventDefault();
-    setError(null);
+    setErrorKey(null);
     if (!resumeTokenInput.trim()) {
-      setError("Enter your guest access link or token.");
+      setErrorKey("guestMode.error.accessLinkRequired");
       return;
     }
     if (!/^[0-9]{4}$/.test(resumePasscode.trim())) {
-      setError("Enter a 4-digit passcode.");
+      setErrorKey("guestMode.error.passcode");
       return;
     }
     const resumeToken = extractResumeToken(resumeTokenInput);
@@ -103,16 +103,16 @@ export default function GuestMode() {
         navigate("/dashboard", { replace: true });
         return;
       }
-      setError("Unable to resume guest session.");
+      setErrorKey("guestMode.error.resumeFailed");
     } catch (err) {
-      setError(err.message || "Unable to resume guest session.");
+      setErrorKey("guestMode.error.resumeFailed");
     } finally {
       setLoading(false);
     }
   }
 
   async function continueGuestSession() {
-    setError(null);
+    setErrorKey(null);
     setLoading(true);
     try {
       const response = await validateGuestSession();
@@ -129,12 +129,12 @@ export default function GuestMode() {
       const expired = response.error?.toLowerCase().includes("expire") || response.error?.toLowerCase().includes("expired");
       setSavedSessionProblem(expired ? "expired" : "invalid");
       setGuestMode(expired ? "expired" : "invalid");
-      setError("Saved guest session could not be restored.");
+      setErrorKey("guestMode.error.restoreFailed");
     } catch (err) {
       clearGuestToken();
       setSavedSessionProblem("invalid");
       setGuestMode("invalid");
-      setError(err.message || "Saved guest session could not be restored.");
+      setErrorKey("guestMode.error.restoreFailed");
     } finally {
       setLoading(false);
     }
@@ -144,6 +144,14 @@ export default function GuestMode() {
   const showResumeForm = guestMode === "resume";
   const showCreatedSummary = guestMode === "created";
   const showSavedProblem = guestMode === "invalid" || guestMode === "expired";
+  const errorMessage = {
+    "guestMode.error.passcode": t("guestMode.error.passcode", "Enter a 4-digit passcode."),
+    "guestMode.error.notCreated": t("guestMode.error.notCreated", "Guest session was not created. Please try again."),
+    "guestMode.error.createFailed": t("guestMode.error.createFailed", "Unable to create guest access."),
+    "guestMode.error.accessLinkRequired": t("guestMode.error.accessLinkRequired", "Enter your guest access link or token."),
+    "guestMode.error.resumeFailed": t("guestMode.error.resumeFailed", "Unable to resume guest session."),
+    "guestMode.error.restoreFailed": t("guestMode.error.restoreFailed", "Saved guest session could not be restored.")
+  }[errorKey];
 
   return (
     <>
@@ -184,7 +192,7 @@ export default function GuestMode() {
             className="btn-primary"
             onClick={() => {
               setGuestMode("create");
-              setError(null);
+              setErrorKey(null);
               setSavedSessionProblem(null);
             }}
           >
@@ -193,7 +201,7 @@ export default function GuestMode() {
             <button type="button" className="btn-ghost" onClick={continueGuestSession} disabled={loading}>
               <QrCode size={18} />{t("hardcoded.continueSavedGuestSessionOnThisDevice")}</button>
           )}
-          <button type="button" className="btn-ghost" onClick={() => { setGuestMode("resume"); setError(null); }}>
+          <button type="button" className="btn-ghost" onClick={() => { setGuestMode("resume"); setErrorKey(null); }}>
             <Lock size={18} />{t("hardcoded.resumeExistingGuestSession")}</button>
           <Link className="btn-primary" to="/discover">
             <MapPin size={18} />{t("hardcoded.discoverPublicEvents")}</Link>
@@ -206,12 +214,12 @@ export default function GuestMode() {
           <h3 className="font-serif text-2xl font-black">{t("hardcoded.savedGuestSessionCouldNotBeRestored")}</h3>
           <p className="mt-2 text-slatebody">
             {savedSessionProblem === "expired"
-              ? "Your saved guest session has expired. You can resume with an access link or start a new guest access."
-              : "Saved guest session could not be restored. Start a new guest access or resume with a guest access link."}
+              ? t("guestMode.savedSessionExpired", "Your saved guest session has expired. You can resume with an access link or start a new guest access.")
+              : t("guestMode.savedSessionInvalid", "Saved guest session could not be restored. Start a new guest access or resume with a guest access link.")}
           </p>
           <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-            <button type="button" className="btn-primary" onClick={() => { setGuestMode("resume"); setError(null); }}>{t("hardcoded.resumeWithGuestAccessLink")}</button>
-            <button type="button" className="btn-ghost" onClick={() => { setGuestMode("create"); setError(null); setSavedSessionProblem(null); }}>{t("hardcoded.startNewGuestAccess")}</button>
+            <button type="button" className="btn-primary" onClick={() => { setGuestMode("resume"); setErrorKey(null); }}>{t("hardcoded.resumeWithGuestAccessLink")}</button>
+            <button type="button" className="btn-ghost" onClick={() => { setGuestMode("create"); setErrorKey(null); setSavedSessionProblem(null); }}>{t("hardcoded.startNewGuestAccess")}</button>
             <Link className="btn-ghost" to="/login">{t("hardcoded.signUpLogIn")}</Link>
           </div>
         </section>
@@ -224,7 +232,7 @@ export default function GuestMode() {
               <h3 className="font-serif text-2xl font-black">{t("hardcoded.createGuestAccess")}</h3>
               <p className="mt-2 text-slatebody">{t("hardcoded.enterAGuestNameAndA4Digit")}</p>
             </div>
-            <button type="button" className="btn-ghost" onClick={() => { setGuestMode("choices"); setError(null); setDisplayName(""); setPasscodeInput(""); }}>{t("common.back")}</button>
+            <button type="button" className="btn-ghost" onClick={() => { setGuestMode("choices"); setErrorKey(null); setDisplayName(""); setPasscodeInput(""); }}>{t("common.back")}</button>
           </div>
           <form className="mt-4 grid gap-3 max-w-xl" onSubmit={createProfileAndAccess}>
             <input
@@ -249,11 +257,11 @@ export default function GuestMode() {
                 onClick={() => {
                   setDisplayName("");
                   setPasscodeInput("");
-                  setError(null);
+                  setErrorKey(null);
                 }}
               >{t("map.reset")}</button>
             </div>
-            {error && <p className="text-reject mt-2">{error}</p>}
+            {errorMessage && <p className="text-reject mt-2">{errorMessage}</p>}
           </form>
         </section>
       )}
@@ -274,16 +282,17 @@ export default function GuestMode() {
           ) : null}
           <div className="mt-4 flex flex-wrap gap-3">
               <button type="button" className="btn-primary" onClick={() => {
-                setError(null);
+                setErrorKey(null);
                 const token = getGuestToken();
                 if (!token) {
-                  setError("Guest session was not created. Please try again.");
+                  setErrorKey("guestMode.error.notCreated");
                   return;
                 }
                 navigate("/dashboard", { replace: true });
               }}>{t("hardcoded.continueToDashboard")}</button>
-            <button type="button" className="btn-ghost" onClick={() => { setGuestMode("choices"); setError(null); }}>{t("hardcoded.returnToGuestOptions")}</button>
+            <button type="button" className="btn-ghost" onClick={() => { setGuestMode("choices"); setErrorKey(null); }}>{t("hardcoded.returnToGuestOptions")}</button>
           </div>
+          {errorMessage && <p className="text-reject mt-3">{errorMessage}</p>}
         </section>
       )}
 
@@ -294,7 +303,7 @@ export default function GuestMode() {
               <h3 className="font-serif text-2xl font-black">{t("hardcoded.resumeExistingGuestSession")}</h3>
               <p className="mt-2 text-slatebody">{t("hardcoded.pasteYourGuestAccessLinkOrTokenAnd")}</p>
             </div>
-            <button type="button" className="btn-ghost" onClick={() => { setGuestMode("choices"); setError(null); setResumeTokenInput(""); setResumePasscode(""); }}>{t("common.back")}</button>
+            <button type="button" className="btn-ghost" onClick={() => { setGuestMode("choices"); setErrorKey(null); setResumeTokenInput(""); setResumePasscode(""); }}>{t("common.back")}</button>
           </div>
           <form className="mt-4 grid gap-3 max-w-xl" onSubmit={continueViaResume}>
             <input
@@ -314,7 +323,7 @@ export default function GuestMode() {
             <div className="flex gap-3">
               <button className="btn-primary" type="submit" disabled={loading}>{t("hardcoded.continue")}</button>
             </div>
-            {error && <p className="text-reject mt-2">{error}</p>}
+            {errorMessage && <p className="text-reject mt-2">{errorMessage}</p>}
           </form>
         </section>
       )}
@@ -324,11 +333,11 @@ export default function GuestMode() {
           <h3 className="font-serif text-2xl font-black">{t("hardcoded.welcomeToGuestAccess")}</h3>
           <p className="mt-2 text-slatebody">{t("hardcoded.chooseHowYouWouldLikeToJoinTravelshare")}</p>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <button type="button" className="btn-primary" onClick={() => { setGuestMode("create"); setError(null); }}>{t("hardcoded.continueAsGuest")}</button>
+            <button type="button" className="btn-primary" onClick={() => { setGuestMode("create"); setErrorKey(null); }}>{t("hardcoded.continueAsGuest")}</button>
             {tokenExists && (
               <button type="button" className="btn-ghost" onClick={continueGuestSession} disabled={loading}>{t("hardcoded.continueSavedGuestSessionOnThisDevice")}</button>
             )}
-            <button type="button" className="btn-ghost" onClick={() => { setGuestMode("resume"); setError(null); }}>{t("hardcoded.resumeExistingGuestSession")}</button>
+            <button type="button" className="btn-ghost" onClick={() => { setGuestMode("resume"); setErrorKey(null); }}>{t("hardcoded.resumeExistingGuestSession")}</button>
             <Link className="btn-ghost" to="/login">{t("hardcoded.signUpLogIn")}</Link>
           </div>
           {tokenExists && (

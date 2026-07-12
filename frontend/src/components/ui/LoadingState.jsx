@@ -1,8 +1,12 @@
-export default function LoadingState({ label = "Loading..." }) {
+import { useLanguage } from "../../lib/i18n";
+
+export default function LoadingState({ label }) {
+  const { t } = useLanguage();
+
   return (
     <div style={styles.wrap}>
       <div style={styles.spinner} />
-      <p style={styles.label}>{label}</p>
+      <p style={styles.label}>{label || t("common.loading")}</p>
     </div>
   );
 }

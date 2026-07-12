@@ -13,7 +13,7 @@ function daysUntil(value, now = new Date()) {
 }
 
 export default function Settings() {
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
   const navigate = useNavigate();
   const [settings, setSettings] = useState({
     emailNotifications: true,
@@ -92,9 +92,9 @@ export default function Settings() {
       setUser(updatedUser);
       setName(updatedUser.name || "");
       updateStoredUser(updatedUser);
-      setMessage(t("settingsPage.profileUpdated", "Profile updated."));
+      setMessage({ keys: ["profileUpdated"] });
     } catch (err) {
-      setError(err.message);
+      setError("save");
     } finally {
       setLoading(false);
     }
@@ -103,7 +103,7 @@ export default function Settings() {
   async function saveChanges() {
     if (!user) return;
     if (user.role === "guest") {
-      setError(t("settingsPage.guestCannotUpdate", "Guest accounts cannot update profile settings."));
+      setError("guest");
       return;
     }
     setLoading(true);
@@ -115,11 +115,12 @@ export default function Settings() {
       const nameChanged = nextName && nextName !== (user.name || "");
       const emailChanged = nextEmail && nextEmail !== currentEmail;
       if (!nameChanged && !emailChanged) {
-        return setMessage(t("settingsPage.noChanges", "No changes to save."));
+        return setMessage({ keys: ["noChanges"] });
       }
 
       let updatedUser = user;
-      const messages = [];
+      const messageKeys = [];
+      let verificationLink = "";
 
       if (nameChanged) {
         const res = await api("/api/auth/me", { method: "PATCH", body: JSON.stringify({ name: nextName }) });
@@ -129,7 +130,7 @@ export default function Settings() {
         setCurrentEmail(updatedUser.email || "");
         setEmailVerifiedAt(updatedUser.emailVerifiedAt || null);
         updateStoredUser(updatedUser);
-        messages.push(t('settingsPage.nameUpdated', 'Name updated.'));
+        messageKeys.push("nameUpdated");
       }
 
       if (emailChanged) {
@@ -142,24 +143,25 @@ export default function Settings() {
         updateStoredUser(emailResult);
         setNewEmail("");
         if (res.devVerificationUrl) {
-          messages.push(t("settingsPage.devVerification", "DEV: verification link: {link}").replace("{link}", res.devVerificationUrl));
+          messageKeys.push("devVerification");
+          verificationLink = res.devVerificationUrl;
         } else {
-          messages.push(t("settingsPage.verificationSent", "Verification email sent to the new address."));
+          messageKeys.push("verificationSent");
         }
       }
 
-      if (messages.length) {
-        setMessage(messages.join(" "));
+      if (messageKeys.length) {
+        setMessage({ keys: messageKeys, link: verificationLink });
       }
     } catch (err) {
-      setError(err.message);
+      setError("save");
     } finally {
       setLoading(false);
     }
   }
 
   async function requestEmailChange() {
-    if (!newEmail) return setError(t('settingsPage.enterNewEmail', 'Enter a new email address.'));
+    if (!newEmail) return setError("emailRequired");
     setLoading(true);
     setMessage(null);
     setError(null);
@@ -172,12 +174,12 @@ export default function Settings() {
       setNewEmail("");
       updateStoredUser(updatedUser);
       if (res.devVerificationUrl) {
-        setMessage(t("settingsPage.devVerification", "DEV: verification link: {link}").replace("{link}", res.devVerificationUrl));
+        setMessage({ keys: ["devVerification"], link: res.devVerificationUrl });
       } else {
-        setMessage(t("settingsPage.verificationSent", "Verification email sent to the new address."));
+        setMessage({ keys: ["verificationSent"] });
       }
     } catch (err) {
-      setError(err.message);
+      setError("save");
     } finally {
       setLoading(false);
     }
@@ -212,7 +214,7 @@ export default function Settings() {
               <div className="mt-4 grid gap-3 sm:grid-cols-3">
                 <div className="rounded-3xl border border-borderline bg-slate-950/90 p-4">
                   <p className="text-xs uppercase tracking-[0.32em] text-primary">{t('settingsPage.guestStatusLabel', 'Status')}</p>
-                  <p className="mt-2 text-lg font-bold capitalize">{user.guestSession.status || 'guest'}</p>
+                  <p className="mt-2 text-lg font-bold capitalize">{user.guestSession.status === "active" ? t("settingsPage.guestStatuses.active") : user.guestSession.status === "grace" ? t("settingsPage.guestStatuses.grace") : t("settingsPage.guestStatuses.expired")}</p>
                 </div>
                 <div className="rounded-3xl border border-borderline bg-slate-950/90 p-4">
                   <p className="text-xs uppercase tracking-[0.32em] text-primary">{t('settingsPage.guestDaysRemaining', 'Days remaining')}</p>
@@ -220,7 +222,7 @@ export default function Settings() {
                 </div>
                 <div className="rounded-3xl border border-borderline bg-slate-950/90 p-4">
                   <p className="text-xs uppercase tracking-[0.32em] text-primary">{t('settingsPage.guestExpires', 'Expires')}</p>
-                  <p className="mt-2 text-lg font-bold">{user.guestSession.expiresAt ? new Date(user.guestSession.expiresAt).toLocaleDateString() : '—'}</p>
+                  <p className="mt-2 text-lg font-bold">{user.guestSession.expiresAt ? new Date(user.guestSession.expiresAt).toLocaleDateString(language) : '—'}</p>
                 </div>
               </div>
               ) : null}
@@ -287,8 +289,8 @@ export default function Settings() {
                 <p className="mt-2 text-sm text-slatebody">{t('settingsPage.pendingVerification', 'Pending verification: {email}').replace('{email}', pendingEmail)}</p>
               )}
             </div>
-            {message && <p className="mt-2 text-sm text-green-400">{message}</p>}
-            {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
+            {message && <p className="mt-2 text-sm text-green-400">{message.keys.map((key) => key === "profileUpdated" ? t("settingsPage.profileUpdated") : key === "nameUpdated" ? t("settingsPage.nameUpdated") : key === "noChanges" ? t("settingsPage.noChanges") : key === "devVerification" ? t("settingsPage.devVerification").replace("{link}", message.link || "") : t("settingsPage.verificationSent")).join(" ")}</p>}
+            {error && <p className="mt-2 text-sm text-red-400">{error === "guest" ? t("settingsPage.guestCannotUpdate") : error === "emailRequired" ? t("settingsPage.enterNewEmail") : t("settingsPage.saveError")}</p>}
             <div className="mt-2">
               <button className="btn-ghost mr-2" onClick={() => { setName(user?.name || ""); setNewEmail(""); setMessage(null); setError(null); }}>{t('settingsPage.cancel', 'Cancel')}</button>
                   <button className="btn-primary" onClick={saveChanges} disabled={loading}>{loading ? t('settingsPage.saving', 'Saving...') : t('settingsPage.saveProfile', 'Save profile')}</button>

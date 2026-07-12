@@ -8,7 +8,8 @@
     "preview": "vite preview --host 0.0.0.0",
     "smoke": "node ./scripts/smoke-client.mjs",
     "check:i18n": "node ./scripts/check-i18n-completeness.mjs",
-    "check:i18n:hardcoded": "node ./scripts/check-hardcoded-ui-text.mjs"
+    "check:i18n:hardcoded": "node ./scripts/check-hardcoded-ui-text.mjs",
+    "check:i18n:usage": "node ./scripts/check-i18n-usage.mjs"
   },
   "dependencies": {
     "@mapbox/mapbox-gl-geocoder": "^5.1.2",
