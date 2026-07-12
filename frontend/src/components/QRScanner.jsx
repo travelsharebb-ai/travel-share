@@ -1,6 +1,7 @@
 import { useLanguage } from "../lib/i18n";
 import { useEffect, useRef, useState } from "react";
 import { Html5QrcodeScanner } from "html5-qrcode";
+import { Html5QrcodeScannerStrings } from "html5-qrcode/esm/strings.js";
 import { useNavigate } from "react-router-dom";
 import PageLayout from "./ui/PageLayout.jsx";
 import PageHeader from "./ui/PageHeader.jsx";
@@ -38,7 +39,41 @@ export default function QRScanner() {
   };
   const activeStatus = statusCopy[status] || statusCopy.scanning;
 
+  const localizeScannerStrings = () => {
+    Html5QrcodeScannerStrings.scanningStatus = () => t("hardcoded.scanning", "Scanning");
+    Html5QrcodeScannerStrings.idleStatus = () => t("hardcoded.idle", "Idle");
+    Html5QrcodeScannerStrings.errorStatus = () => t("hardcoded.error", "Error");
+    Html5QrcodeScannerStrings.permissionStatus = () => t("hardcoded.permission", "Permission");
+    Html5QrcodeScannerStrings.noCameraFoundErrorStatus = () => t("hardcoded.noCameras", "No Cameras");
+    Html5QrcodeScannerStrings.lastMatch = (decodedText) => t("hardcoded.lastMatch", "Last Match: {decoded}", { decoded: decodedText });
+    Html5QrcodeScannerStrings.codeScannerTitle = () => t("hardcoded.codeScannerTitle", "Code Scanner");
+    Html5QrcodeScannerStrings.cameraPermissionTitle = () => t("hardcoded.cameraPermissionTitle", "Request Camera Permissions");
+    Html5QrcodeScannerStrings.cameraPermissionRequesting = () => t("hardcoded.cameraPermissionRequesting", "Requesting camera permissions...");
+    Html5QrcodeScannerStrings.noCameraFound = () => t("hardcoded.noCameraFound", "No camera found");
+    Html5QrcodeScannerStrings.scanButtonStopScanningText = () => t("hardcoded.stopScanning", "Stop scanning");
+    Html5QrcodeScannerStrings.scanButtonStartScanningText = () => t("hardcoded.startScanning", "Start scanning");
+    Html5QrcodeScannerStrings.torchOnButton = () => t("hardcoded.torchOn", "Switch on torch");
+    Html5QrcodeScannerStrings.torchOffButton = () => t("hardcoded.torchOff", "Switch off torch");
+    Html5QrcodeScannerStrings.torchOnFailedMessage = () => t("hardcoded.torchOnFailed", "Failed to turn on torch");
+    Html5QrcodeScannerStrings.torchOffFailedMessage = () => t("hardcoded.torchOffFailed", "Failed to turn off torch");
+    Html5QrcodeScannerStrings.scanButtonScanningStarting = () => t("hardcoded.launchingCamera", "Launching camera...");
+    Html5QrcodeScannerStrings.textIfCameraScanSelected = () => t("hardcoded.scanFromImage", "Scan from Image");
+    Html5QrcodeScannerStrings.textIfFileScanSelected = () => t("hardcoded.scanUsingCameraDirectly", "Scan using camera directly");
+    Html5QrcodeScannerStrings.selectCamera = () => t("hardcoded.selectCamera", "Select Camera");
+    Html5QrcodeScannerStrings.fileSelectionChooseImage = () => t("hardcoded.chooseImage", "Choose Image");
+    Html5QrcodeScannerStrings.fileSelectionChooseAnother = () => t("hardcoded.chooseAnother", "Choose Another");
+    Html5QrcodeScannerStrings.fileSelectionNoImageSelected = () => t("hardcoded.noImageChosen", "No image chosen");
+    Html5QrcodeScannerStrings.anonymousCameraPrefix = () => t("hardcoded.anonymousCameraPrefix", "Anonymous Camera");
+    Html5QrcodeScannerStrings.dragAndDropMessage = () => t("hardcoded.orDropImageToScan", "Or drop an image to scan");
+    Html5QrcodeScannerStrings.dragAndDropMessageOnlyImages = () => t("hardcoded.orDropImageToScanOnlyImages", "Or drop an image to scan (other files not supported)");
+    Html5QrcodeScannerStrings.zoom = () => t("hardcoded.zoom", "zoom");
+    Html5QrcodeScannerStrings.loadingImage = () => t("hardcoded.loadingImage", "Loading image...");
+    Html5QrcodeScannerStrings.cameraScanAltText = () => t("hardcoded.cameraScanAltText", "Camera based scan");
+    Html5QrcodeScannerStrings.fileScanAltText = () => t("hardcoded.fileScanAltText", "File based scan");
+  };
+
   useEffect(() => {
+    localizeScannerStrings();
     const scanner = new Html5QrcodeScanner(
       "qr-reader",
       {

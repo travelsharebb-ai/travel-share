@@ -6,6 +6,7 @@ import ScreenshotGuard from "./components/ScreenshotGuard.jsx";
 import AppBackground from "./components/AppBackground.jsx";
 import BottomAd from "./components/BottomAd.jsx";
 import Shell from "./components/Shell.jsx";
+import AppTopbar from "./components/AppTopbar.jsx";
 import AuthPage from "./pages/AuthPage.jsx";
 import Landing from "./pages/Landing.jsx";
 import ForgotPassword from "./pages/ForgotPassword.jsx";
@@ -62,6 +63,15 @@ export default function App() {
       window.removeEventListener("storage", syncUser);
     };
   }, []);
+
+  function PublicPage({ children }) {
+    return (
+      <>
+        <AppTopbar variant="public" />
+        {children}
+      </>
+    );
+  }
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -126,9 +136,9 @@ export default function App() {
       <Route path="/guest" element={<GuestMode />} />
       <Route path="/guest/access/:resumeToken" element={<GuestAccess />} />
       <Route path="/discover" element={<Shell><DiscoverEvents /></Shell>} />
-      <Route path="/privacy" element={<Legal type="privacy" />} />
-      <Route path="/terms" element={<Legal type="terms" />} />
-      <Route path="/verify-email-change" element={<VerifyEmailChange />} />
+      <Route path="/privacy" element={<PublicPage><Legal type="privacy" /></PublicPage>} />
+      <Route path="/terms" element={<PublicPage><Legal type="terms" /></PublicPage>} />
+      <Route path="/verify-email-change" element={<PublicPage><VerifyEmailChange /></PublicPage>} />
       <Route path="/map" element={<PrivateRoute><MapView /></PrivateRoute>} />
       <Route path="/trips" element={<PrivateRoute><Trips /></PrivateRoute>} />
       <Route path="/trips/new" element={<PrivateRoute><TripCreate /></PrivateRoute>} />
@@ -154,14 +164,14 @@ export default function App() {
       <Route path="/admin/settings" element={<PrivateRoute roles={["admin", "platform_admin"]}><AdminSettings /></PrivateRoute>} />
       <Route path="/admin/tools" element={<PrivateRoute roles={["admin", "platform_admin"]}><AdminTools /></PrivateRoute>} />
       <Route path="/admin/management" element={<PrivateRoute roles={["admin", "platform_admin"]}><AdminManagement /></PrivateRoute>} />
-      <Route path="/share/:token" element={<ShareAlbum />} />
-      <Route path="/join/:tripId" element={<PublicTripJoin />} />
-      <Route path="/qr/:qrToken/upload" element={<Shell><PublicUpload /></Shell>} />
-      <Route path="/qr/:qrToken/success" element={<UploadSuccess />} />
+      <Route path="/share/:token" element={<PublicPage><ShareAlbum /></PublicPage>} />
+      <Route path="/join/:tripId" element={<PublicPage><PublicTripJoin /></PublicPage>} />
+      <Route path="/qr/:qrToken/upload" element={<PublicPage><PublicUpload /></PublicPage>} />
+      <Route path="/qr/:qrToken/success" element={<PublicPage><UploadSuccess /></PublicPage>} />
       <Route path="/scan" element={<PrivateRoute><QRScanner /></PrivateRoute>} />
       <Route path="/oauth/callback" element={<OAuthCallback />} />
-      <Route path="/qr" element={<QRResolver />} />
-      <Route path="/qr/:qrToken" element={<QRResolver />} />
+      <Route path="/qr" element={<PublicPage><QRResolver /></PublicPage>} />
+      <Route path="/qr/:qrToken" element={<PublicPage><QRResolver /></PublicPage>} />
       <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <BottomAd />

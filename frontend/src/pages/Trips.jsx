@@ -73,7 +73,7 @@ export default function Trips() {
                       {trip.startDate ? new Date(trip.startDate).toLocaleDateString(language) : t("trips.noDate", "No date")}
                     </span>
                     <span className="rounded-full border border-borderline px-3 py-1">
-                      {t("trips.uploadCount", "{count} uploads").replace("{count}", trip._count?.uploads || 0)}
+                      {t("trips.uploadCount", "{count} uploads", { count: trip._count?.uploads || 0 })}
                     </span>
                   </div>
                 </div>

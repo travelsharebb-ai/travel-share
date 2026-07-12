@@ -286,10 +286,10 @@ export default function Settings() {
                     <button className="btn-primary" type="button" onClick={requestEmailChange} disabled={loading}>{t('settingsPage.requestEmailChange', 'Request email change')}</button>
               </div>
               {pendingEmail && (
-                <p className="mt-2 text-sm text-slatebody">{t('settingsPage.pendingVerification', 'Pending verification: {email}').replace('{email}', pendingEmail)}</p>
+                <p className="mt-2 text-sm text-slatebody">{t('settingsPage.pendingVerification', 'Pending verification: {email}', { email: pendingEmail })}</p>
               )}
             </div>
-            {message && <p className="mt-2 text-sm text-green-400">{message.keys.map((key) => key === "profileUpdated" ? t("settingsPage.profileUpdated") : key === "nameUpdated" ? t("settingsPage.nameUpdated") : key === "noChanges" ? t("settingsPage.noChanges") : key === "devVerification" ? t("settingsPage.devVerification").replace("{link}", message.link || "") : t("settingsPage.verificationSent")).join(" ")}</p>}
+            {message && <p className="mt-2 text-sm text-green-400">{message.keys.map((key) => key === "profileUpdated" ? t("settingsPage.profileUpdated") : key === "nameUpdated" ? t("settingsPage.nameUpdated") : key === "noChanges" ? t("settingsPage.noChanges") : key === "devVerification" ? t("settingsPage.devVerification", "Your email verification is pending. Visit {link}.", { link: message.link || "" }) : t("settingsPage.verificationSent")).join(" ")}</p>}
             {error && <p className="mt-2 text-sm text-red-400">{error === "guest" ? t("settingsPage.guestCannotUpdate") : error === "emailRequired" ? t("settingsPage.enterNewEmail") : t("settingsPage.saveError")}</p>}
             <div className="mt-2">
               <button className="btn-ghost mr-2" onClick={() => { setName(user?.name || ""); setNewEmail(""); setMessage(null); setError(null); }}>{t('settingsPage.cancel', 'Cancel')}</button>

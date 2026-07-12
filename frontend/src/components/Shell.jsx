@@ -319,7 +319,7 @@ export default function Shell({ children }) {
                           ) : (
                             <div className="space-y-3">
                               <div className="flex items-center justify-between">
-                                <div className="text-sm text-slatebody">{t('shell.showingLatestNotifications', 'Showing latest {count} notifications').replace('{count}', notifications.length)}</div>
+                                <div className="text-sm text-slatebody">{t('shell.showingLatestNotifications', 'Showing latest {count} notifications', { count: notifications.length })}</div>
                                 {(badgeCount > 0) && (
                                   <button className="btn-ghost" onClick={async () => {
                                     try {

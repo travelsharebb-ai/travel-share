@@ -651,7 +651,7 @@ export default function Store() {
                                     <p className="text-sm uppercase tracking-[0.32em] text-primary">{t("store.modal.status", "Status")}</p>
                                     <div className="mt-4 space-y-3">
                                       <div className="rounded-3xl bg-slate-900 p-4 store-preview-status-item">
-                                        <p className="text-sm text-slatebody">{selectedItem.priceCents === 0 ? t("store.modal.freeSkin", "Free skin") : t("store.modal.price", "Price: {price}").replace("{price}", formatPrice(selectedItem.priceCents, t))}</p>
+                                          <p className="text-sm text-slatebody">{selectedItem.priceCents === 0 ? t("store.modal.freeSkin", "Free skin") : t("store.modal.price", "Price: {price}", { price: formatPrice(selectedItem.priceCents, t) })}</p>
                                         <p className="mt-2 text-lg font-black">{selectedItem.owned ? t("store.modal.ownedUnlocked", "Owned & unlocked") : selectedItem.priceCents === 0 ? t("store.modal.included", "Included") : t("store.modal.locked", "Locked")}</p>
                                       </div>
                                       {!getToken() ? (
