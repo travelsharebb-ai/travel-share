@@ -43,7 +43,7 @@ export default function AdminManagement() {
 
   async function toggleStoreItem(item) {
     const action = item.active ? t("admin.management.deactivate", "deactivate") : t("admin.management.activate", "activate");
-    if (!window.confirm(t("admin.management.confirmStoreStatus", "Confirm {action} for this store item?").replace("{action}", action))) return;
+    if (!window.confirm(t("admin.management.confirmStoreStatus", "Confirm {action} for this store item?", { action }))) return;
     try {
       const response = await api(`/api/admin/store/${item.id}`, {
         method: "PATCH",
@@ -58,7 +58,7 @@ export default function AdminManagement() {
 
   async function toggleAd(ad) {
     const action = ad.active ? t("admin.management.deactivate", "deactivate") : t("admin.management.activate", "activate");
-    if (!window.confirm(t("admin.management.confirmAdStatus", "Confirm {action} for this advertisement?").replace("{action}", action))) return;
+    if (!window.confirm(t("admin.management.confirmAdStatus", "Confirm {action} for this advertisement?", { action }))) return;
     try {
       const response = await api(`/api/admin/ads/${ad.id}`, {
         method: "PATCH",

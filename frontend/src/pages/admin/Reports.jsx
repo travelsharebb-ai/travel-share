@@ -103,7 +103,7 @@ export default function AdminReports() {
               <MetricCard label={t("admin.stats.storeItems")} value={summary.store.items} />
               <MetricCard label={t("admin.reports.activeStoreItems")} value={summary.store.activeItems} />
               <MetricCard label={t("admin.reports.purchases")} value={summary.store.purchases} />
-              <MetricCard label={t("admin.reports.qrScans")} value={summary.qr.scans} detail={t("admin.reports.qrSpaces").replace("{count}", String(summary.qr.activeSpaces))} />
+              <MetricCard label={t("admin.reports.qrScans")} value={summary.qr.scans} detail={t("admin.reports.qrSpaces", "{count} active QR spaces", { count: summary.qr.activeSpaces })} />
             </div>
           </section>
 

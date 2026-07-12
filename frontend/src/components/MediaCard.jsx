@@ -147,7 +147,7 @@ export default function MediaCard({ upload, selected, onSelect, onApprove, onRej
                     type="button"
                     className={selectedSkin ? "btn-primary shrink-0" : "btn-ghost shrink-0"}
                     onClick={() => onApplySkin(upload.id, skin.id)}
-                    aria-label={t("media.applyFrame").replace("{name}", skin.name)}
+                    aria-label={t("media.applyFrame", "Apply {name} frame", { name: skin.name })}
                     title={skin.name}
                   >
                     {frameUrl ? <img src={frameUrl} alt="" className="h-7 w-7 rounded object-cover" /> : <Lock size={16} />}
