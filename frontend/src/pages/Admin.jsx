@@ -125,14 +125,17 @@ export default function Admin() {
           <div className="rounded-3xl border border-borderline bg-slate-950/70 p-4">
             <p className="text-sm uppercase tracking-[0.28em] text-primary">{t("admin.stats.reported", "Reported")}</p>
             <p className="mt-2 text-2xl font-black text-white">{loading ? t("common.loading", "Loading…") : stats?.reported ?? "—"}</p>
+            <p className="mt-2 text-slatebody text-sm">{loading ? t("common.loading", "Loading…") : t("admin.reports.reportedUploadsSummary", "{count} reported uploads").replace("{count}", stats?.reported ?? "—")}</p>
           </div>
           <div className="rounded-3xl border border-borderline bg-slate-950/70 p-4">
             <p className="text-sm uppercase tracking-[0.28em] text-primary">{t("admin.stats.uploads", "Uploads")}</p>
             <p className="mt-2 text-2xl font-black text-white">{loading ? t("common.loading", "Loading…") : stats?.uploads ?? "—"}</p>
+            <p className="mt-2 text-slatebody text-sm">{loading ? t("common.loading", "Loading…") : t("admin.reports.totalUploadsSummary", "{count} total uploads").replace("{count}", stats?.uploads ?? "—")}</p>
           </div>
           <div className="rounded-3xl border border-borderline bg-slate-950/70 p-4">
             <p className="text-sm uppercase tracking-[0.28em] text-primary">{t("admin.stats.guests", "Guests")}</p>
             <p className="mt-2 text-2xl font-black text-white">{loading ? t("common.loading", "Loading…") : stats?.guests ?? "—"}</p>
+            <p className="mt-2 text-slatebody text-sm">{loading ? t("common.loading", "Loading…") : t("admin.reports.guestSessionsSummary", "{count} guest sessions").replace("{count}", stats?.guests ?? "—")}</p>
           </div>
         </div>
       </section>
