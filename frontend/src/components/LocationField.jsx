@@ -3,6 +3,16 @@ import React, { useEffect, useId, useState, useRef } from "react";
 import { RefreshCw } from "lucide-react";
 import { reverseGeocode } from "../lib/geocode";
 
+function translatedLocationMessage(key, t) {
+  const messages = {
+    "upload.addressLookupFailed": t("upload.addressLookupFailed", "Coordinates were found, but no address was returned. Type or choose an address."),
+    "upload.locationPermissionDenied": t("upload.locationPermissionDenied", "Unable to read your location. You can enter it manually."),
+    "upload.locationUnavailable": t("upload.locationUnavailable", "Location is not available on this device."),
+    "upload.resolvingAddress": t("upload.resolvingAddress", "Finding address...")
+  };
+  return messages[key] || "";
+}
+
 export default function LocationField({
   id,
   name,
@@ -14,7 +24,7 @@ export default function LocationField({
   onLngChange,
   placeholder
 }) {
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
   const generatedId = useId();
   const fieldId = id || `location-${generatedId}`;
   const fieldName = name || fieldId;
@@ -30,13 +40,22 @@ export default function LocationField({
   const [query, setQuery] = useState(value || "");
   const [suggestions, setSuggestions] = useState([]);
   const [locating, setLocating] = useState(false);
-  const [locationMessage, setLocationMessage] = useState("");
+  const [locationMessageKey, setLocationMessageKey] = useState("");
+  const [usesCurrentLocation, setUsesCurrentLocation] = useState(false);
   const token = import.meta.env.VITE_MAPBOX_TOKEN || "";
   const abortRef = useRef(null);
 
   useEffect(() => {
     setQuery(value || "");
+    if (!value) setUsesCurrentLocation(false);
   }, [value]);
+
+  useEffect(() => {
+    if (!usesCurrentLocation) return;
+    const translatedLocation = t("map.currentLocation", "Current location");
+    setQuery(translatedLocation);
+    onChange && onChange(translatedLocation);
+  }, [language, usesCurrentLocation]);
 
   useEffect(() => {
     if (!token) return; // no token -> no autocomplete
@@ -62,10 +81,11 @@ export default function LocationField({
       window.clearTimeout(timeoutId);
       controller.abort();
     };
-  }, [query, token]);
+  }, [language, query, token]);
 
   function chooseSuggestion(s) {
-    setLocationMessage("");
+    setLocationMessageKey("");
+    setUsesCurrentLocation(false);
     setQuery(s.place);
     setSuggestions([]);
     onChange && onChange(s.place);
@@ -76,9 +96,9 @@ export default function LocationField({
   }
 
   function centerOnMe() {
-    setLocationMessage("");
+    setLocationMessageKey("");
     if (!navigator.geolocation) {
-      setLocationMessage(t("upload.locationUnavailable", "Location is not available on this device."));
+      setLocationMessageKey("upload.locationUnavailable");
       return;
     }
     setLocating(true);
@@ -89,31 +109,34 @@ export default function LocationField({
           const lng = String(position.coords.longitude);
           onLatChange && onLatChange(lat);
           onLngChange && onLngChange(lng);
-          setLocationMessage(t("upload.resolvingAddress", "Finding address..."));
+          setLocationMessageKey("upload.resolvingAddress");
           const place = await reverseGeocode(lat, lng, { exactAddressOnly: true });
           if (place) {
             setQuery(place);
+            setUsesCurrentLocation(false);
             onChange && onChange(place);
-            setLocationMessage("");
+            setLocationMessageKey("");
           } else {
             const fallbackLocation = t("map.currentLocation", "Current location");
+            setUsesCurrentLocation(true);
             setQuery(fallbackLocation);
             onChange && onChange(fallbackLocation);
-            setLocationMessage(t("upload.addressLookupFailed", "Coordinates were found, but no address was returned. Type or choose an address."));
+            setLocationMessageKey("upload.addressLookupFailed");
           }
         } catch (error) {
           console.error("Location lookup failed", error);
           const fallbackLocation = t("map.currentLocation", "Current location");
+          setUsesCurrentLocation(true);
           setQuery(fallbackLocation);
           onChange && onChange(fallbackLocation);
-          setLocationMessage(t("upload.addressLookupFailed", "Coordinates were found, but no address was returned. Type or choose an address."));
+          setLocationMessageKey("upload.addressLookupFailed");
         } finally {
           setSuggestions([]);
           setLocating(false);
         }
       },
       () => {
-        setLocationMessage(t("upload.locationPermissionDenied", "Unable to read your location. You can enter it manually."));
+        setLocationMessageKey("upload.locationPermissionDenied");
         setLocating(false);
       },
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
@@ -123,7 +146,8 @@ export default function LocationField({
   function clearLocation() {
     setQuery("");
     setSuggestions([]);
-    setLocationMessage("");
+    setLocationMessageKey("");
+    setUsesCurrentLocation(false);
     onChange && onChange("");
     onLatChange && onLatChange("");
     onLngChange && onLngChange("");
@@ -138,7 +162,7 @@ export default function LocationField({
           className="field pr-12"
           placeholder={inputPlaceholder}
           value={query || ""}
-          onChange={(e) => { setQuery(e.target.value); onChange && onChange(e.target.value); }}
+          onChange={(e) => { setUsesCurrentLocation(false); setQuery(e.target.value); onChange && onChange(e.target.value); }}
           aria-autocomplete={token ? "list" : "none"}
           aria-label={inputPlaceholder}
         />
@@ -152,7 +176,7 @@ export default function LocationField({
           <RefreshCw size={15} />
         </button>
       </div>
-      {locationMessage ? <p className="form-help mt-2">{locationMessage}</p> : null}
+      {locationMessageKey ? <p className="form-help mt-2">{translatedLocationMessage(locationMessageKey, t)}</p> : null}
       {token && suggestions.length > 0 && (
         <ul className="location-suggestions absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded border p-1" role="listbox">
           {suggestions.map((s) => (

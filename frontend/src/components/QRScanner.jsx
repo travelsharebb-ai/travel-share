@@ -7,13 +7,13 @@ import PageHeader from "./ui/PageHeader.jsx";
 import { ArrowLeft } from "lucide-react";
 
 export default function QRScanner() {
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
   const navigate = useNavigate();
   const hasScannedRef = useRef(false);
   const scannerRef = useRef(null);
 
   const [status, setStatus] = useState("loading");
-  const [error, setError] = useState("");
+  const [hasProcessingError, setHasProcessingError] = useState(false);
   const statusCopy = {
     loading: {
       title: t("hardcoded.cameraAccessIsRequiredToScanQrCodes"),
@@ -32,7 +32,7 @@ export default function QRScanner() {
     },
     error: {
       title: t("hardcoded.cameraAccessIsRequiredToScanQrCodes"),
-      body: error || t("hardcoded.goodLightingAndSteadyHandsHelpQrCodes"),
+      body: hasProcessingError ? t("qrScanner.processError") : t("hardcoded.goodLightingAndSteadyHandsHelpQrCodes"),
       pill: t("hardcoded.tip")
     }
   };
@@ -80,7 +80,7 @@ export default function QRScanner() {
           setTimeout(() => navigate(`/qr/${token}`), 600);
         } catch (err) {
           console.error(err);
-          setError("Could not process this QR code.");
+          setHasProcessingError(true);
           setStatus("error");
           hasScannedRef.current = false;
         }
@@ -95,14 +95,14 @@ export default function QRScanner() {
         scanner.clear().catch(() => {});
       } catch (e) {}
     };
-  }, [navigate]);
+  }, [language, navigate]);
 
   return (
     <PageLayout>
       <PageHeader
         hero
-        title={"Scan QR"}
-        subtitle={"Point your camera at a Travel Share code"}
+        title={t("qrScanner.title")}
+        subtitle={t("qrScanner.subtitle")}
       />
 
       <div style={styles.container}>
@@ -159,7 +159,7 @@ export default function QRScanner() {
               type="button"
               style={styles.actionCard}
               onClick={() => {
-                const token = window.prompt("Enter QR token");
+                const token = window.prompt(t("qrScanner.enterTokenPrompt"));
                 if (token) navigate(`/qr/${token}`);
               }}
             >

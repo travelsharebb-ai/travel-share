@@ -8,7 +8,7 @@ export default function EventCreate() {
   const navigate = useNavigate();
   const [form, setForm] = useState({ title: "", description: "", category: "", location: "", startDate: "", endDate: "", visibility: "public" });
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState(false);
 
   function update(k, v) {
     setForm((s) => ({ ...s, [k]: v }));
@@ -41,8 +41,8 @@ export default function EventCreate() {
       } else {
         navigate("/events");
       }
-    } catch (err) {
-      setError(err.message || t("eventCreate.errorCreate", "Could not create event."));
+    } catch {
+      setError(true);
     } finally {
       setLoading(false);
     }
@@ -98,7 +98,7 @@ export default function EventCreate() {
             </select>
           </div>
 
-          {error && <div className="text-sm text-rose-500">{error || t("eventCreate.errorCreate", "Could not create event.")}</div>}
+          {error && <div className="text-sm text-rose-500">{t("eventCreate.errorCreate", "Could not create event.")}</div>}
 
           <div className="flex items-center gap-3">
             <button type="submit" className="btn-primary" disabled={loading}>{loading ? t("eventCreate.creating", "Creating…") : t("eventCreate.submit", "Create event")}</button>

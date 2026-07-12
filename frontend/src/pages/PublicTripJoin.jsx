@@ -20,7 +20,7 @@ export default function PublicTripJoin() {
         <p className="text-slatebody leading-7">{t("hardcoded.theQrIsBeingResolvedNowOnceIt")}</p>
         <div className="card p-5 bg-slate-950/90 border border-white/10">
           <p className="text-slatebody">{t("hardcoded.tripLoading")}</p>
-          <p className="mt-3 text-sm text-primary">Token: {qrToken}</p>
+          <p className="mt-3 text-sm text-primary">{t("publicTripJoin.tokenLabel", "Token")}: {qrToken}</p>
         </div>
       </section>
     </main>

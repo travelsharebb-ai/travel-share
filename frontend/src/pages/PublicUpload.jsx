@@ -20,7 +20,7 @@ export default function PublicUpload() {
   const [loading, setLoading] = useState(!location.state);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [error, setError] = useState(null);
+  const [errorKey, setErrorKey] = useState(null);
 
   const base = import.meta.env.VITE_API_URL || "";
 
@@ -48,7 +48,7 @@ export default function PublicUpload() {
         const data = await res.json();
 
         if (!res.ok) {
-          setError(data?.error || "QR not found");
+          setErrorKey("publicUpload.error.qrNotFound");
           return;
         }
 
@@ -59,7 +59,7 @@ export default function PublicUpload() {
         });
       } catch (err) {
         console.error(err);
-        setError("Failed to load QR details");
+        setErrorKey("publicUpload.error.qrLoadFailed");
       } finally {
         setLoading(false);
       }
@@ -70,21 +70,21 @@ export default function PublicUpload() {
 
   const title =
     qrInfo?.qrType === "event"
-      ? qrInfo?.qrData?.title || "Event Upload"
+      ? qrInfo?.qrData?.title || t("publicUpload.eventTitle", "Event Upload")
       : qrInfo?.qrType === "trip"
-        ? qrInfo?.qrData?.title || "Trip Upload"
+        ? qrInfo?.qrData?.title || t("publicUpload.tripTitle", "Trip Upload")
         : qrInfo?.qrType === "zone"
-          ? qrInfo?.qrData?.name || "Zone Upload"
-          : "Upload Memory";
+          ? qrInfo?.qrData?.name || t("publicUpload.zoneTitle", "Zone Upload")
+          : t("common.uploadMemory", "Upload memory");
 
   const subtitle =
     qrInfo?.qrType === "event"
-      ? qrInfo?.qrData?.location || "Share your event memory"
+      ? qrInfo?.qrData?.location || t("publicUpload.eventSubtitle", "Share your event memory")
       : qrInfo?.qrType === "trip"
-        ? qrInfo?.qrData?.destination || "Share your trip memory"
+        ? qrInfo?.qrData?.destination || t("publicUpload.tripSubtitle", "Share your trip memory")
         : qrInfo?.qrType === "zone"
-          ? qrInfo?.qrData?.event?.title || "Share from this event zone"
-          : "Share your photo or video";
+          ? qrInfo?.qrData?.event?.title || t("publicUpload.zoneSubtitle", "Share from this event zone")
+          : t("publicUpload.defaultSubtitle", "Share your photo or video");
 
   const user = currentUser();
   const isRegisteredUser = Boolean(getToken() && user && user.role !== "guest");
@@ -93,15 +93,23 @@ export default function PublicUpload() {
   const guestDaysRemaining = shouldShowGuestAccess ? qrInfo?.guest?.daysRemaining : null;
   const shouldPromptRegister = shouldShowGuestAccess && qrInfo?.guest?.shouldPromptRegister;
   const guestNotice = guestState === "active"
-    ? "Guest access active. Register to save your uploads permanently."
+    ? t("publicUpload.guestActive", "Guest access active. Register to save your uploads permanently.")
     : guestState === "grace"
-      ? "Your guest access is in grace period. Register now to keep your uploads."
+      ? t("publicUpload.guestGrace", "Your guest access is in grace period. Register now to keep your uploads.")
       : guestState === "expired"
-        ? "This guest session has expired. Please register or start a new session."
+        ? t("publicUpload.guestExpired", "This guest session has expired. Please register or start a new session.")
         : null;
+  const errorMessage = {
+    "publicUpload.error.qrNotFound": t("publicUpload.error.qrNotFound", "QR not found."),
+    "publicUpload.error.qrLoadFailed": t("publicUpload.error.qrLoadFailed", "Failed to load QR details."),
+    "publicUpload.error.fileType": t("publicUpload.error.fileType", "Only photos and videos are allowed."),
+    "publicUpload.error.fileRequired": t("publicUpload.error.fileRequired", "Please choose a photo or video first."),
+    "publicUpload.error.uploadFailed": t("publicUpload.error.uploadFailed", "Upload failed. Please try again."),
+    "upload.locationRequired": t("upload.locationRequired", "Add a location name, latitude, and longitude so this memory can appear on the map.")
+  }[errorKey];
 
   function chooseFile(nextFile) {
-    setError(null);
+    setErrorKey(null);
 
     if (!nextFile) {
       setFile(null);
@@ -113,7 +121,7 @@ export default function PublicUpload() {
       nextFile.type.startsWith("video/");
 
     if (!isAllowed) {
-      setError("Only photos and videos are allowed.");
+      setErrorKey("publicUpload.error.fileType");
       return;
     }
 
@@ -141,11 +149,11 @@ export default function PublicUpload() {
     event.preventDefault();
 
     if (!file) {
-      setError("Please choose a photo or video first.");
+      setErrorKey("publicUpload.error.fileRequired");
       return;
     }
     if (!locationName.trim() || latitude === "" || longitude === "") {
-      setError(t("upload.locationRequired", "Add a location name, latitude, and longitude so this memory can appear on the map."));
+      setErrorKey("upload.locationRequired");
       return;
     }
 
@@ -153,7 +161,7 @@ export default function PublicUpload() {
 
     try {
       setUploading(true);
-      setError(null);
+      setErrorKey(null);
       interval = simulateProgress();
 
       const formData = new FormData();
@@ -173,7 +181,7 @@ export default function PublicUpload() {
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data?.error || data?.message || "Upload failed");
+        setErrorKey("publicUpload.error.uploadFailed");
         setProgress(0);
         return;
       }
@@ -191,7 +199,7 @@ export default function PublicUpload() {
       }, 450);
     } catch (err) {
       console.error(err);
-      setError("Upload failed. Please try again.");
+      setErrorKey("publicUpload.error.uploadFailed");
       setProgress(0);
     } finally {
       if (interval) window.clearInterval(interval);
@@ -222,7 +230,7 @@ export default function PublicUpload() {
         <section className="card p-5 max-w-2xl bg-slate-950/90 border border-white/10 mt-6">
           <button type="button" onClick={() => navigate("/scan")} className="btn-ghost mb-4">{t("hardcoded.scan")}</button>
 
-          <p className="text-sm uppercase tracking-[0.32em] text-primary">{qrInfo?.qrType || "QR"}</p>
+          <p className="text-sm uppercase tracking-[0.32em] text-primary">{qrInfo?.qrType || t("publicUpload.qrLabel", "QR")}</p>
           <h1 className="mt-3 text-3xl font-black font-serif">{title}</h1>
           <p className="mt-2 text-slatebody">{subtitle}</p>
 
@@ -230,7 +238,7 @@ export default function PublicUpload() {
             <div className={`mt-4 rounded-3xl border px-4 py-4 ${guestState === 'expired' ? 'border-red-500 bg-red-500/10 text-red-200' : 'border-primary/30 bg-primary/5 text-primary'}`}>
               <p className="text-sm font-semibold">{guestNotice}</p>
               {typeof guestDaysRemaining === 'number' && guestDaysRemaining >= 0 && (
-                <p className="mt-1 text-sm text-slatebody">About {guestDaysRemaining} days remaining.</p>
+                <p className="mt-1 text-sm text-slatebody">{t("publicUpload.daysRemaining", "About {count} days remaining.", { count: guestDaysRemaining })}</p>
               )}
               {shouldPromptRegister && guestState !== 'expired' && (
                 <div className="mt-3 flex flex-wrap gap-3">
@@ -326,7 +334,7 @@ export default function PublicUpload() {
               </div>
             )}
 
-            {error && <p className="text-sm text-red-400">{error}</p>}
+            {errorMessage && <p className="text-sm text-red-400">{errorMessage}</p>}
 
             <button disabled={uploading} type="submit" className="btn-primary w-full">
               {uploading ? t("upload.uploading", "Uploading...") : t("common.uploadMemory")}

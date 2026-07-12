@@ -8,24 +8,29 @@ export default function VerifyEmailChange() {
   const { t } = useLanguage();
   const [searchParams] = useSearchParams();
   const [status, setStatus] = useState("loading");
-  const [message, setMessage] = useState("");
+  const [messageKey, setMessageKey] = useState("");
+  const message = {
+    "verifyEmail.missingToken": t("verifyEmail.missingToken", "Missing verification token."),
+    "verifyEmail.successMessage": t("verifyEmail.successMessage", "Your email has been verified."),
+    "verifyEmail.errorMessage": t("verifyEmail.errorMessage", "Unable to verify your email change.")
+  }[messageKey] || "";
 
   useEffect(() => {
     const token = searchParams.get("token");
     if (!token) {
       setStatus("error");
-      setMessage("Missing verification token.");
+      setMessageKey("verifyEmail.missingToken");
       return;
     }
 
     async function verify() {
       try {
-        const data = await api(`/api/auth/verify-email-change?token=${encodeURIComponent(token)}`);
+        await api(`/api/auth/verify-email-change?token=${encodeURIComponent(token)}`);
         setStatus("success");
-        setMessage(data.message || "Your email has been verified.");
+        setMessageKey("verifyEmail.successMessage");
       } catch (err) {
         setStatus("error");
-        setMessage(err.message || "Unable to verify your email change.");
+        setMessageKey("verifyEmail.errorMessage");
       }
     }
 

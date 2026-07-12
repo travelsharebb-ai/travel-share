@@ -12,13 +12,13 @@ export default function AuthPage({ mode }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [form, setForm] = useState({ name: "", email: "", password: "" });
-  const [error, setError] = useState("");
+  const [errorKey, setErrorKey] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const isSignup = mode === "signup";
 
   async function submit(event) {
     event.preventDefault();
-    setError("");
+    setErrorKey("");
     try {
       const payload = { ...form };
       if (isSignup) {
@@ -35,7 +35,7 @@ export default function AuthPage({ mode }) {
         navigate(fallback, { replace: true });
       }
     } catch (err) {
-      setError(err.message);
+      setErrorKey("submit");
     }
   }
 
@@ -93,8 +93,8 @@ export default function AuthPage({ mode }) {
             </button>
           </div>
           
-          {error && (
-            <p className="break-words rounded-lg bg-red-50 p-3 text-sm font-bold text-reject">{error}</p>
+          {errorKey && (
+            <p className="break-words rounded-lg bg-red-50 p-3 text-sm font-bold text-reject">{t("authPage.error")}</p>
           )}
           
             <button className="btn-primary w-full" type="submit">

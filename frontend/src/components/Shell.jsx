@@ -7,6 +7,28 @@ import ThemeToggleButton from "./ThemeToggleButton";
 import { useState, useRef, useEffect } from "react";
 const SIDEBAR_KEY = "travelShareSidebarCollapsed";
 
+function translatedRole(role, t) {
+  const roles = {
+    admin: t("shell.roles.admin"),
+    guest: t("shell.roles.guest"),
+    organizer: t("shell.roles.organizer"),
+    platform_admin: t("shell.roles.platformAdmin"),
+    tourist: t("shell.roles.tourist"),
+    user: t("shell.roles.user")
+  };
+  return roles[role] || t("shell.roles.user");
+}
+
+function translatedNotificationType(type, t) {
+  const types = {
+    error: t("shell.notificationTypes.error"),
+    info: t("shell.notificationTypes.info"),
+    success: t("shell.notificationTypes.success"),
+    warning: t("shell.notificationTypes.warning")
+  };
+  return types[type] || t("shell.notificationTitleFallback", "Update");
+}
+
 export default function Shell({ children }) {
   const [user, setUser] = useState(currentUser());
   const navigate = useNavigate();
@@ -110,7 +132,7 @@ export default function Shell({ children }) {
         ) {
           setNotificationsSupported(false);
         } else {
-          setNotificationsError(message);
+          setNotificationsError(true);
         }
       } finally {
         setNotificationsLoading(false);
@@ -168,8 +190,8 @@ export default function Shell({ children }) {
           <aside className={`hidden border-r border-borderline bg-panel/80 lg:flex lg:flex-col sidebar-shell ${collapsed ? 'collapsed' : ''} sticky top-0 h-screen overflow-hidden relative`}>
             <div style={{ height: 96 }} />
             <button
-              aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-              title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+              aria-label={collapsed ? t("shell.expandSidebar") : t("shell.collapseSidebar")}
+              title={collapsed ? t("shell.expandSidebar") : t("shell.collapseSidebar")}
               className="sidebar-collapse-button hidden lg:inline-flex btn-ghost"
               onClick={() => {
                 const next = !collapsed;
@@ -200,7 +222,7 @@ export default function Shell({ children }) {
                 <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/20 text-primary"><UserCircle size={20} /></span>
                 <div className="min-w-0">
                   <p className="truncate text-sm font-bold user-name">{user.name}</p>
-                  <p className="truncate text-xs capitalize text-slatebody user-role">{user.role.replace("_", " ")}</p>
+                  <p className="truncate text-xs capitalize text-slatebody user-role">{translatedRole(user.role, t)}</p>
                   {isGuest && user.guestSession?.status ? (
                     <p className="truncate text-xs text-primary mt-1">
                       {user.guestSession.status === "active"
@@ -267,7 +289,7 @@ export default function Shell({ children }) {
                           ) : notificationsError ? (
                             <div className="notifications-body notifications-error">
                               <p className="font-semibold">{t('shell.unableToLoadNotifications', 'Unable to load notifications')}</p>
-                              <p className="mt-2 text-sm">{notificationsError}</p>
+                              <p className="mt-2 text-sm">{t("shell.notificationLoadErrorDetail")}</p>
                               <button className="btn-primary mt-3 w-full" onClick={() => setNotificationsOpen(false)}>{t('shell.close', 'Close')}</button>
                             </div>
                           ) : !notificationsSupported ? (
@@ -314,9 +336,9 @@ export default function Shell({ children }) {
                                 <div key={notification.id || notification.title} className={`notification-item rounded-3xl border p-3 ${notification.read ? 'notification-read' : 'notification-unread'}`}>
                                   <div className="flex items-start justify-between gap-3">
                                     <div>
-                                              <p className="text-sm font-semibold">{notification.title || notification.type || t('shell.notificationTitleFallback', 'Update')}</p>
+                                              <p className="text-sm font-semibold">{notification.title || translatedNotificationType(notification.type, t)}</p>
                                       <p className="mt-1 text-sm leading-6 text-slatebody">{notification.message || notification.body || t('shell.notificationFallback', 'A notification has arrived.')}</p>
-                                      {notification.createdAt && <p className="mt-2 text-xs uppercase tracking-[0.24em] text-slate-500">{new Date(notification.createdAt).toLocaleString()}</p>}
+                                      {notification.createdAt && <p className="mt-2 text-xs uppercase tracking-[0.24em] text-slate-500">{new Date(notification.createdAt).toLocaleString(language)}</p>}
                                     </div>
                                     <div className="flex flex-col items-end gap-2">
                                       {notification.targetUrl ? (
@@ -378,7 +400,7 @@ export default function Shell({ children }) {
                     <div className="h-8 w-8 rounded-full bg-ocean/10 flex items-center justify-center text-ocean font-bold">{(user?.name || 'U').charAt(0).toUpperCase()}</div>
                     <div className="hidden md:block min-w-0">
                       <div className="truncate font-semibold topbar-user-name">{user?.name}</div>
-                      <div className="truncate text-xs text-slatebody topbar-user-role">{user?.role?.replace('_',' ')}</div>
+                      <div className="truncate text-xs text-slatebody topbar-user-role">{translatedRole(user?.role, t)}</div>
                     </div>
                     <button className="btn-ghost" onClick={() => { clearSession(); navigate('/login'); }}>{t('shell.signOut', 'Sign out')}</button>
                   </div>
@@ -423,7 +445,7 @@ export default function Shell({ children }) {
                     {user ? (
                       <div>
                         <p className="truncate text-sm font-bold">{user.name}</p>
-                        <p className="truncate text-xs capitalize text-slatebody">{user.role.replace("_", " ")}</p>
+                        <p className="truncate text-xs capitalize text-slatebody">{translatedRole(user.role, t)}</p>
                         <button className="btn-ghost mt-3 w-full" onClick={() => { clearSession(); setDrawerOpen(false); navigate(isGuest ? '/guest' : '/login'); }}><LogOut size={18} /> {t('shell.signOut', 'Sign out')}</button>
                       </div>
                     ) : (

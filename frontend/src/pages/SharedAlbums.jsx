@@ -28,7 +28,7 @@ export default function SharedAlbums() {
         );
         setDetails(fullTrips.filter(Boolean));
       })
-      .catch((err) => setError(err.message || t("sharedAlbums.error", "Unable to load shared albums.")))
+      .catch(() => setError("load"))
       .finally(() => setLoading(false));
   }
 
@@ -48,7 +48,7 @@ export default function SharedAlbums() {
       await api(`/api/trips/${selectedTripId}/share-links`, { method: "POST", body: JSON.stringify({}) });
       load();
     } catch (err) {
-      setError(err.message || t("sharedAlbums.createError", "Unable to create share link."));
+      setError("create");
     } finally {
       setCreating(false);
     }
@@ -88,7 +88,7 @@ export default function SharedAlbums() {
         </div>
       </section>
 
-      {error ? <section className="card p-5 text-red-400">{error}</section> : null}
+      {error ? <section className="card p-5 text-red-400">{error === "create" ? t("sharedAlbums.createError") : t("sharedAlbums.error")}</section> : null}
 
       {loading ? (
         <section className="card p-5 text-slatebody">{t("sharedAlbums.loading", "Loading shared albums...")}</section>

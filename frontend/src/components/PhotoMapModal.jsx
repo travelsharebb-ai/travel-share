@@ -27,7 +27,7 @@ export default function PhotoMapModal({ open, onClose, location, photos = [] }) 
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ width: '90%', height: '80%', background: '#fff', borderRadius: 8, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: 8, borderBottom: '1px solid #eee', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <strong>{location?.name || 'Location'}</strong>
+          <strong>{location?.name || t("photoMap.location")}</strong>
           <button onClick={onClose}>{t("common.close")}</button>
         </div>
         <div style={{ display: 'flex', flex: 1 }}>
@@ -37,7 +37,7 @@ export default function PhotoMapModal({ open, onClose, location, photos = [] }) 
           <div style={{ width: 320, overflow: 'auto', borderLeft: '1px solid #eee' }}>
             {photos.map((p) => (
               <div key={p.id} style={{ padding: 8 }}>
-                <img src={p.fileUrl} alt="photo" style={{ width: '100%', borderRadius: 4 }} />
+                <img src={p.fileUrl} alt={t("photoMap.photoAlt")} style={{ width: '100%', borderRadius: 4 }} />
               </div>
             ))}
           </div>

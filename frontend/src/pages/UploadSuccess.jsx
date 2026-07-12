@@ -8,7 +8,7 @@ export default function UploadSuccess() {
   const navigate = useNavigate();
 
   const qrInfo = location.state?.qrInfo;
-  const message = location.state?.message || "Your memory was uploaded successfully.";
+  const message = t("uploadSuccess.message", "Your memory was uploaded successfully.");
 
   const title =
     qrInfo?.qrType === "event"
@@ -17,7 +17,7 @@ export default function UploadSuccess() {
         ? qrInfo?.qrData?.title
         : qrInfo?.qrType === "zone"
           ? qrInfo?.qrData?.name
-          : "Travel Share";
+          : t("uploadSuccess.defaultDestination", "Travel Share");
 
   return (
     <main className="page-shell flex min-h-[calc(100vh-74px)] items-center justify-center py-10">

@@ -6,7 +6,7 @@ import { api } from "../lib/api";
 import { useLanguage } from "../lib/i18n";
 
 export default function Approvals() {
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
   const [uploads, setUploads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -17,7 +17,7 @@ export default function Approvals() {
     setError("");
     api("/api/uploads/pending-approvals")
       .then((data) => setUploads(Array.isArray(data.uploads) ? data.uploads : []))
-      .catch((err) => setError(err.message || t("approvals.error", "Unable to load pending uploads.")))
+      .catch(() => setError("load"))
       .finally(() => setLoading(false));
   }
 
@@ -32,7 +32,7 @@ export default function Approvals() {
       await api(`/api/uploads/${uploadId}/${action}`, { method: "PATCH" });
       setUploads((current) => current.filter((upload) => upload.id !== uploadId));
     } catch (err) {
-      setError(err.message || t("approvals.moderationError", "Unable to update upload."));
+      setError("moderate");
     } finally {
       setBusyId("");
     }
@@ -46,7 +46,7 @@ export default function Approvals() {
         <p className="mt-4 max-w-3xl text-slatebody leading-7">{t("approvals.description", "Approve or reject guest uploads before they appear in public or shared spaces.")}</p>
       </section>
 
-      {error ? <section className="card p-5 text-red-400">{error}</section> : null}
+      {error ? <section className="card p-5 text-red-400">{error === "moderate" ? t("approvals.moderationError") : t("approvals.error")}</section> : null}
 
       {loading ? (
         <section className="card p-5 text-slatebody">{t("approvals.loading", "Loading pending uploads...")}</section>
@@ -62,7 +62,7 @@ export default function Approvals() {
               <MediaCard upload={upload} />
               <div className="card p-4 text-sm text-slatebody">
                 <p className="font-semibold">{upload.trip?.title || upload.event?.title || t("approvals.unlinked", "Unlinked upload")}</p>
-                <p className="mt-1">{new Date(upload.createdAt).toLocaleString()}</p>
+                <p className="mt-1">{new Date(upload.createdAt).toLocaleString(language)}</p>
                 <div className="mt-4 grid gap-2 sm:grid-cols-2">
                   <button className="btn-primary" type="button" disabled={busyId === upload.id} onClick={() => moderate(upload.id, "approve")}>
                     <Check size={16} />

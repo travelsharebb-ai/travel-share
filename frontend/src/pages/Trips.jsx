@@ -5,7 +5,7 @@ import { api } from "../lib/api";
 import { useLanguage } from "../lib/i18n";
 
 export default function Trips() {
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -21,7 +21,7 @@ export default function Trips() {
       })
       .catch((err) => {
         if (!active) return;
-        setError(err.message || t("trips.error", "Unable to load trips."));
+        setError("load");
       })
       .finally(() => {
         if (!active) return;
@@ -46,7 +46,7 @@ export default function Trips() {
         </div>
       </section>
 
-      {error ? <section className="card p-5 text-red-400">{error}</section> : null}
+      {error ? <section className="card p-5 text-red-400">{t("trips.error")}</section> : null}
 
       {loading ? (
         <section className="card p-5 text-slatebody">{t("trips.loading", "Loading trips...")}</section>
@@ -70,7 +70,7 @@ export default function Trips() {
                     </span>
                     <span className="inline-flex items-center gap-2 rounded-full border border-borderline px-3 py-1">
                       <CalendarDays size={14} />
-                      {trip.startDate ? new Date(trip.startDate).toLocaleDateString() : t("trips.noDate", "No date")}
+                      {trip.startDate ? new Date(trip.startDate).toLocaleDateString(language) : t("trips.noDate", "No date")}
                     </span>
                     <span className="rounded-full border border-borderline px-3 py-1">
                       {t("trips.uploadCount", "{count} uploads").replace("{count}", trip._count?.uploads || 0)}

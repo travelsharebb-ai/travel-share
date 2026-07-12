@@ -6,18 +6,18 @@ import { api } from "../lib/api";
 export default function ForgotPassword() {
   const { t } = useLanguage();
   const [email, setEmail] = useState("");
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
+  const [submitted, setSubmitted] = useState(false);
+  const [failed, setFailed] = useState(false);
 
   async function submit(event) {
     event.preventDefault();
-    setError("");
-    setMessage("");
+    setFailed(false);
+    setSubmitted(false);
     try {
-      const data = await api("/api/auth/forgot-password", { method: "POST", body: JSON.stringify({ email }) });
-      setMessage(data.message);
+      await api("/api/auth/forgot-password", { method: "POST", body: JSON.stringify({ email }) });
+      setSubmitted(true);
     } catch (err) {
-      setError(err.message);
+      setFailed(true);
     }
   }
 
@@ -36,12 +36,12 @@ export default function ForgotPassword() {
             onChange={(e) => setEmail(e.target.value)} 
           />
           
-          {message && (
-            <p className="rounded-lg bg-rose-50 p-3 text-sm font-bold text-trust">{message}</p>
+          {submitted && (
+            <p className="rounded-lg bg-rose-50 p-3 text-sm font-bold text-trust">{t("forgotPassword.success")}</p>
           )}
           
-          {error && (
-            <p className="rounded-lg bg-red-50 p-3 text-sm font-bold text-reject">{error}</p>
+          {failed && (
+            <p className="rounded-lg bg-red-50 p-3 text-sm font-bold text-reject">{t("forgotPassword.error")}</p>
           )}
           
           <button className="btn-primary w-full">{t("hardcoded.sendResetLink")}</button>

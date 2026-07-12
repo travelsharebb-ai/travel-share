@@ -53,7 +53,11 @@ const translations = {
     "sharedAlbum": "Shared album",
     "albumToken": "Album token",
     "uploading": "Uploading…",
-    "poweredByTravelShare": "Powered by Travel Share"
+    "poweredByTravelShare": "Powered by Travel Share",
+    "refreshing": "Refreshing…",
+    "error": "Error",
+    "yes": "Yes",
+    "no": "No"
   },
   "qrSpaces": {
     "title": "QR Upload Spaces",
@@ -112,7 +116,9 @@ const translations = {
     "manageHelper": "Review upload QR links",
     "qrImageAlt": "QR upload code",
     "yes": "Yes",
-    "no": "No"
+    "no": "No",
+    "chooseTripAlbum": "Choose a trip album",
+    "albumTargetHelp": "Album QR spaces save uploads into the selected trip album."
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -128,7 +134,11 @@ const translations = {
     "signOut": "Sign out",
     "notifications": "Notifications",
     "language": "Language",
-    "markAllRead": "Mark all as read"
+    "markAllRead": "Mark all as read",
+    "qrSpaces": "QR Spaces",
+    "myUploads": "My Memories",
+    "approvals": "Approvals",
+    "sharedAlbums": "Shared Albums"
   },
   "shell": {
     "notifications": "Notifications",
@@ -157,7 +167,25 @@ const translations = {
     "signUp": "Sign up",
     "signOut": "Sign out",
     "switchToLightMode": "Switch to light mode",
-    "switchToDarkMode": "Switch to dark mode"
+    "switchToDarkMode": "Switch to dark mode",
+    "toggleTheme": "Toggle theme",
+    "roles": {
+      "admin": "Admin",
+      "guest": "Guest",
+      "organizer": "Organizer",
+      "platformAdmin": "Platform admin",
+      "tourist": "Tourist",
+      "user": "User"
+    },
+    "notificationTypes": {
+      "error": "Error",
+      "info": "Info",
+      "success": "Success",
+      "warning": "Warning"
+    },
+    "expandSidebar": "Expand sidebar",
+    "collapseSidebar": "Collapse sidebar",
+    "notificationLoadErrorDetail": "Unable to load notifications. Please try again."
   },
   "guestStatus": {
     "activeGuest": "Active Guest",
@@ -194,7 +222,8 @@ const translations = {
     "guestAccessRules": "Guest access rules",
     "daysLeftToRegister": "Days left to register: {days}",
     "registerToBuyOrDownload": "Register to buy or download",
-    "clickToRegister": "Click to register"
+    "clickToRegister": "Click to register",
+    "fullAccessActive": "Your full guest access is active."
   },
   "guestDashboard": {
     "badgeActive": "Active Guest",
@@ -220,7 +249,13 @@ const translations = {
     "canRegister": "Register to keep uploads and unlock full access.",
     "expiredTitle": "Guest access expired",
     "expiredDescription": "Your guest session has ended. Register or log in to continue using TravelShare.",
-    "registerToKeepUploads": "Register to keep your uploads"
+    "registerToKeepUploads": "Register to keep your uploads",
+    "sessionSummary": "Guest session summary",
+    "accessLinkTitle": "Guest access link",
+    "copyLink": "Copy link",
+    "linkCopied": "Guest access link copied",
+    "noLinkAvailable": "Guest access link is not available for this session. Create a new guest access session or resume using your saved guest link.",
+    "guestAccessRules": "Guest access rules"
   },
   "dashboard": {
     "hero": {
@@ -242,7 +277,8 @@ const translations = {
       "organizerAccessRequired": "Organizer access required.",
       "exploreMapHelper": "Discover trips, posts, and places nearby",
       "scanQRHelper": "Add uploads from the field",
-      "viewStoreHelper": "Manage frames and upgrades"
+      "viewStoreHelper": "Manage frames and upgrades",
+      "scanQrHelper": "Add uploads from the field"
     },
     "stats": {
       "trips": "Trips",
@@ -271,7 +307,8 @@ const translations = {
       "eventPrefix": "Event:",
       "untitledTrip": "Untitled",
       "untitledEvent": "Untitled",
-      "errorTitle": "Activity unavailable"
+      "errorTitle": "Activity unavailable",
+      "errorDescription": "Recent activity is temporarily unavailable."
     },
     "creatorToolsAtAGlance": "Creator tools at a glance"
   },
@@ -348,7 +385,21 @@ const translations = {
     "devVerification": "DEV: verification link: {link}",
     "verificationSent": "Verification email sent to the new address.",
     "enterNewEmail": "Enter a new email address.",
-    "newEmailPlaceholder": "new@example.com"
+    "newEmailPlaceholder": "new@example.com",
+    "city": "City",
+    "guestStatus": "Guest status",
+    "guestDashboardTitle": "Guest session status",
+    "guestSettingsDescription": "Your guest account is limited, but you can still browse maps, events, and store previews.",
+    "guestStatusLabel": "Status",
+    "guestStatuses": {
+      "active": "Active",
+      "grace": "Grace period",
+      "expired": "Expired"
+    },
+    "guestDaysRemaining": "Days remaining",
+    "guestExpires": "Expires",
+    "guestRegisterCta": "Register to keep your uploads",
+    "saveError": "Unable to save settings."
   },
   "settings": {
     "themeMode": "Theme mode",
@@ -431,7 +482,8 @@ const translations = {
       "readyToApply": "Ready to apply",
       "previewOnly": "Preview only",
       "freeUnlock": "Free unlock",
-      "lockedPremium": "Locked premium"
+      "lockedPremium": "Locked premium",
+      "itemUnlocked": "Item unlocked successfully."
     },
     "action": {
       "preview": "Preview",
@@ -445,22 +497,22 @@ const translations = {
       "defaultDescription": "A premium Travel Share upgrade to enhance your albums and event photos."
     },
     "payment": {
-          "confirming": "Confirming your payment...",
-          "success": "Payment confirmed.",
-          "pending": "Payment is still processing.",
-          "canceled": "Checkout canceled. No purchase was unlocked.",
-          "failed": "Payment failed. Your item was not unlocked.",
-          "error": "Unable to confirm payment right now.",
-          "checkAgain": "Check payment status",
-          "tryAgain": "Try again",
-          "backToStore": "Back to store",
-          "checkoutStarted": "Checkout started. Complete payment with the provider, then return to confirm.",
-          "checkoutUnavailable": "Checkout is unavailable right now.",
-          "signInRequired": "Sign in or create an account to buy premium store items.",
-          "processing": "Payment status",
-          "ownedNow": "Payment confirmed. Your item is now unlocked.",
-          "noTransaction": "No payment transaction was found for this checkout return.",
-          "safeNotice": "Purchases unlock only after the backend confirms payment with the provider."
+      "confirming": "Confirming your payment...",
+      "success": "Payment confirmed.",
+      "pending": "Payment is still processing.",
+      "canceled": "Checkout canceled. No purchase was unlocked.",
+      "failed": "Payment failed. Your item was not unlocked.",
+      "error": "Unable to confirm payment right now.",
+      "checkAgain": "Check payment status",
+      "tryAgain": "Try again",
+      "backToStore": "Back to store",
+      "checkoutStarted": "Checkout started. Complete payment with the provider, then return to confirm.",
+      "checkoutUnavailable": "Checkout is unavailable right now.",
+      "signInRequired": "Sign in or create an account to buy premium store items.",
+      "processing": "Payment status",
+      "ownedNow": "Payment confirmed. Your item is now unlocked.",
+      "noTransaction": "No payment transaction was found for this checkout return.",
+      "safeNotice": "Purchases unlock only after the backend confirms payment with the provider."
     },
     "modal": {
       "skinDetails": "Skin details",
@@ -499,6 +551,13 @@ const translations = {
       "closePreviewAria": "Close skin preview",
       "premiumSkin": "Premium skin",
       "premiumSkinHelp": "Checkout to unlock this premium skin. Once owned, you can apply it to photo uploads."
+    },
+    "error": {
+      "loadItems": "Unable to load store items.",
+      "loadTrips": "Unable to load upload trips.",
+      "loadUploads": "Unable to load uploads.",
+      "applySkin": "Unable to apply skin.",
+      "unlockItem": "Unable to unlock item."
     }
   },
   "admin": {
@@ -563,7 +622,10 @@ const translations = {
       "noAnalytics": "No analytics available yet.",
       "noHotspots": "No hotspot activity found.",
       "openModeration": "Open moderation",
-      "backToAdminTools": "Back to admin tools"
+      "backToAdminTools": "Back to admin tools",
+      "reportedUploadsSummary": "{count} reported uploads",
+      "totalUploadsSummary": "{count} total uploads",
+      "subtitle": "See recent analytics and activity trends across the Travel Share platform."
     },
     "quickTools": "Quick admin tools",
     "usersBody": "Manage accounts and roles",
@@ -580,7 +642,8 @@ const translations = {
         "name": "Name",
         "email": "Email",
         "role": "Role",
-        "created": "Created"
+        "created": "Created",
+        "actions": "Actions"
       },
       "edit": "Edit",
       "save": "Save",
@@ -590,7 +653,17 @@ const translations = {
       "cannotDeleteSelf": "You cannot delete your own account here.",
       "confirmDelete": "Are you sure you want to safely delete (anonymize) this user? This cannot be undone.",
       "updateFailed": "Failed to update user",
-      "deleteFailed": "Failed to delete user"
+      "deleteFailed": "Failed to delete user",
+      "errorLoad": "Unable to load users.",
+      "roleTourist": "tourist",
+      "roleOrganizer": "organizer",
+      "roleAdmin": "admin",
+      "rolePlatformAdmin": "platform_admin",
+      "roleGuest": "guest",
+      "detailsFailed": "Unable to load user details.",
+      "hideDetails": "Hide details",
+      "viewDetails": "View details",
+      "verified": "Email verified"
     },
     "settings": {
       "badge": "Platform configuration",
@@ -652,7 +725,19 @@ const translations = {
       "delete": "Delete",
       "genericFailed": "Action failed.",
       "backToAdminTools": "Back to admin tools",
-      "openReports": "Open reports"
+      "openReports": "Open reports",
+      "actionComplete": "Moderation action completed.",
+      "filter": "Content status",
+      "reported": "Reported",
+      "approved": "Approved",
+      "rejected": "Rejected",
+      "all": "All content",
+      "unknown": "Unknown",
+      "noDestination": "No destination",
+      "reportReason": "Report reason",
+      "unhide": "Unhide",
+      "confirmDeleteUpload": "Delete this upload permanently?",
+      "deleted": "Upload deleted."
     },
     "tools": {
       "badge": "Admin tools",
@@ -675,7 +760,9 @@ const translations = {
       "open": "Open",
       "backToAdminDashboard": "Back to admin dashboard",
       "backToAdmin": "Back to admin dashboard",
-      "viewAllUsers": "View all users"
+      "viewAllUsers": "View all users",
+      "management": "Management",
+      "managementDescription": "Manage guest sessions, catalog visibility, ads, and notifications."
     },
     "viewModeration": "View moderation",
     "management": {
@@ -748,7 +835,58 @@ const translations = {
       "memoriesCollected": "Memories collected across your events.",
       "activeZones": "Active map zones ready for guest uploads.",
       "currentlyLive": "Events currently set to live status."
-    }
+    },
+    "openEvent": "Open event",
+    "backToEvents": "Back to events",
+    "hero": {
+      "badge": "Organizer dashboard",
+      "title": "Events & guest journeys",
+      "description": "Manage your upcoming gatherings, scan guest QR codes, and keep every event feeling premium and polished."
+    },
+    "actions": {
+      "createEvent": "Create Event",
+      "scanQr": "Scan QR",
+      "openEvent": "Open event",
+      "scanAttendeeQr": "Scan attendee QR"
+    },
+    "stats": {
+      "events": "Events",
+      "eventsDetail": "Organized events on this account.",
+      "uploads": "Uploads",
+      "uploadsDetail": "Memories collected across your events.",
+      "zones": "Zones",
+      "zonesDetail": "Active map zones ready for guest uploads.",
+      "liveEvents": "Live events",
+      "liveEventsDetail": "Events currently set to live status."
+    },
+    "upcoming": {
+      "badge": "Upcoming events",
+      "title": "Your next gatherings",
+      "alertAllShown": "All events are shown on this page.",
+      "viewAll": "View all",
+      "scheduled": "Scheduled"
+    },
+    "loading": "Loading your events…",
+    "error": {
+      "load": "Unable to load events."
+    },
+    "empty": {
+      "title": "No events found yet.",
+      "description": "Start by planning your first event and inviting guests with a QR code."
+    },
+    "defaultCategory": "Event",
+    "defaultLocation": "Private location",
+    "statuses": {
+      "live": "Live",
+      "ended": "Ended",
+      "draft": "Draft"
+    },
+    "sidebar": {
+      "badge": "Organizer notes",
+      "note1": "Events are displayed by upcoming start date. If you need a dedicated management page for each event, open the organizer event details.",
+      "note2": "Scan guest QR codes from the top action or use the event links to preview the public QR route for each event."
+    },
+    "untitled": "Untitled event"
   },
   "trips": {
     "createTrip": "Create trip",
@@ -759,7 +897,19 @@ const translations = {
     "startDate": "Start date",
     "endDate": "End date",
     "defaultLocationVisibility": "Default location visibility",
-    "createTripDescription": "Create a trip to collect memories and uploads. Fields are minimal for Phase 6."
+    "createTripDescription": "Create a trip to collect memories and uploads. Fields are minimal for Phase 6.",
+    "openTrip": "Open trip",
+    "badge": "Trips",
+    "untitled": "Untitled trip",
+    "emptyTitle": "No trips yet.",
+    "backToTrips": "Back to trips",
+    "error": "Unable to load trips.",
+    "description": "Manage your trip albums, memories, dates, and share links from one place.",
+    "loading": "Loading trips...",
+    "emptyDescription": "Create your first trip to start collecting memories.",
+    "tripAlbum": "Trip Album",
+    "noDate": "No date",
+    "uploadCount": "{count} uploads"
   },
   "map": {
     "title": "Map",
@@ -878,7 +1028,25 @@ const translations = {
     "accuracy": "Accuracy: about {meters} meters",
     "addPostLocation": "Add Post location",
     "mapCenter": "Map center",
-    "noTravelSharePosts": "No Travel Share posts found here yet."
+    "noTravelSharePosts": "No Travel Share posts found here yet.",
+    "openTravelShareMap": "Open TravelShare Map",
+    "locationPreview": "Location preview",
+    "travelPosts": "Travel Posts",
+    "location": "Location",
+    "pending": "Pending",
+    "approved": "Approved",
+    "rejected": "Rejected",
+    "nearbyRequiresLocation": "Nearby requires location access before results can be shown.",
+    "noFriendLocations": "No friend locations yet.",
+    "locationAccuracy": "Location accuracy: about {meters} meters",
+    "confirmHidePin": "Hide this map pin from public view?",
+    "friendsSignInRequired": "Sign in to view friend locations.",
+    "layers": "Map Layers",
+    "close": "Close",
+    "streetViewPreview": "Street View preview",
+    "movePinInstructions": "Click a new location on the map to move the selected pin.",
+    "newCoordinates": "New coordinates",
+    "confirmMove": "Confirm move"
   },
   "auth": {
     "login": "Login",
@@ -901,7 +1069,8 @@ const translations = {
     "newToTravelShare": "New to Travel Share? Create an account",
     "continueAsGuest": "Continue as Guest",
     "privacy": "Privacy",
-    "terms": "Terms"
+    "terms": "Terms",
+    "error": "Unable to log in."
   },
   "oauthCallback": {
     "loadingTitle": "Signing you in",
@@ -1097,6 +1266,239 @@ const translations = {
     "goodLightingAndSteadyHandsHelpQrCodes": "Good lighting and steady hands help QR codes scan faster.",
     "protectedTravelshareContent": "Protected TravelShare content",
     "navigationMenu": "Navigation menu"
+  },
+  "upload": {
+    "addressLookupFailed": "Coordinates were found, but no address was returned. Type or choose an address.",
+    "locationPermissionDenied": "Unable to read your location. You can enter it manually.",
+    "locationUnavailable": "Location is not available on this device.",
+    "resolvingAddress": "Finding address...",
+    "clearLocation": "Clear location",
+    "locating": "Locating...",
+    "locationRequired": "Add a location name, latitude, and longitude so this memory can appear on the map.",
+    "locationTitle": "Upload location",
+    "locationHelp": "Location is required so approved memories can appear on the map and heatmap.",
+    "locationPlaceholder": "Search for the upload location or address",
+    "uploading": "Uploading...",
+    "tripNotReady": "Trip upload link is not ready yet.",
+    "error": "Upload failed. Please try again."
+  },
+  "media": {
+    "video": "Video",
+    "photo": "Photo",
+    "aiCheck": "AI check",
+    "flagged": "Flagged",
+    "clear": "Clear",
+    "applyFrame": "Apply frame"
+  },
+  "photoMap": {
+    "location": "Location",
+    "photoAlt": "Photo"
+  },
+  "qrScanner": {
+    "processError": "Unable to process QR code.",
+    "title": "Scan QR",
+    "subtitle": "Scan a QR code to continue.",
+    "enterTokenPrompt": "Enter a QR token."
+  },
+  "approvals": {
+    "badge": "Approvals",
+    "title": "Approvals / Pending Uploads",
+    "description": "Approve or reject guest uploads before they appear in public or shared spaces.",
+    "moderationError": "Unable to load moderation items.",
+    "error": "Unable to load pending uploads.",
+    "loading": "Loading pending uploads...",
+    "emptyTitle": "No pending uploads.",
+    "emptyDescription": "Uploads waiting for approval will appear here.",
+    "unlinked": "Unlinked upload"
+  },
+  "eventCreate": {
+    "heroBadge": "Organizer",
+    "title": "Create event",
+    "description": "Create a simple event. Fields are intentionally minimal for Phase 6.",
+    "labelTitle": "Title",
+    "labelDescription": "Description",
+    "labelCategory": "Category",
+    "labelLocation": "Location",
+    "labelStartDate": "Start date",
+    "labelEndDate": "End date",
+    "labelVisibility": "Visibility",
+    "visibility": {
+      "public": "Public",
+      "private": "Private"
+    },
+    "errorCreate": "Could not create event.",
+    "creating": "Creating…",
+    "submit": "Create event",
+    "cancel": "Cancel"
+  },
+  "eventDetails": {
+    "defaultDescription": "Manage checklist, QR access and gallery previews for your event.",
+    "statusLive": "Live",
+    "statusEnded": "Ended",
+    "statusArchived": "Archived",
+    "statusDraft": "Draft",
+    "visibilityPublic": "Public",
+    "visibilityUnlisted": "Unlisted",
+    "visibilityPrivate": "Private",
+    "loadError": "Unable to load event details.",
+    "locationNotSet": "Location not set",
+    "generalEvent": "General event",
+    "starts": "Starts",
+    "tbd": "TBD",
+    "ends": "Ends",
+    "openEnded": "Open ended",
+    "guests": "Guests",
+    "uniqueGuestSessions": "Unique guest sessions",
+    "totalMediaSubmissions": "Total media submissions",
+    "scans": "Scans",
+    "qrCheckIns": "QR check-ins",
+    "zones": "Zones",
+    "activeEventZones": "Active event zones",
+    "uploadAlt": "Event upload",
+    "guestMemory": "Guest memory"
+  },
+  "forgotPassword": {
+    "success": "Password reset email sent.",
+    "error": "Unable to send reset link."
+  },
+  "guestAccess": {
+    "resumeFailed": "Unable to resume session"
+  },
+  "guestMode": {
+    "error": {
+      "passcode": "Enter a 4-digit passcode.",
+      "notCreated": "Guest session was not created. Please try again.",
+      "createFailed": "Unable to create guest access.",
+      "accessLinkRequired": "Enter your guest access link or token.",
+      "resumeFailed": "Unable to resume guest session.",
+      "restoreFailed": "Saved guest session could not be restored."
+    },
+    "savedSessionExpired": "Your saved guest session has expired. You can resume with an access link or start a new guest access.",
+    "savedSessionInvalid": "Saved guest session could not be restored. Start a new guest access or resume with a guest access link."
+  },
+  "myUploads": {
+    "noSource": "No linked album",
+    "badge": "Memories",
+    "title": "My Uploads / Memories",
+    "description": "Review media collected across your trips and events.",
+    "error": "Unable to load uploads.",
+    "frameApplied": "Frame applied to this upload.",
+    "frameRemoved": "Frame removed from this upload.",
+    "frameError": "Unable to update frame.",
+    "loading": "Loading memories...",
+    "emptyTitle": "No uploads yet.",
+    "emptyDescription": "Uploads from your trips and events will appear here.",
+    "status": "Status",
+    "statuses": {
+      "approved": "Approved",
+      "rejected": "Rejected",
+      "pending": "Pending"
+    }
+  },
+  "publicTripJoin": {
+    "tokenLabel": "Token"
+  },
+  "publicUpload": {
+    "eventTitle": "Event Upload",
+    "tripTitle": "Trip Upload",
+    "zoneTitle": "Zone Upload",
+    "eventSubtitle": "Share your event memory",
+    "tripSubtitle": "Share your trip memory",
+    "zoneSubtitle": "Share from this event zone",
+    "defaultSubtitle": "Share your photo or video",
+    "guestActive": "Guest access active. Register to save your uploads permanently.",
+    "guestGrace": "Your guest access is in grace period. Register now to keep your uploads.",
+    "guestExpired": "This guest session has expired. Please register or start a new session.",
+    "error": {
+      "qrNotFound": "QR not found.",
+      "qrLoadFailed": "Failed to load QR details.",
+      "fileType": "Only photos and videos are allowed.",
+      "fileRequired": "Please choose a photo or video first.",
+      "uploadFailed": "Upload failed. Please try again."
+    },
+    "qrLabel": "QR",
+    "daysRemaining": "About {count} days remaining."
+  },
+  "sharedAlbums": {
+    "badge": "Sharing",
+    "title": "Shared Albums",
+    "description": "Create and manage public share links for trip albums.",
+    "selectTrip": "Select trip",
+    "creating": "Creating...",
+    "createLink": "Create share link",
+    "createError": "Unable to create share link.",
+    "error": "Unable to load shared albums.",
+    "loading": "Loading shared albums...",
+    "emptyTitle": "No shared albums yet.",
+    "emptyDescription": "Create a share link for a trip to see it here.",
+    "active": "Active",
+    "inactive": "Inactive",
+    "openPublic": "Open public album"
+  },
+  "tripCreate": {
+    "heroBadge": "Trips",
+    "title": "Create trip",
+    "description": "Create a trip to collect memories and uploads. Fields are minimal for Phase 6.",
+    "labelTitle": "Title",
+    "labelDestination": "Destination",
+    "destinationPlaceholder": "Search for a destination or address",
+    "labelStartDate": "Start date",
+    "labelEndDate": "End date",
+    "labelDefaultLocationVisibility": "Default location visibility",
+    "visibility": {
+      "exact": "Exact",
+      "approximate": "Approximate",
+      "city": "City",
+      "hidden": "Hidden"
+    },
+    "errorCreate": "Could not create trip.",
+    "creating": "Creating…",
+    "submit": "Create trip",
+    "cancel": "Cancel"
+  },
+  "tripDetails": {
+    "loadingTitle": "Loading trip…",
+    "title": "Trip details",
+    "loadingDescription": "Fetching moments and memory cards.",
+    "summary": "Destination {destination} · {count} memories collected.",
+    "unknownDestination": "unknown",
+    "loadError": "Unable to load trip details.",
+    "memories": "Memories",
+    "chapters": "Chapters",
+    "locations": "Locations",
+    "shareLinks": "Share links",
+    "frameApplied": "Frame applied to this upload.",
+    "frameRemoved": "Frame removed from this upload.",
+    "frameError": "Unable to update frame.",
+    "travelMemory": "Travel memory",
+    "locationAvailable": "Location data is available.",
+    "locationHidden": "Location is hidden."
+  },
+  "tripUpload": {
+    "exactLocation": "Exact location",
+    "cityOnly": "City-level only",
+    "approximateLocation": "Approximate location",
+    "currentLocationSource": "Current location",
+    "unknownSource": "Unknown source",
+    "fileRequired": "Choose a file first. Upload is currently prepared for photos and videos.",
+    "coordinatesOnly": "Coordinates only",
+    "unknown": "Unknown"
+  },
+  "uploadSuccess": {
+    "message": "Your memory was uploaded successfully.",
+    "defaultDestination": "Travel Share"
+  },
+  "verifyEmail": {
+    "missingToken": "Missing verification token.",
+    "successMessage": "Your email has been verified.",
+    "errorMessage": "Unable to verify your email change.",
+    "emailVerificationBadge": "Email verification",
+    "verifying": "Verifying your email…",
+    "verified": "Email verified",
+    "failed": "Verification failed",
+    "loadingMessage": "Please wait while we confirm your email change.",
+    "goToLogin": "Go to Login",
+    "goToSettings": "Go to Settings"
   }
 };
 

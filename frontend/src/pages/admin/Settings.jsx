@@ -36,9 +36,9 @@ export default function AdminSettings() {
         const data = await api("/api/admin/settings");
         if (!mounted) return;
         setSettings(data.settings || {});
-      } catch (err) {
+      } catch {
         if (!mounted) return;
-        setError(err.message || t("admin.settings.error", "Unable to load settings."));
+        setError("load");
       } finally {
         if (mounted) setLoading(false);
       }
@@ -57,7 +57,7 @@ export default function AdminSettings() {
 
   async function uploadBackgroundMedia() {
     if (!selectedFile) {
-      setUploadError("Choose an image or video file first.");
+      setUploadError("chooseFile");
       return;
     }
 
@@ -79,8 +79,8 @@ export default function AdminSettings() {
       setPreviewUrl(mediaUrl);
       setPreviewMediaType(mediaType);
       setUploadSuccess(t("admin.settings.uploadSuccess", "Background media uploaded successfully."));
-    } catch (err) {
-      setUploadError(err.message || t("admin.settings.uploadError", "Background media upload failed."));
+    } catch {
+      setUploadError("upload");
     } finally {
       setUploading(false);
     }
@@ -108,8 +108,8 @@ export default function AdminSettings() {
       setSettings(data.settings || {});
       setEditing(false);
       setSelectedFile(null);
-    } catch (err) {
-      setError(err.message || t("admin.settings.saveError", "Failed to save settings"));
+    } catch {
+      setError("save");
     } finally {
       setSaving(false);
     }
@@ -151,7 +151,7 @@ export default function AdminSettings() {
         {loading ? (
           <div className="card p-5 text-center text-slatebody">{t("admin.settings.loading", "Loading settings…")}</div>
         ) : error ? (
-          <div className="card rounded-3xl border border-rose-500 bg-rose-950/10 p-5 text-sm text-rose-200">Error: {error}</div>
+          <div className="card rounded-3xl border border-rose-500 bg-rose-950/10 p-5 text-sm text-rose-200">{t("common.error", "Error")}: {error === "save" ? t("admin.settings.saveError", "Failed to save settings") : t("admin.settings.error", "Unable to load settings.")}</div>
         ) : (
           <div className="card p-5">
             {!editing ? (
