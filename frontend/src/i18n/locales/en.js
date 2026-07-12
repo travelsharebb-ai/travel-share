@@ -950,6 +950,8 @@ const translations = {
     "noResults": "No results",
     "all": "All",
     "events": "Events",
+    "trending": "Trending",
+    "friends": "Friends",
     "trips": "Trips",
     "photos": "Photos",
     "nearbyFilter": "Nearby",

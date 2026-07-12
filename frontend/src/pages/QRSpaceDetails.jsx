@@ -16,6 +16,24 @@ function statusFor(space, t) {
   return t("qrSpaces.statusActive");
 }
 
+function qrVisibilityLabel(value, t) {
+  return {
+    public: t("qrSpaces.visibilityPublic"),
+    unlisted: t("qrSpaces.visibilityUnlisted"),
+    private: t("qrSpaces.visibilityPrivate")
+  }[value] || value;
+}
+
+function qrTargetLabel(value, t) {
+  return {
+    general: t("qrSpaces.targetGeneral"),
+    event: t("qrSpaces.targetEvent"),
+    trip: t("qrSpaces.targetTrip"),
+    location: t("qrSpaces.targetLocation"),
+    album: t("qrSpaces.targetAlbum")
+  }[value] || value;
+}
+
 function toDatetimeLocal(value) {
   if (!value) return "";
   const date = new Date(value);
@@ -200,7 +218,7 @@ export default function QRSpaceDetails() {
             <dl className="grid gap-3 text-sm text-slatebody sm:grid-cols-2">
               <div>
                 <dt className="font-semibold text-white">{t("qrSpaces.targetType")}</dt>
-                <dd>{qrSpace?.targetType}</dd>
+                <dd>{qrTargetLabel(qrSpace?.targetType, t)}</dd>
               </div>
               <div>
                 <dt className="font-semibold text-white">{t("qrSpaces.targetId")}</dt>
@@ -208,7 +226,7 @@ export default function QRSpaceDetails() {
               </div>
               <div>
                 <dt className="font-semibold text-white">{t("qrSpaces.visibility")}</dt>
-                <dd>{qrSpace?.visibility}</dd>
+                <dd>{qrVisibilityLabel(qrSpace?.visibility, t)}</dd>
               </div>
               <div>
                 <dt className="font-semibold text-white">{t("qrSpaces.expiresAt")}</dt>

@@ -4,6 +4,16 @@ import { Link } from "react-router-dom";
 // Shell is provided by PrivateRoute at the route level — avoid double-wrapping
 import { api } from "../../lib/api.js";
 
+function moderationStatusLabel(value, t) {
+  return {
+    reported: t("admin.moderation.reported", "Reported"),
+    pending: t("admin.moderation.pending", "Pending"),
+    approved: t("admin.moderation.approved", "Approved"),
+    rejected: t("admin.moderation.rejected", "Rejected"),
+    hidden: t("admin.moderation.hide", "Hidden")
+  }[value] || value;
+}
+
 export default function AdminModeration() {
   const { t } = useLanguage();
   const [uploads, setUploads] = useState([]);
@@ -71,7 +81,7 @@ export default function AdminModeration() {
                     <p className="text-sm uppercase tracking-[0.28em] text-primary">{t("admin.moderation.uploadLabel", "Upload")}</p>
                       <p className="mt-2 text-lg font-semibold text-white">{upload.caption || t("admin.moderation.untitledUpload", "Untitled upload")}</p>
                   </div>
-                  <p className="rounded-full bg-skysoft px-3 py-1 text-xs uppercase tracking-[0.2em] text-slate-950">{upload.status}</p>
+                  <p className="rounded-full bg-skysoft px-3 py-1 text-xs uppercase tracking-[0.2em] text-slate-950">{moderationStatusLabel(upload.status, t)}</p>
                 </div>
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
                   <div className="rounded-3xl border border-borderline bg-slate-950/70 p-4">
@@ -86,7 +96,7 @@ export default function AdminModeration() {
                 </div>
                 <div className="mt-4 text-slatebody text-sm">
                   <p><strong>{t("admin.moderation.uploaded", "Uploaded")}</strong>: {upload.createdAt ? new Date(upload.createdAt).toLocaleString() : t("admin.moderation.unknown", "Unknown")}</p>
-                  <p><strong>{t("admin.moderation.moderationStatus", "Moderation status")}</strong>: {upload.moderationStatus || t("admin.moderation.pending", "Pending")}</p>
+                  <p><strong>{t("admin.moderation.moderationStatus", "Moderation status")}</strong>: {moderationStatusLabel(upload.moderationStatus || "pending", t)}</p>
                   {upload.reportReason ? <p><strong>{t("admin.moderation.reportReason", "Report reason")}</strong>: {upload.reportReason}</p> : null}
                 </div>
                 <div className="mt-4 flex flex-wrap gap-2">

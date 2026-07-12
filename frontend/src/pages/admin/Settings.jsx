@@ -219,10 +219,10 @@ export default function AdminSettings() {
                   <label>
                     <div className="text-sm text-slatebody">{t("admin.settings.defaultPrivacy", "Default privacy")}</div>
                     <select className="input mt-2" value={form.defaultPrivacy} onChange={(e) => setForm((f) => ({ ...f, defaultPrivacy: e.target.value }))}>
-                      <option value="exact">exact</option>
-                      <option value="approximate">approximate</option>
-                      <option value="city">city</option>
-                      <option value="hidden">hidden</option>
+                      <option value="exact">{t("tripCreate.visibility.exact", "Exact location")}</option>
+                      <option value="approximate">{t("tripCreate.visibility.approximate", "Approximate location")}</option>
+                      <option value="city">{t("tripCreate.visibility.city", "City only")}</option>
+                      <option value="hidden">{t("tripCreate.visibility.hidden", "Hidden")}</option>
                     </select>
                   </label>
                   <label>

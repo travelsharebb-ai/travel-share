@@ -65,9 +65,12 @@ export default function Shell({ children }) {
   const [remoteUnreadCount, setRemoteUnreadCount] = useState(0);
   const [theme, setThemeState] = useState(getTheme() || "light");
   const [langOpen, setLangOpen] = useState(false);
+  const [mobileLangOpen, setMobileLangOpen] = useState(false);
   const firstLinkRef = useRef(null);
   const notificationsButtonRef = useRef(null);
   const notificationsPanelRef = useRef(null);
+  const mobileNotificationsButtonRef = useRef(null);
+  const mobileNotificationsPanelRef = useRef(null);
 
   useEffect(() => {
     try {
@@ -147,12 +150,11 @@ export default function Shell({ children }) {
   useEffect(() => {
     if (!notificationsOpen) return;
     function onClick(event) {
-      if (
-        notificationsPanelRef.current &&
-        !notificationsPanelRef.current.contains(event.target) &&
-        notificationsButtonRef.current &&
-        !notificationsButtonRef.current.contains(event.target)
-      ) {
+      const panels = [notificationsPanelRef.current, mobileNotificationsPanelRef.current].filter(Boolean);
+      const triggers = [notificationsButtonRef.current, mobileNotificationsButtonRef.current].filter(Boolean);
+      const clickedPanel = panels.some((panel) => panel.contains(event.target));
+      const clickedTrigger = triggers.some((trigger) => trigger.contains(event.target));
+      if (!clickedPanel && !clickedTrigger) {
         setNotificationsOpen(false);
       }
     }
@@ -187,7 +189,7 @@ export default function Shell({ children }) {
     <div className="min-h-screen bg-sand text-navy">
       {user ? (
         <div className={`grid min-h-screen ${collapsed ? 'lg:grid-cols-[84px_1fr]' : 'lg:grid-cols-[284px_1fr]'}`}>
-          <aside className={`hidden border-r border-borderline bg-panel/80 lg:flex lg:flex-col sidebar-shell ${collapsed ? 'collapsed' : ''} sticky top-0 h-screen overflow-hidden relative`}>
+          <aside className={`shell-desktop-sidebar border-r border-borderline sidebar-shell ${collapsed ? 'collapsed' : ''} sticky top-0 h-screen overflow-hidden relative`}>
             <div style={{ height: 96 }} />
             <button
               aria-label={collapsed ? t("shell.expandSidebar") : t("shell.collapseSidebar")}
@@ -246,8 +248,8 @@ export default function Shell({ children }) {
             </div>
           </aside>
           <div className="min-w-0">
-            {/* Global top brand bar visible on desktop and mobile */}
-            <header className="app-topbar app-topbar-shell sticky top-0 z-40 border-b border-borderline bg-sand">
+            {/* Desktop topbar; mobile uses the single compact topbar below. */}
+            <header className="shell-desktop-topbar app-topbar app-topbar-shell sticky top-0 z-40 border-b border-borderline bg-sand">
               <div className="page-shell flex items-center justify-between gap-3 py-3">
                 <div className="flex items-center gap-3">
                   <Link to="/dashboard" className="flex min-w-0 items-center gap-2 font-serif text-xl font-black text-primary">
@@ -407,15 +409,88 @@ export default function Shell({ children }) {
                 </div>
               </div>
             </header>
-            <header className="app-topbar app-topbar-shell sticky top-0 z-40 border-b border-borderline bg-sand lg:hidden">
-              <div className="flex items-center justify-between gap-3 px-4 py-3">
-                <Link to="/dashboard" className="flex min-w-0 items-center gap-2 font-serif text-xl font-black text-primary">
+            <header className="shell-mobile-topbar app-topbar app-topbar-shell sticky top-0 z-40 border-b border-borderline bg-sand">
+              <div className="flex items-center justify-between gap-2 px-3 py-3">
+                <Link to="/dashboard" className="flex min-w-0 items-center gap-1.5 font-serif text-lg font-black text-primary">
                   <Compass size={22} />
                   <span className="truncate">TravelShare</span>
                 </Link>
-                <div className="flex items-center gap-2">
+                <div className="flex shrink-0 items-center gap-1">
+                  <div className="relative">
+                    <button
+                      ref={mobileNotificationsButtonRef}
+                      className="btn-ghost topbar-icon-button notification-trigger relative h-10 w-10 flex items-center justify-center rounded-xl"
+                      aria-haspopup="dialog"
+                      aria-expanded={notificationsOpen}
+                      aria-label={t("nav.notifications")}
+                      title={t("nav.notifications")}
+                      onClick={() => setNotificationsOpen((open) => !open)}
+                    >
+                      <Bell className="topbar-bell-icon" size={18} strokeWidth={2.25} fill="none" aria-hidden="true" />
+                      {badgeCount > 0 ? (
+                        <span className="notification-badge">{badgeCount > 9 ? "9+" : badgeCount}</span>
+                      ) : null}
+                    </button>
+                    {notificationsOpen && (
+                      <div ref={mobileNotificationsPanelRef} className="notifications-panel">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <p className="text-sm uppercase tracking-[0.32em] text-primary">{t('shell.notifications', t("nav.notifications"))}</p>
+                            <p className="mt-1 text-xs text-slatebody">{t('shell.latestUpdates', 'Latest account updates')}</p>
+                          </div>
+                          <button className="btn-ghost notifications-close" type="button" onClick={() => setNotificationsOpen(false)}>
+                            {t('shell.close', 'Close')}
+                          </button>
+                        </div>
+                        <div className="mt-4 space-y-3">
+                          {notificationsLoading ? (
+                            <div className="notifications-body">{t('shell.loadingNotifications', 'Loading notifications…')}</div>
+                          ) : notificationsError ? (
+                            <div className="notifications-body notifications-error">{t('shell.unableToLoadNotifications', 'Unable to load notifications')}</div>
+                          ) : !notificationsSupported ? (
+                            <div className="notifications-body notifications-empty">{t('shell.setupPending', 'Notifications setup pending.')}</div>
+                          ) : notifications.length === 0 ? (
+                            <div className="notifications-body notifications-empty">{t('shell.noNotificationsYet', 'No notifications yet.')}</div>
+                          ) : (
+                            notifications.map((notification) => (
+                              <div key={notification.id || notification.title} className={`notification-item rounded-3xl border p-3 ${notification.read ? 'notification-read' : 'notification-unread'}`}>
+                                <p className="text-sm font-semibold">{notification.title || translatedNotificationType(notification.type, t)}</p>
+                                <p className="mt-1 text-sm leading-6 text-slatebody">{notification.message || notification.body || t('shell.notificationFallback', 'A notification has arrived.')}</p>
+                                {notification.targetUrl ? <a className="btn-ghost mt-2" href={notification.targetUrl}>{t('shell.open', 'Open')}</a> : null}
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                   <ThemeToggleButton />
-                  <button aria-label={t('shell.openMenu', 'Open menu')} className="btn-ghost" onClick={() => setDrawerOpen(true)}><Menu size={22} /></button>
+                  <div className="relative">
+                    <button
+                      className="btn-ghost topbar-icon-button language-trigger h-10 w-10 flex items-center justify-center rounded-xl"
+                      aria-haspopup="menu"
+                      aria-expanded={mobileLangOpen}
+                      onClick={() => setMobileLangOpen((open) => !open)}
+                      aria-label={t('shell.changeLanguage', 'Change language')}
+                      title={t('shell.changeLanguage', 'Change language')}
+                    >
+                      <Globe2 className="topbar-globe-icon" size={18} strokeWidth={2.25} aria-hidden="true" />
+                    </button>
+                    {mobileLangOpen && (
+                      <div className="lang-menu">
+                        {LANGUAGES.map(([code, label]) => (
+                          <button
+                            key={code}
+                            className={`lang-option ${language === code ? 'lang-option-active' : ''}`}
+                            onClick={() => { setLanguage(code); setMobileLangOpen(false); }}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <button aria-label={t('shell.openMenu', 'Open menu')} className="mobile-menu-button btn-ghost topbar-icon-button h-10 w-10 rounded-xl" onClick={() => setDrawerOpen(true)}><Menu size={22} /></button>
                 </div>
               </div>
             </header>
@@ -423,9 +498,9 @@ export default function Shell({ children }) {
 
             {/* Mobile drawer overlay */}
             {drawerOpen && (
-              <div className="fixed inset-0 z-50 flex">
-                <div className="fixed inset-0 bg-black/50" onClick={() => setDrawerOpen(false)} />
-                  <aside className="relative w-72 bg-panel p-4" role="dialog" aria-modal="true" aria-label={t("hardcoded.navigationMenu")}>
+              <div className="shell-mobile-drawer fixed inset-0 z-50">
+                <div className="absolute inset-0 bg-black/50" onClick={() => setDrawerOpen(false)} />
+                  <aside className="shell-mobile-drawer-panel relative h-full w-72 max-w-[calc(100vw-2rem)] overflow-y-auto bg-panel p-4" role="dialog" aria-modal="true" aria-label={t("hardcoded.navigationMenu")}>
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
                       <Compass size={20} />

@@ -4,6 +4,16 @@ import { Link } from "react-router-dom";
 // Shell is provided by PrivateRoute at the route level — avoid double-wrapping
 import { api, currentUser } from "../../lib/api.js";
 
+function roleLabel(role, t) {
+  return {
+    tourist: t("admin.users.roleTourist", "Tourist"),
+    organizer: t("admin.users.roleOrganizer", "Organizer"),
+    admin: t("admin.users.roleAdmin", "Admin"),
+    platform_admin: t("admin.users.rolePlatformAdmin", "Platform admin"),
+    guest: t("admin.users.roleGuest", "Guest")
+  }[role] || role;
+}
+
 export default function AdminUsers() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -84,7 +94,7 @@ export default function AdminUsers() {
                               <option value="guest">{t("admin.users.roleGuest", "guest")}</option>
                             </select>
                           ) : (
-                            user.role.replace("_", " ")
+                            roleLabel(user.role, t)
                           )}
                       </td>
                       <td className="py-3 pr-4 text-slatebody">{user.createdAt ? new Date(user.createdAt).toLocaleString() : t("admin.users.noValue", "—")}</td>
