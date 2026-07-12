@@ -11,7 +11,7 @@ export default function TripCreate() {
   const [destinationLatitude, setDestinationLatitude] = useState("");
   const [destinationLongitude, setDestinationLongitude] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState(false);
 
   function update(k, v) {
     setForm((s) => ({ ...s, [k]: v }));
@@ -34,8 +34,8 @@ export default function TripCreate() {
       const id = data?.trip?.id || data?.id;
       if (id) navigate(`/trips/${id}`);
       else navigate("/dashboard");
-    } catch (err) {
-      setError(err.message || t("tripCreate.errorCreate", "Could not create trip."));
+    } catch {
+      setError(true);
     } finally {
       setLoading(false);
     }
@@ -94,7 +94,7 @@ export default function TripCreate() {
             </select>
           </div>
 
-          {error && <div className="text-sm text-rose-500">{error || t("tripCreate.errorCreate", "Could not create trip.")}</div>}
+          {error && <div className="text-sm text-rose-500">{t("tripCreate.errorCreate", "Could not create trip.")}</div>}
 
           <div className="flex items-center gap-3">
             <button type="submit" className="btn-primary" disabled={loading}>{loading ? t("tripCreate.creating", "Creating…") : t("tripCreate.submit", "Create trip")}</button>

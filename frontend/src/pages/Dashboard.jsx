@@ -6,7 +6,7 @@ import { api, currentUser } from "../lib/api";
 import { useLanguage } from "../lib/i18n";
 
 export default function Dashboard() {
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
   const navigate = useNavigate();
   const user = currentUser();
 
@@ -44,7 +44,7 @@ export default function Dashboard() {
           setEvents([]);
         }
       } catch (err) {
-        setError(err.message || String(err));
+        setError(true);
       } finally {
         if (mounted) setLoading(false);
       }
@@ -82,10 +82,10 @@ export default function Dashboard() {
     if (error) return [];
     const items = [];
     for (const trip of trips) {
-      items.push({ id: `trip-${trip.id}`, title: `${t("dashboard.recentActivity.tripPrefix", "Trip:")} ${trip.title || t("dashboard.recentActivity.untitledTrip", "Untitled")}`, description: trip.destination || "", when: new Date(trip.createdAt).toLocaleString(), createdAt: trip.createdAt });
+      items.push({ id: `trip-${trip.id}`, title: `${t("dashboard.recentActivity.tripPrefix", "Trip:")} ${trip.title || t("dashboard.recentActivity.untitledTrip", "Untitled")}`, description: trip.destination || "", when: new Date(trip.createdAt).toLocaleString(language), createdAt: trip.createdAt });
     }
     for (const ev of events) {
-      items.push({ id: `event-${ev.id}`, title: `${t("dashboard.recentActivity.eventPrefix", "Event:")} ${ev.title || t("dashboard.recentActivity.untitledEvent", "Untitled")}`, description: ev.location || "", when: new Date(ev.createdAt).toLocaleString(), createdAt: ev.createdAt });
+      items.push({ id: `event-${ev.id}`, title: `${t("dashboard.recentActivity.eventPrefix", "Event:")} ${ev.title || t("dashboard.recentActivity.untitledEvent", "Untitled")}`, description: ev.location || "", when: new Date(ev.createdAt).toLocaleString(language), createdAt: ev.createdAt });
     }
     // sort by createdAt desc and take up to 6
     items.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
@@ -176,7 +176,7 @@ export default function Dashboard() {
           {loading ? (
             <div style={{ padding: 20 }}>{t("dashboard.recentActivity.loading", "Loading recent activity…")}</div>
           ) : error ? (
-            <EmptyState title={t("dashboard.recentActivity.errorTitle", "Activity unavailable")} description={error} action={<Button type="button" disabled>{t("dashboard.recentActivity.retryLater", "Retry later")}</Button>} />
+            <EmptyState title={t("dashboard.recentActivity.errorTitle", "Activity unavailable")} description={t("dashboard.recentActivity.errorDescription")} action={<Button type="button" disabled>{t("dashboard.recentActivity.retryLater", "Retry later")}</Button>} />
           ) : recentActivity.length === 0 ? (
             <EmptyState title={t("dashboard.recentActivity.emptyTitle", "No recent activity yet")} description={t("dashboard.recentActivity.emptyDescription", "No recent trips or events. Create a trip, event, or upload to see activity here.")} action={<Button type="button" onClick={() => navigate('/trips/new')}>{t("dashboard.recentActivity.emptyAction", "Create a trip")}</Button>} />
           ) : (

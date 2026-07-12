@@ -9,7 +9,7 @@ export default function GuestAccess() {
   const { resumeToken } = useParams();
   const navigate = useNavigate();
   const [passcode, setPasscode] = useState("");
-  const [error, setError] = useState(null);
+  const [error, setError] = useState(false);
   const [loading, setLoading] = useState(false);
 
   async function submit(e) {
@@ -27,10 +27,10 @@ export default function GuestAccess() {
         setGuestSession(data.guestSession);
         navigate("/dashboard", { replace: true });
       } else {
-        setError("Unable to resume session");
+        setError(true);
       }
     } catch (err) {
-      setError(err.message || "Unable to resume session");
+      setError(true);
     } finally {
       setLoading(false);
     }
@@ -48,7 +48,7 @@ export default function GuestAccess() {
             <div className="flex gap-3">
               <button className="btn-primary" type="submit" disabled={loading}>{t("hardcoded.continue")}</button>
             </div>
-            {error && <p className="text-red-400 mt-2">{error}</p>}
+            {error && <p className="text-red-400 mt-2">{t("guestAccess.resumeFailed", "Unable to resume session")}</p>}
           </form>
       </div>
     </main>

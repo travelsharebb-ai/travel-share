@@ -29,7 +29,7 @@ export default function MyUploads() {
       })
       .catch((err) => {
         if (!active) return;
-        setError(err.message || t("myUploads.error", "Unable to load uploads."));
+        setError("load");
       })
       .finally(() => {
         if (!active) return;
@@ -65,9 +65,9 @@ export default function MyUploads() {
         body: JSON.stringify({ skinId })
       });
       setUploads((current) => current.map((upload) => (upload.id === uploadId ? { ...upload, ...data.upload } : upload)));
-      setFeedback(skinId ? t("myUploads.frameApplied", "Frame applied to this memory.") : t("myUploads.frameRemoved", "Frame removed from this memory."));
+      setFeedback(skinId ? "applied" : "removed");
     } catch (err) {
-      setFeedback(err.message || t("myUploads.frameError", "Unable to update frame."));
+      setFeedback("error");
     }
   }
 
@@ -79,8 +79,8 @@ export default function MyUploads() {
         <p className="mt-4 max-w-3xl text-slatebody leading-7">{t("myUploads.description", "Review media collected across your trips and events.")}</p>
       </section>
 
-      {error ? <section className="card p-5 text-red-400">{error}</section> : null}
-      {feedback ? <section className="card p-4 text-sm font-semibold text-primary">{feedback}</section> : null}
+      {error ? <section className="card p-5 text-red-400">{t("myUploads.error")}</section> : null}
+      {feedback ? <section className="card p-4 text-sm font-semibold text-primary">{feedback === "applied" ? t("myUploads.frameApplied") : feedback === "removed" ? t("myUploads.frameRemoved") : t("myUploads.frameError")}</section> : null}
 
       {loading ? (
         <section className="card p-5 text-slatebody">{t("myUploads.loading", "Loading memories...")}</section>
@@ -96,7 +96,7 @@ export default function MyUploads() {
               <MediaCard upload={upload} skinOptions={skinOptions} onApplySkin={handleApplySkin} />
               <div className="card p-3 text-sm text-slatebody">
                 <p className="font-semibold">{uploadSource(upload, t)}</p>
-                <p className="mt-1">{t("myUploads.status", "Status")}: {upload.status}</p>
+                <p className="mt-1">{t("myUploads.status", "Status")}: {upload.status === "approved" ? t("myUploads.statuses.approved") : upload.status === "rejected" ? t("myUploads.statuses.rejected") : t("myUploads.statuses.pending")}</p>
                 {upload.tripId ? <Link className="mt-2 inline-flex text-primary" to={`/trips/${upload.tripId}`}>{t("trips.openTrip", "Open trip")}</Link> : null}
                 {upload.eventId ? <Link className="mt-2 inline-flex text-primary" to={`/events/${upload.eventId}`}>{t("events.openEvent", "Open event")}</Link> : null}
               </div>

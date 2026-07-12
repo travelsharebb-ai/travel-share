@@ -23,10 +23,10 @@ export default function TripDetails() {
         setTrip(data.trip || null);
         setError(null);
       })
-      .catch((err) => {
+      .catch(() => {
         if (!active) return;
         setTrip(null);
-        setError(err.message || "Unable to load trip details.");
+        setError(true);
       })
       .finally(() => {
         if (!active) return;
@@ -69,9 +69,9 @@ export default function TripDetails() {
           uploads: current.uploads.map((upload) => (upload.id === uploadId ? { ...upload, ...data.upload } : upload))
         };
       });
-      setFeedback(skinId ? "Frame applied to this upload." : "Frame removed from this upload.");
-    } catch (err) {
-      setFeedback(err.message || "Unable to update frame.");
+      setFeedback(skinId ? "applied" : "removed");
+    } catch {
+      setFeedback("error");
     }
   }
 
@@ -102,13 +102,13 @@ export default function TripDetails() {
         </Link>
         <div>
           <p className="text-sm uppercase tracking-[0.32em] text-primary">{t("hardcoded.tripAlbum")}</p>
-          <h1 className="mt-3 text-4xl font-black font-serif">{loading ? "Loading trip…" : trip?.title || "Trip details"}</h1>
+          <h1 className="mt-3 text-4xl font-black font-serif">{loading ? t("tripDetails.loadingTitle", "Loading trip…") : trip?.title || t("tripDetails.title", "Trip details")}</h1>
           <p className="mt-4 max-w-2xl text-slatebody leading-7">
             {loading
-              ? "Fetching moments and memory cards."
+              ? t("tripDetails.loadingDescription", "Fetching moments and memory cards.")
               : trip
-              ? `Destination ${trip.destination || "unknown"} · ${stats.uploads} memories collected.`
-              : error}
+              ? t("tripDetails.summary", "Destination {destination} · {count} memories collected.", { destination: trip.destination || t("tripDetails.unknownDestination", "unknown"), count: stats.uploads })
+              : error ? t("tripDetails.loadError", "Unable to load trip details.") : ""}
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
@@ -122,10 +122,10 @@ export default function TripDetails() {
           <p className="text-sm uppercase tracking-[0.32em] text-primary">{t("hardcoded.stats")}</p>
           <div className="mt-5 space-y-4">
             {[
-              { label: "Memories", value: stats.uploads },
-              { label: "Chapters", value: stats.chapters },
-              { label: "Locations", value: stats.locations },
-              { label: "Share links", value: stats.shares }
+              { label: t("tripDetails.memories", "Memories"), value: stats.uploads },
+              { label: t("tripDetails.chapters", "Chapters"), value: stats.chapters },
+              { label: t("tripDetails.locations", "Locations"), value: stats.locations },
+              { label: t("tripDetails.shareLinks", "Share links"), value: stats.shares }
             ].map((item) => (
               <div key={item.label} className="rounded-3xl border border-borderline bg-slate-950/70 p-4">
                 <p className="text-sm uppercase tracking-[0.32em] text-primary">{item.label}</p>
@@ -137,7 +137,7 @@ export default function TripDetails() {
         <div className="lg:col-span-3 grid gap-4">
           <div className="card p-5">
             <p className="text-sm uppercase tracking-[0.32em] text-primary">{t("hardcoded.galleryPreview")}</p>
-            {feedback ? <p className="mt-3 text-sm text-emerald-300">{feedback}</p> : null}
+            {feedback ? <p className="mt-3 text-sm text-emerald-300">{feedback === "applied" ? t("tripDetails.frameApplied", "Frame applied to this upload.") : feedback === "removed" ? t("tripDetails.frameRemoved", "Frame removed from this upload.") : t("tripDetails.frameError", "Unable to update frame.")}</p> : null}
             {loading ? (
               <p className="mt-4 text-slatebody">{t("hardcoded.loadingGallery")}</p>
             ) : gallery.length ? (
@@ -183,8 +183,8 @@ export default function TripDetails() {
                   <p>{t("hardcoded.loadingLocationDetails")}</p>
                 ) : locationSample ? (
                   <>
-                    <p className="font-semibold">{locationSample.locationName || locationSample.region || "Travel memory"}</p>
-                    <p>{locationSample.latitude || locationSample.approximateLatitude ? "Location data is available." : "Location is hidden."}</p>
+                    <p className="font-semibold">{locationSample.locationName || locationSample.region || t("tripDetails.travelMemory", "Travel memory")}</p>
+                    <p>{locationSample.latitude || locationSample.approximateLatitude ? t("tripDetails.locationAvailable", "Location data is available.") : t("tripDetails.locationHidden", "Location is hidden.")}</p>
                   </>
                 ) : (
                   <p>{t("hardcoded.noVisibleLocationsWereRecordedForThisTrip")}</p>

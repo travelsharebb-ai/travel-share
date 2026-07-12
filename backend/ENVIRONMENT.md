@@ -41,9 +41,12 @@ OAuth state records expire after 10 minutes and OAuth login handoff codes expire
 - `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`: Required by AWS CLI for backups/restores.
 - `S3_BUCKET`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_ENDPOINT`, `S3_PUBLIC_BASE_URL`: Required only when `STORAGE_PROVIDER=s3`.
 
+- `ALLOW_LOCAL_MEDIA_IN_PRODUCTION`: Optional safety override for production local/disk uploads. Set only when a persistent disk is verified.
+
 ## Render Notes
 
 Use a Render managed Postgres database and set `DATABASE_URL` from that database. Do not use local SQLite or file uploads as persistent storage.
+Do not use local/disk media uploads in production on Render unless you have a verified persistent disk and have explicitly set `ALLOW_LOCAL_MEDIA_IN_PRODUCTION=true`.
 
 Recommended backend start command:
 
@@ -115,6 +118,7 @@ Set these in your hosting provider's environment config (Render, Railway, Heroku
 - Storage (choose one):
 	- Cloudinary: set `MEDIA_STORAGE_DRIVER=cloudinary` and either `CLOUDINARY_URL` (preferred) or `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`.
 	- S3: set `MEDIA_STORAGE_DRIVER=s3` (or `STORAGE_PROVIDER=s3`) and set `S3_BUCKET`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, and optional `S3_ENDPOINT` / `S3_PUBLIC_BASE_URL` for non-AWS providers.
+	- Local/disk: allowed in production only with `ALLOW_LOCAL_MEDIA_IN_PRODUCTION=true` and only when you know the upload path is backed by a persistent filesystem.
 
 - `REDIS_URL` (recommended): connection string for managed Redis/Render Key Value (e.g. `rediss://:PASSWORD@host:6380/0`). When set, the app uses shared OAuth state/handoff storage and Redis-backed rate limiting.
 

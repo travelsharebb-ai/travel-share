@@ -18,10 +18,8 @@ export function cleanUpload(upload) {
     eventId: upload.eventId,
     zoneId: upload.zoneId,
     guestSessionId: upload.guestSessionId,
-    uploaderAnonId: upload.uploaderAnonId,
     caption: upload.caption,
     fileUrl: upload.fileUrl,
-    filePublicId: upload.filePublicId,
     fileType: upload.fileType,
     status: upload.status,
     latitude: upload.latitude,
@@ -36,5 +34,37 @@ export function cleanUpload(upload) {
     frameAssetUrl: upload.frameAssetUrl || null,
     createdAt: upload.createdAt,
     approvedAt: upload.approvedAt
+  };
+}
+
+export function cleanGuestSession(guest) {
+  if (!guest) return null;
+  return {
+    id: guest.id,
+    displayName: guest.displayName,
+    scopeType: guest.scopeType,
+    scopeId: guest.scopeId,
+    expiresAt: guest.expiresAt,
+    claimedById: guest.claimedById,
+    lastGuestAccessAt: guest.lastGuestAccessAt,
+    createdAt: guest.createdAt,
+    updatedAt: guest.updatedAt
+  };
+}
+
+export function cleanTrip(trip) {
+  if (!trip) return null;
+  const { qrToken, shareLinks, ...safeTrip } = trip;
+  return safeTrip;
+}
+
+export function cleanEvent(event) {
+  if (!event) return null;
+  const { qrToken, shareLinks, ...safeEvent } = event;
+  return {
+    ...safeEvent,
+    zones: Array.isArray(safeEvent.zones)
+      ? safeEvent.zones.map(({ qrToken: zoneQrToken, ...zone }) => zone)
+      : safeEvent.zones
   };
 }

@@ -18,7 +18,7 @@ export default function TripUpload() {
   const [longitude, setLongitude] = useState(mapLocation?.longitude != null ? String(mapLocation.longitude) : "");
   const [locationVisibility, setLocationVisibility] = useState(mapLocation?.locationVisibility || "approximate");
   const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState("");
+  const [errorKey, setErrorKey] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -27,33 +27,49 @@ export default function TripUpload() {
         if (!active) return;
         setTrip(data.trip || null);
       })
-      .catch((err) => {
+      .catch(() => {
         if (!active) return;
-        setError(err.message || t("trips.error", "Unable to load trips."));
+        setErrorKey("trips.error");
       });
     return () => {
       active = false;
     };
-  }, [tripId, t]);
+  }, [tripId]);
 
   const privacyLabel = locationVisibility === 'exact'
-    ? 'Exact Location'
+    ? t("tripUpload.exactLocation", "Exact location")
     : locationVisibility === 'city'
-      ? 'City-Level Only'
-      : 'Approximate Location';
+      ? t("tripUpload.cityOnly", "City-level only")
+      : t("tripUpload.approximateLocation", "Approximate location");
+  const sourceLabel = mapLocation?.source === "search"
+    ? t("map.search", "Search")
+    : ["geolocation", "userLocation", "saved"].includes(mapLocation?.source)
+      ? t("tripUpload.currentLocationSource", "Current location")
+      : mapLocation?.source === "mapCenter"
+        ? t("map.mapCenter", "Map center")
+        : ["addPost", "map"].includes(mapLocation?.source)
+          ? t("map.addPostLocation", "Add post location")
+          : t("tripUpload.unknownSource", "Unknown source");
+  const errorMessage = {
+    "trips.error": t("trips.error", "Unable to load trips."),
+    "tripUpload.fileRequired": t("tripUpload.fileRequired", "Choose a file first. Upload is currently prepared for photos and videos."),
+    "upload.tripNotReady": t("upload.tripNotReady", "Trip upload link is not ready yet."),
+    "upload.locationRequired": t("upload.locationRequired", "Add a location name, latitude, and longitude so this memory can appear on the map."),
+    "upload.error": t("upload.error", "Upload failed. Please try again.")
+  }[errorKey];
 
   async function uploadMemory() {
-    setError("");
+    setErrorKey("");
     if (!file) {
-      setError(t("hardcoded.chooseAFileFirstUploadIsCurrentlyPrepared"));
+      setErrorKey("tripUpload.fileRequired");
       return;
     }
     if (!trip?.qrToken) {
-      setError(t("upload.tripNotReady", "Trip upload link is not ready yet."));
+      setErrorKey("upload.tripNotReady");
       return;
     }
     if (!locationName.trim() || latitude === "" || longitude === "") {
-      setError(t("upload.locationRequired", "Add a location name, latitude, and longitude so this memory can appear on the map."));
+      setErrorKey("upload.locationRequired");
       return;
     }
     setUploading(true);
@@ -71,8 +87,8 @@ export default function TripUpload() {
         timeoutMs: 30000
       });
       navigate(`/trips/${tripId}`);
-    } catch (err) {
-      setError(err.message || t("upload.error", "Upload failed. Please try again."));
+    } catch {
+      setErrorKey("upload.error");
     } finally {
       setUploading(false);
     }
@@ -93,20 +109,20 @@ export default function TripUpload() {
             <div className="card rounded-3xl border border-borderline bg-slate-950/70 p-5 text-sm text-slatebody">
               <p className="font-semibold text-white mb-2">{t("hardcoded.selectedMapLocation")}</p>
               <div className="grid gap-2">
-                <div><strong>{t("map.addressLabelShort")}</strong> {mapLocation.address || 'Coordinates only'}</div>
-                <div><strong>{t("hardcoded.city")}</strong> {mapLocation.city || 'Unknown'}</div>
-                <div><strong>{t("hardcoded.region")}</strong> {mapLocation.region || 'Unknown'}</div>
-                <div><strong>{t("hardcoded.country")}</strong> {mapLocation.country || 'Unknown'}</div>
+                <div><strong>{t("map.addressLabelShort")}</strong> {mapLocation.address || t("tripUpload.coordinatesOnly", "Coordinates only")}</div>
+                <div><strong>{t("hardcoded.city")}</strong> {mapLocation.city || t("tripUpload.unknown", "Unknown")}</div>
+                <div><strong>{t("hardcoded.region")}</strong> {mapLocation.region || t("tripUpload.unknown", "Unknown")}</div>
+                <div><strong>{t("hardcoded.country")}</strong> {mapLocation.country || t("tripUpload.unknown", "Unknown")}</div>
                 <div><strong>{t("hardcoded.privacy")}</strong> {privacyLabel}</div>
-                <div><strong>{t("map.latitudeLabel")}</strong> {mapLocation.latitude != null ? mapLocation.latitude.toFixed(5) : 'Unknown'}</div>
-                <div><strong>{t("map.longitudeLabel")}</strong> {mapLocation.longitude != null ? mapLocation.longitude.toFixed(5) : 'Unknown'}</div>
-                <div><strong>{t("hardcoded.source")}</strong> {mapLocation.source}</div>
+                <div><strong>{t("map.latitudeLabel")}</strong> {mapLocation.latitude != null ? mapLocation.latitude.toFixed(5) : t("tripUpload.unknown", "Unknown")}</div>
+                <div><strong>{t("map.longitudeLabel")}</strong> {mapLocation.longitude != null ? mapLocation.longitude.toFixed(5) : t("tripUpload.unknown", "Unknown")}</div>
+                <div><strong>{t("hardcoded.source")}</strong> {sourceLabel}</div>
               </div>
             </div>
           ) : null}
         <label className="form-panel block cursor-pointer p-5 text-center">
           <span className="block text-xl font-black text-primary">
-            {file ? file.name : "Choose photo or video"}
+            {file ? file.name : t("common.choosePhotoOrVideo")}
           </span>
           <span className="block mt-2 text-slatebody text-sm">{t("hardcoded.jpegPngMp4OrMov")}</span>
           <input
@@ -157,7 +173,7 @@ export default function TripUpload() {
           </label>
         </div>
 
-        {error ? <p className="text-sm text-red-400">{error}</p> : null}
+        {errorMessage ? <p className="text-sm text-red-400">{errorMessage}</p> : null}
 
         <div className="grid gap-3 sm:grid-cols-2">
           <button type="button" className="btn-primary w-full" onClick={uploadMemory} disabled={!file || uploading}>{uploading ? t("upload.uploading", "Uploading...") : t("common.uploadMemory")}</button>
