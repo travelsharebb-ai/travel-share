@@ -1,9 +1,22 @@
 import { useEffect, useState } from "react";
 import { api } from "../lib/api.js";
 import { useLanguage } from "../lib/i18n.js";
+import { useLocation } from "react-router-dom";
+
+const IMPRESSION_SESSION_KEY_PREFIX = "travelShareAdSlotImpression:";
+
+function trackInteraction(adId, type, placement, path) {
+  api(`/api/ads/${encodeURIComponent(adId)}/interaction`, {
+    method: "POST",
+    body: JSON.stringify({ type, placement, path })
+  }).catch((error) => {
+    if (import.meta.env.DEV) console.debug("Ad analytics request failed", error);
+  });
+}
 
 export default function AdSlot({ placement = "global", variant = "inline", onClose } = {}) {
   const { t } = useLanguage();
+  const location = useLocation();
   const [ad, setAd] = useState(null);
   const [visible, setVisible] = useState(false);
   const [impressionLogged, setImpressionLogged] = useState(false);
@@ -24,8 +37,12 @@ export default function AdSlot({ placement = "global", variant = "inline", onClo
 
   useEffect(() => {
     if (!ad || impressionLogged) return;
+    const sessionKey = `${IMPRESSION_SESSION_KEY_PREFIX}${placement}:${ad.id}`;
     setImpressionLogged(true);
-  }, [ad, impressionLogged]);
+    if (sessionStorage.getItem(sessionKey)) return;
+    sessionStorage.setItem(sessionKey, "1");
+    trackInteraction(ad.id, "impression", placement, location.pathname);
+  }, [ad, impressionLogged, placement, location.pathname]);
 
   if (!ad || !visible) return null;
 
@@ -38,6 +55,7 @@ export default function AdSlot({ placement = "global", variant = "inline", onClo
   const handleClick = () => {
     if (ad.linkUrl) {
       window.open(ad.linkUrl, "_blank", "noopener,noreferrer");
+      trackInteraction(ad.id, "click", placement, location.pathname);
     }
   };
 

@@ -26,6 +26,7 @@ model User {
   organizedEvents      Event[]                @relation("OrganizerEvents")
   claimedGuestSessions GuestSession[]         @relation("ClaimedGuestSessions")
   ads                  InternalAd[]           @relation("AdCreator")
+  adInteractions       AdInteraction[]        @relation("AdInteractionUser")
   locations            Location[]
   passwordResetTokens  PasswordResetToken[]
   paymentTransactions  PaymentTransaction[]
@@ -90,6 +91,7 @@ model GuestSession {
   trips             Trip[]
   uploads           Upload[]
   qrUploadSpaces    QRUploadSpace[]
+  adInteractions    AdInteraction[] @relation("AdInteractionGuest")
 
   @@index([scopeType, scopeId])
   @@index([expiresAt])
@@ -437,9 +439,31 @@ model InternalAd {
   updatedAt      DateTime    @updatedAt
   placement      AdPlacement @default(global)
   creator        User?       @relation("AdCreator", fields: [createdById], references: [id])
+  interactions   AdInteraction[]
 
   @@index([active, priority])
   @@index([startsAt, endsAt])
+}
+
+model AdInteraction {
+  id             String            @id @default(cuid())
+  adId           String
+  type           AdInteractionType
+  placement      AdPlacement
+  path           String
+  createdAt      DateTime          @default(now())
+  sessionHash    String?
+  userId         String?
+  guestSessionId String?
+  ad             InternalAd        @relation(fields: [adId], references: [id], onDelete: Cascade)
+  user           User?             @relation("AdInteractionUser", fields: [userId], references: [id], onDelete: SetNull)
+  guestSession   GuestSession?     @relation("AdInteractionGuest", fields: [guestSessionId], references: [id], onDelete: SetNull)
+
+  @@index([adId])
+  @@index([type])
+  @@index([createdAt])
+  @@index([placement])
+  @@index([adId, type, createdAt])
 }
 
 model PurchaseItem {
@@ -600,6 +624,11 @@ enum QRVisibility {
 enum AdMediaType {
   image
   video
+}
+
+enum AdInteractionType {
+  impression
+  click
 }
 
 enum EventStatus {

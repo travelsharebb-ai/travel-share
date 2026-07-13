@@ -68,6 +68,11 @@ export default function AdminAds() {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [analyticsDays, setAnalyticsDays] = useState(30);
+  const [analyticsByAd, setAnalyticsByAd] = useState({});
+  const [analyticsLoading, setAnalyticsLoading] = useState(true);
+  const [analyticsError, setAnalyticsError] = useState("");
+  const [analyticsUpdatedAt, setAnalyticsUpdatedAt] = useState("");
   const [selectedAd, setSelectedAd] = useState(null);
   const [form, setForm] = useState({
     title: "",
@@ -97,9 +102,28 @@ export default function AdminAds() {
     }
   }, [t]);
 
+  const loadAnalytics = useCallback(async () => {
+    setAnalyticsLoading(true);
+    setAnalyticsError("");
+    try {
+      const response = await api(`/api/admin/ads/analytics?days=${analyticsDays}`);
+      const summaries = Array.isArray(response.ads) ? response.ads : [];
+      setAnalyticsByAd(Object.fromEntries(summaries.map((summary) => [summary.adId, summary])));
+      setAnalyticsUpdatedAt(response.updatedAt || "");
+    } catch (err) {
+      setAnalyticsError(err.message || t("admin.ads.analyticsLoadError", "Unable to load ad analytics."));
+    } finally {
+      setAnalyticsLoading(false);
+    }
+  }, [analyticsDays, t]);
+
   useEffect(() => {
     loadAds();
   }, [loadAds]);
+
+  useEffect(() => {
+    loadAnalytics();
+  }, [loadAnalytics]);
 
   const resetForm = useCallback(() => {
     setSelectedAd(null);
@@ -278,6 +302,25 @@ export default function AdminAds() {
       {error ? <div className="card border border-rose-500 p-4 text-rose-200" role="alert">{error}</div> : null}
       {success ? <div className="card border border-emerald-500 p-4 text-emerald-200" role="status">{success}</div> : null}
 
+      <section className="card p-5 bg-slate-950/90 border border-white/10" aria-labelledby="ad-analytics-heading">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 id="ad-analytics-heading" className="text-2xl font-black font-serif">{t("admin.ads.analytics", "Ad analytics")}</h2>
+            <p className="mt-2 text-sm text-slatebody">{analyticsDays === 7 ? t("admin.ads.last7Days", "Last 7 days") : t("admin.ads.last30Days", "Last 30 days")}</p>
+            {analyticsUpdatedAt ? <p className="mt-1 text-xs text-slatebody">{t("admin.ads.analyticsUpdated", "Updated")}: {new Date(analyticsUpdatedAt).toLocaleString()}</p> : null}
+          </div>
+          <div className="flex flex-wrap gap-2" aria-label={t("admin.ads.analyticsRange", "Analytics date range")}>
+            <button type="button" className={analyticsDays === 7 ? "btn-primary" : "btn-ghost"} onClick={() => setAnalyticsDays(7)}>{t("admin.ads.last7Days", "Last 7 days")}</button>
+            <button type="button" className={analyticsDays === 30 ? "btn-primary" : "btn-ghost"} onClick={() => setAnalyticsDays(30)}>{t("admin.ads.last30Days", "Last 30 days")}</button>
+          </div>
+        </div>
+        {analyticsLoading ? <p className="mt-4 text-slatebody">{t("admin.ads.analyticsLoading", "Loading analytics…")}</p> : null}
+        {analyticsError ? <p className="mt-4 text-rose-200" role="alert">{analyticsError}</p> : null}
+        {!analyticsLoading && !analyticsError && Object.values(analyticsByAd).every((summary) => summary.impressions === 0 && summary.clicks === 0) ? (
+          <p className="mt-4 text-slatebody">{t("admin.ads.noAnalytics", "No ad analytics yet.")}</p>
+        ) : null}
+      </section>
+
       <section className="grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
         <div className="card p-5 bg-slate-950/90 border border-white/10">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -408,6 +451,20 @@ export default function AdminAds() {
                       <button className="btn-ghost" type="button" onClick={() => selectAd(ad)}>{t("admin.ads.editAd", "Edit ad")}</button>
                       <button className="btn-ghost" type="button" onClick={() => handleToggleActive(ad)}>{ad.active ? t("admin.ads.deactivate", "Deactivate") : t("admin.ads.activate", "Activate")}</button>
                       <button className="btn-danger" type="button" onClick={() => handleDelete(ad)}>{t("admin.ads.delete", "Delete ad")}</button>
+                    </div>
+                  </div>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-3" aria-label={t("admin.ads.analytics", "Ad analytics")}>
+                    <div className="rounded-2xl border border-borderline bg-slate-950/80 p-3">
+                      <p className="text-xs uppercase tracking-[0.28em] text-primary">{t("admin.ads.impressions", "Impressions")}</p>
+                      <p className="mt-2 text-2xl font-black text-white">{analyticsByAd[ad.id]?.impressions ?? 0}</p>
+                    </div>
+                    <div className="rounded-2xl border border-borderline bg-slate-950/80 p-3">
+                      <p className="text-xs uppercase tracking-[0.28em] text-primary">{t("admin.ads.clicks", "Clicks")}</p>
+                      <p className="mt-2 text-2xl font-black text-white">{analyticsByAd[ad.id]?.clicks ?? 0}</p>
+                    </div>
+                    <div className="rounded-2xl border border-borderline bg-slate-950/80 p-3">
+                      <p className="text-xs uppercase tracking-[0.28em] text-primary">{t("admin.ads.ctr", "Click-through rate")}</p>
+                      <p className="mt-2 text-2xl font-black text-white">{(analyticsByAd[ad.id]?.ctr ?? 0).toFixed(2)}%</p>
                     </div>
                   </div>
                   <div className="mt-3 grid gap-2 sm:grid-cols-3">

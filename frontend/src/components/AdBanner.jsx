@@ -36,6 +36,15 @@ function determinePlacement(path) {
   return "global";
 }
 
+function trackInteraction(adId, type, placement, path) {
+  api(`/api/ads/${encodeURIComponent(adId)}/interaction`, {
+    method: "POST",
+    body: JSON.stringify({ type, placement, path })
+  }).catch((error) => {
+    if (import.meta.env.DEV) console.debug("Ad analytics request failed", error);
+  });
+}
+
 export default function AdBanner() {
   const { t } = useLanguage();
   const location = useLocation();
@@ -90,7 +99,8 @@ export default function AdBanner() {
     if (!ad || visibleState !== "visible" || impressionLogged) return undefined;
     sessionStorage.setItem(`${SESSION_KEY_PREFIX}${ad.id}`, "1");
     setImpressionLogged(true);
-  }, [ad, visibleState, impressionLogged]);
+    trackInteraction(ad.id, "impression", placement, location.pathname);
+  }, [ad, visibleState, impressionLogged, placement, location.pathname]);
 
   if (!ad || visibleState === "hidden" || sessionDisabled) return null;
 
@@ -99,6 +109,7 @@ export default function AdBanner() {
   const handleClick = () => {
     if (!ad.linkUrl) return;
     window.open(ad.linkUrl, "_blank", "noopener,noreferrer");
+    trackInteraction(ad.id, "click", placement, location.pathname);
   };
 
   const transform = visibleState === "entering" ? "translateX(120vw)" : visibleState === "visible" ? "translateX(0)" : "translateX(-120vw)";
