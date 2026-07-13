@@ -147,6 +147,36 @@ export async function publicEvents(req, res, next) {
   }
 }
 
+export async function publicEventSouvenir(req, res, next) {
+  try {
+    const event = await prisma.event.findFirst({
+      where: {
+        id: req.params.eventId,
+        visibility: { in: ["public", "unlisted"] },
+        status: { in: ["ended", "archived"] }
+      },
+      select: {
+        id: true, title: true, description: true, category: true, location: true,
+        startDate: true, endDate: true, coverImageUrl: true, visibility: true, status: true,
+        latitude: true, longitude: true,
+        uploads: {
+          where: { status: "approved" },
+          orderBy: { createdAt: "desc" },
+          select: { id: true, caption: true, fileUrl: true, fileType: true, createdAt: true, zoneId: true }
+        },
+        zones: {
+          orderBy: { displayOrder: "asc" },
+          select: { id: true, name: true, type: true, description: true, latitude: true, longitude: true }
+        }
+      }
+    });
+    if (!event) return res.status(404).json({ error: "Event souvenir not found." });
+    return res.json({ event });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 export async function guestSessionStatus(req, res, next) {
   try {
     const token = readCookie(req, "ts_guest") || req.get("x-guest-token");

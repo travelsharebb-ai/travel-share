@@ -235,7 +235,7 @@ export default function AdminTools() {
                 </div>
                 <div className="rounded-3xl border border-borderline bg-slate-950/70 p-4">
                   <label className="block text-sm text-slatebody">{t("admin.tools.importFileLabel","Import package")}</label>
-                  <input className="input mt-2 w-full" type="file" accept="application/json,.json" onChange={handleImportFile} />
+                  <input id="admin-tools-import-file" name="importFile" className="input mt-2 w-full" type="file" accept="application/json,.json" onChange={handleImportFile} />
                   {importFile ? (
                     <p className="mt-2 text-sm text-slatebody">{t("admin.tools.importFileSelected","Selected file:")} <span className="font-medium text-white">{importFile.name}</span> · {formatBytes(importFile.size)}</p>
                   ) : null}
@@ -262,7 +262,7 @@ export default function AdminTools() {
                   <p>{t("admin.tools.importNote","The current backend import endpoint validates packages and protects production data through review before actual changes.")}</p>
                   <label className="block">
                     <span className="text-sm text-slatebody">{t("admin.tools.confirmationLabel","Type IMPORT CONFIRMED to enable actual import")}</span>
-                    <input className="input mt-2 w-full" value={confirmationInput} onChange={(event) => setConfirmationInput(event.target.value)} placeholder={t("admin.tools.confirmationPlaceholder","IMPORT CONFIRMED")} />
+                    <input id="admin-tools-import-confirmation" name="importConfirmation" className="input mt-2 w-full" value={confirmationInput} onChange={(event) => setConfirmationInput(event.target.value)} placeholder={t("admin.tools.confirmationPlaceholder","IMPORT CONFIRMED")} />
                   </label>
                   {!isPlatformAdmin ? <p className="text-sm text-amber-300">{t("admin.tools.platformAdminOnly","Actual import requires platform admin permissions.")}</p> : null}
                 </div>

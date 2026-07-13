@@ -442,6 +442,7 @@ const translations = {
       "pendingContent": "保留中のコンテンツ",
       "activeStoreItems": "有効なストア商品",
       "purchases": "購入",
+      "paymentReadiness": "決済準備状況", "stripe": "Stripe", "paypal": "PayPal", "ready": "準備完了", "notReady": "未準備", "disabled": "無効", "paidTransactions": "支払済み取引", "topEvents": "アップロード数上位イベント",
       "qrScans": "QR スキャン",
       "qrSpaces": "有効な QR スペース {count} 件",
       "activityTrend": "アクティビティの推移",
@@ -623,6 +624,13 @@ const translations = {
       "placement": "配置",
       "priority": "優先度",
       "displaySeconds": "表示秒数",
+      "rotationInterval": "広告ローテーション間隔",
+      "rotationIntervalHelp": "次の利用可能な広告を表示するまでの待機時間を分単位で指定します。すべての広告を表示すると先頭に戻ります。",
+      "rotationMinutes": "広告間の分数",
+      "saveRotation": "ローテーションを保存",
+      "rotationLoadError": "広告ローテーション間隔を読み込めませんでした。",
+      "rotationSaved": "広告ローテーション間隔を更新しました。",
+      "rotationSaveError": "広告ローテーション間隔を更新できませんでした。",
       "startsAt": "開始日時",
       "endsAt": "終了日時",
       "active": "アクティブ",
@@ -645,6 +653,8 @@ const translations = {
       "loadError": "広告を読み込めませんでした。",
       "invalidFileType": "画像と動画のみ許可されています。",
       "uploadFailed": "アップロードに失敗しました。もう一度お試しください。",
+      "uploadComplete": "メディアをアップロードして広告に添付しました。",
+      "uploaded": "アップロード済み",
       "uploadMedia": "画像または動画をアップロード",
       "uploadHelp": "この広告のためにローカルの画像または動画ファイルを選択してアップロードします。",
       "chooseFile": "ファイルを選択",
@@ -1788,6 +1798,14 @@ const translations = {
   "uploadSuccess": {
     "message": "メモリが正常にアップロードされました.",
     "defaultDestination": "Travel Shareの特長"
+  },
+  "souvenir": {
+    "open": "イベント記念ページを開く", "back": "イベントに戻る", "badge": "イベント記念", "loading": "記念ページを読み込み中…",
+    "unavailable": "記念ページを利用できません", "unavailableDescription": "非公開、利用不可、またはイベントがまだ終了していません。",
+    "dateUnavailable": "日付なし", "defaultDescription": "このイベントで承認された思い出のコレクションです。",
+    "copyLink": "リンクをコピー", "copied": "リンクをコピーしました", "approvedMemories": "承認済みの思い出", "zones": "ゾーン",
+    "highlights": "写真ハイライト", "gallery": "思い出ギャラリー", "memoryAlt": "承認済みイベント写真", "memoryFallback": "イベントの思い出",
+    "emptyGallery": "承認済みの思い出はまだありません。", "zoneSummary": "地図とゾーンの概要", "noZones": "イベントゾーンはありません。"
   },
   "verifyEmail": {
     "missingToken": "検証トークンの欠如.",

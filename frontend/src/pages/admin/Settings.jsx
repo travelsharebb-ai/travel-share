@@ -206,19 +206,19 @@ export default function AdminSettings() {
                 <div className="grid gap-4 lg:grid-cols-2">
                   <label>
                     <div className="text-sm text-slatebody">{t("admin.settings.guestAccessDays", "Guest access days")}</div>
-                    <input type="number" className="input mt-2" value={form.guestAccessDays || 0} onChange={(e) => setForm((f) => ({ ...f, guestAccessDays: Number(e.target.value) }))} />
+                    <input id="admin-settings-guest-access-days" name="guestAccessDays" type="number" className="input mt-2" value={form.guestAccessDays || 0} onChange={(e) => setForm((f) => ({ ...f, guestAccessDays: Number(e.target.value) }))} />
                   </label>
                   <label>
                     <div className="text-sm text-slatebody">{t("admin.settings.guestDeletionDays", "Guest deletion days")}</div>
-                    <input type="number" className="input mt-2" value={form.guestDeletionDays || 0} onChange={(e) => setForm((f) => ({ ...f, guestDeletionDays: Number(e.target.value) }))} />
+                    <input id="admin-settings-guest-deletion-days" name="guestDeletionDays" type="number" className="input mt-2" value={form.guestDeletionDays || 0} onChange={(e) => setForm((f) => ({ ...f, guestDeletionDays: Number(e.target.value) }))} />
                   </label>
                   <label>
                     <div className="text-sm text-slatebody">{t("admin.settings.maxUploadSizeMb", "Max upload size (MB)")}</div>
-                    <input type="number" className="input mt-2" value={form.maxUploadSizeMb || 0} onChange={(e) => setForm((f) => ({ ...f, maxUploadSizeMb: Number(e.target.value) }))} />
+                    <input id="admin-settings-max-upload-size" name="maxUploadSizeMb" type="number" className="input mt-2" value={form.maxUploadSizeMb || 0} onChange={(e) => setForm((f) => ({ ...f, maxUploadSizeMb: Number(e.target.value) }))} />
                   </label>
                   <label>
                     <div className="text-sm text-slatebody">{t("admin.settings.defaultPrivacy", "Default privacy")}</div>
-                    <select className="input mt-2" value={form.defaultPrivacy} onChange={(e) => setForm((f) => ({ ...f, defaultPrivacy: e.target.value }))}>
+                    <select id="admin-settings-default-privacy" name="defaultPrivacy" className="input mt-2" value={form.defaultPrivacy} onChange={(e) => setForm((f) => ({ ...f, defaultPrivacy: e.target.value }))}>
                       <option value="exact">{t("tripCreate.visibility.exact", "Exact location")}</option>
                       <option value="approximate">{t("tripCreate.visibility.approximate", "Approximate location")}</option>
                       <option value="city">{t("tripCreate.visibility.city", "City only")}</option>
@@ -227,15 +227,15 @@ export default function AdminSettings() {
                   </label>
                   <label>
                     <div className="text-sm text-slatebody">{t("admin.settings.moderationProvider", "Moderation provider")}</div>
-                    <input className="input mt-2" value={form.moderationProvider || ''} onChange={(e) => setForm((f) => ({ ...f, moderationProvider: e.target.value }))} />
+                    <input id="admin-settings-moderation-provider" name="moderationProvider" className="input mt-2" value={form.moderationProvider || ''} onChange={(e) => setForm((f) => ({ ...f, moderationProvider: e.target.value }))} />
                   </label>
                   <label>
                     <div className="text-sm text-slatebody">{t("admin.settings.mapProvider", "Map provider")}</div>
-                    <input className="input mt-2" value={form.mapProvider || ''} onChange={(e) => setForm((f) => ({ ...f, mapProvider: e.target.value }))} />
+                    <input id="admin-settings-map-provider" name="mapProvider" className="input mt-2" value={form.mapProvider || ''} onChange={(e) => setForm((f) => ({ ...f, mapProvider: e.target.value }))} />
                   </label>
                   <label>
                     <div className="text-sm text-slatebody">{t("admin.settings.paymentProvider", "Payment provider")}</div>
-                    <input className="input mt-2" value={form.paymentProvider || ''} onChange={(e) => setForm((f) => ({ ...f, paymentProvider: e.target.value }))} />
+                    <input id="admin-settings-payment-provider" name="paymentProvider" className="input mt-2" value={form.paymentProvider || ''} onChange={(e) => setForm((f) => ({ ...f, paymentProvider: e.target.value }))} />
                   </label>
                 </div>
 
@@ -246,6 +246,8 @@ export default function AdminSettings() {
                     <label>
                       <div className="text-sm text-slatebody background-media-label">{t("admin.settings.currentMediaUrl", "Current media URL")}</div>
                       <input
+                        id="admin-settings-background-media-url"
+                        name="backgroundMediaUrl"
                         className="input mt-2"
                         value={form.backgroundMediaUrl || ''}
                         onChange={(e) => {
@@ -263,6 +265,9 @@ export default function AdminSettings() {
                     <div>
                       <div className="text-sm text-slatebody background-media-label">{t("admin.settings.uploadFile", "Upload file")}</div>
                       <input
+                        id="admin-settings-background-media-file"
+                        name="backgroundMediaFile"
+                        aria-label={t("admin.settings.uploadFile", "Upload file")}
                         ref={fileInputRef}
                         type="file"
                         accept="image/jpeg,image/png,image/webp,video/mp4,video/webm"

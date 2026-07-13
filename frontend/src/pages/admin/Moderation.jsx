@@ -61,7 +61,7 @@ export default function AdminModeration() {
         </section>
 
         <section className="card flex flex-col gap-3 p-4 sm:flex-row sm:items-end sm:justify-between">
-          <label className="text-sm text-slatebody">{t("admin.moderation.filter", "Content status")}<select className="input mt-1 block min-w-48" value={status} onChange={(event) => setStatus(event.target.value)}><option value="reported">{t("admin.moderation.reported", "Reported")}</option><option value="pending">{t("admin.moderation.pending", "Pending")}</option><option value="approved">{t("admin.moderation.approved", "Approved")}</option><option value="rejected">{t("admin.moderation.rejected", "Rejected")}</option><option value="all">{t("admin.moderation.all", "All content")}</option></select></label>
+          <label className="text-sm text-slatebody">{t("admin.moderation.filter", "Content status")}<select id="admin-moderation-status" name="status" className="input mt-1 block min-w-48" value={status} onChange={(event) => setStatus(event.target.value)}><option value="reported">{t("admin.moderation.reported", "Reported")}</option><option value="pending">{t("admin.moderation.pending", "Pending")}</option><option value="approved">{t("admin.moderation.approved", "Approved")}</option><option value="rejected">{t("admin.moderation.rejected", "Rejected")}</option><option value="all">{t("admin.moderation.all", "All content")}</option></select></label>
           <button className="btn-ghost" onClick={load} disabled={loading}>{t("common.refresh", "Refresh")}</button>
         </section>
         {success ? <div className="card border border-emerald-500 p-4 text-emerald-200" role="status">{success}</div> : null}

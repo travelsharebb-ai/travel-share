@@ -22,6 +22,7 @@ const Dashboard = lazy(() => import("./pages/Dashboard.jsx"));
 const TouristDashboard = lazy(() => import("./pages/TouristDashboard.jsx"));
 const EventsDashboard = lazy(() => import("./pages/EventsDashboard.jsx"));
 const EventDetails = lazy(() => import("./pages/EventDetails.jsx"));
+const EventSouvenir = lazy(() => import("./pages/EventSouvenir.jsx"));
 const EventCreate = lazy(() => import("./pages/EventCreate.jsx"));
 const Trips = lazy(() => import("./pages/Trips.jsx"));
 const TripCreate = lazy(() => import("./pages/TripCreate.jsx"));
@@ -134,6 +135,10 @@ export default function App() {
     }
     return <DiscoverEvents />;
   }
+  function SouvenirRoute() {
+    const content = <EventSouvenir />;
+    return user ? <Shell>{content}</Shell> : <PublicPage>{content}</PublicPage>;
+  }
   return (
     <>
       <SessionSync />
@@ -163,6 +168,7 @@ export default function App() {
       <Route path="/shared-albums" element={<PrivateRoute><SharedAlbums /></PrivateRoute>} />
       <Route path="/events/new" element={<PrivateRoute><EventCreate /></PrivateRoute>} />
       <Route path="/events/:eventId" element={<PrivateRoute><EventDetails /></PrivateRoute>} />
+      <Route path="/events/:eventId/souvenir" element={<SouvenirRoute />} />
       <Route path="/events" element={<PrivateRoute><EventsRoute /></PrivateRoute>} />
       <Route path="/dashboard" element={<PrivateRoute><DashboardRoute /></PrivateRoute>} />
       <Route path="/tourist" element={<PrivateRoute><TouristDashboard /></PrivateRoute>} />

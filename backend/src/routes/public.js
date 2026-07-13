@@ -22,6 +22,7 @@ router.get("/appearance", publicController.appearance);
 
 // public map/events feed
 router.get("/events", publicController.publicEvents);
+router.get("/events/:eventId/souvenir", publicController.publicEventSouvenir);
 router.get("/store-preview", publicController.storePreview);
 
 router.get("/guest/session", publicController.guestSessionStatus);

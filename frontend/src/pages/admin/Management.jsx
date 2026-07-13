@@ -224,10 +224,10 @@ export default function AdminManagement() {
             <form className="card p-5 bg-slate-950/90 border border-white/10" onSubmit={sendNotification}>
               <h2 className="text-2xl font-black font-serif">{t("admin.management.sendNotification", "Send notification")}</h2>
               <div className="mt-4 space-y-3">
-                <label className="block text-sm text-slatebody">{t("admin.management.recipient", "Recipient")}<select required className="input mt-1 w-full" value={notification.userId} onChange={(event) => setNotification((current) => ({ ...current, userId: event.target.value }))}><option value="">{t("admin.management.chooseUser", "Choose a user")}</option>{data.users.map((user) => <option value={user.id} key={user.id}>{user.name} ({user.email})</option>)}</select></label>
-                <label className="block text-sm text-slatebody">{t("admin.management.notificationTitle", "Title")}<input required maxLength={120} className="input mt-1 w-full" value={notification.title} onChange={(event) => setNotification((current) => ({ ...current, title: event.target.value }))} /></label>
-                <label className="block text-sm text-slatebody">{t("admin.management.message", "Message")}<textarea required maxLength={500} className="input mt-1 min-h-28 w-full" value={notification.message} onChange={(event) => setNotification((current) => ({ ...current, message: event.target.value }))} /></label>
-                <label className="block text-sm text-slatebody">{t("admin.management.internalTarget", "Internal target path (optional)")}<input placeholder="/dashboard" className="input mt-1 w-full" value={notification.targetUrl} onChange={(event) => setNotification((current) => ({ ...current, targetUrl: event.target.value }))} /></label>
+                <label className="block text-sm text-slatebody">{t("admin.management.recipient", "Recipient")}<select id="admin-notification-recipient" name="recipientId" required className="input mt-1 w-full" value={notification.userId} onChange={(event) => setNotification((current) => ({ ...current, userId: event.target.value }))}><option value="">{t("admin.management.chooseUser", "Choose a user")}</option>{data.users.map((user) => <option value={user.id} key={user.id}>{user.name} ({user.email})</option>)}</select></label>
+                <label className="block text-sm text-slatebody">{t("admin.management.notificationTitle", "Title")}<input id="admin-notification-title" name="title" required maxLength={120} className="input mt-1 w-full" value={notification.title} onChange={(event) => setNotification((current) => ({ ...current, title: event.target.value }))} /></label>
+                <label className="block text-sm text-slatebody">{t("admin.management.message", "Message")}<textarea id="admin-notification-message" name="message" required maxLength={500} className="input mt-1 min-h-28 w-full" value={notification.message} onChange={(event) => setNotification((current) => ({ ...current, message: event.target.value }))} /></label>
+                <label className="block text-sm text-slatebody">{t("admin.management.internalTarget", "Internal target path (optional)")}<input id="admin-notification-target" name="targetUrl" placeholder="/dashboard" className="input mt-1 w-full" value={notification.targetUrl} onChange={(event) => setNotification((current) => ({ ...current, targetUrl: event.target.value }))} /></label>
                 <button className="btn-primary w-full" disabled={sending}>{sending ? t("admin.management.sending", "Sending…") : t("admin.management.send", "Send")}</button>
               </div>
             </form>
@@ -252,7 +252,7 @@ export default function AdminManagement() {
           <button className="btn-ghost" onClick={downloadSiteExport}>{t("admin.management.downloadSiteExport", "Download site export")}</button>
           <button className="btn-ghost" onClick={downloadMyExport}>{t("admin.management.downloadUserExport", "Download my user export")}</button>
           <label className="inline-flex items-center gap-2">
-            <input type="file" accept="application/json" onChange={handleImportFile} />
+            <input id="admin-management-import-file" name="importFile" type="file" accept="application/json" onChange={handleImportFile} />
             <span className="text-sm text-slatebody">{importFileName || t("admin.management.chooseImportFile", "Choose import JSON file")}</span>
           </label>
         </div>

@@ -24,6 +24,11 @@ function mediaTypeLabel(value, t) {
   return value === "video" ? t("admin.ads.videoAd", "Video ad") : t("admin.ads.imageAd", "Image ad");
 }
 
+function normalizeMediaType(value, fallback = "") {
+  const candidate = `${value || ""} ${fallback || ""}`.toLowerCase();
+  return candidate.includes("video") || /\.(mp4|webm|mov)(?:[?#]|$)/.test(candidate) ? "video" : "image";
+}
+
 function statusLabel(ad, t) {
   const status = getStatus(ad);
   return status === "active" ? t("admin.ads.active", "Active")
@@ -73,6 +78,8 @@ export default function AdminAds() {
   const [analyticsLoading, setAnalyticsLoading] = useState(true);
   const [analyticsError, setAnalyticsError] = useState("");
   const [analyticsUpdatedAt, setAnalyticsUpdatedAt] = useState("");
+  const [rotationMinutes, setRotationMinutes] = useState(5);
+  const [rotationSaving, setRotationSaving] = useState(false);
   const [selectedAd, setSelectedAd] = useState(null);
   const [form, setForm] = useState({
     title: "",
@@ -117,6 +124,15 @@ export default function AdminAds() {
     }
   }, [analyticsDays, t]);
 
+  const loadRotationConfig = useCallback(async () => {
+    try {
+      const response = await api("/api/admin/ads/config");
+      setRotationMinutes(Number(response.rotationMinutes) || 5);
+    } catch (err) {
+      setError(err.message || t("admin.ads.rotationLoadError", "Unable to load the ad rotation interval."));
+    }
+  }, [t]);
+
   useEffect(() => {
     loadAds();
   }, [loadAds]);
@@ -124,6 +140,29 @@ export default function AdminAds() {
   useEffect(() => {
     loadAnalytics();
   }, [loadAnalytics]);
+
+  useEffect(() => {
+    loadRotationConfig();
+  }, [loadRotationConfig]);
+
+  const saveRotationConfig = useCallback(async (event) => {
+    event.preventDefault();
+    setError("");
+    setSuccess("");
+    setRotationSaving(true);
+    try {
+      const response = await api("/api/admin/ads/config", {
+        method: "PATCH",
+        body: JSON.stringify({ rotationMinutes: Number(rotationMinutes) })
+      });
+      setRotationMinutes(response.rotationMinutes);
+      setSuccess(t("admin.ads.rotationSaved", "Ad rotation interval updated."));
+    } catch (err) {
+      setError(err.message || t("admin.ads.rotationSaveError", "Unable to update the ad rotation interval."));
+    } finally {
+      setRotationSaving(false);
+    }
+  }, [rotationMinutes, t]);
 
   const resetForm = useCallback(() => {
     setSelectedAd(null);
@@ -156,31 +195,38 @@ export default function AdminAds() {
     setUploading(true);
     try {
       const response = await api("/api/admin/ads/media", { method: "POST", body: formData });
-      if (!response.media?.fileUrl) throw new Error(t("admin.ads.uploadFailed", "Upload failed. Please try again."));
-      return response.media.fileUrl;
+      const mediaUrl = response.mediaUrl || response.url || response.media?.fileUrl;
+      const mediaType = normalizeMediaType(response.mediaType || response.media?.fileType, file.type);
+      if (!mediaUrl) throw new Error(t("admin.ads.uploadFailed", "Upload failed. Please try again."));
+      return { mediaUrl, mediaType, filename: response.filename || file.name };
     } finally {
       setUploading(false);
     }
   }, [t]);
 
   const handleFileChange = useCallback(async (event) => {
+    if (uploading) return;
     const file = event.target.files?.[0];
     if (!file) return;
     setError("");
     setSuccess("");
     setFileInfo({ name: file.name, size: humanFileSize(file.size) });
     try {
-      const url = await uploadFile(file);
+      const uploaded = await uploadFile(file);
       setForm((current) => ({
         ...current,
-        mediaUrl: url,
-        mediaType: file.type.startsWith("video/") ? "video" : "image"
+        mediaUrl: uploaded.mediaUrl,
+        mediaType: uploaded.mediaType
       }));
+      setFileInfo({ name: uploaded.filename, size: humanFileSize(file.size), uploaded: true });
+      setSuccess(t("admin.ads.uploadComplete", "Media uploaded and attached to this ad."));
     } catch (err) {
       setError(err.message || t("admin.ads.uploadFailed", "Upload failed. Please try again."));
-      setFileInfo(null);
+      setFileInfo({ name: file.name, size: humanFileSize(file.size), uploaded: false });
+    } finally {
+      event.target.value = "";
     }
-  }, [uploadFile, t]);
+  }, [uploadFile, uploading, t]);
 
   const handleInput = useCallback((field, value) => {
     setForm((current) => ({ ...current, [field]: value }));
@@ -195,7 +241,7 @@ export default function AdminAds() {
       title: ad.title || "",
       description: ad.description || "",
       mediaUrl: ad.mediaUrl || "",
-      mediaType: ad.mediaType || "image",
+      mediaType: normalizeMediaType(ad.mediaType, ad.mediaUrl),
       linkUrl: ad.linkUrl || "",
       placement: ad.placement || "global",
       priority: ad.priority ?? 0,
@@ -231,8 +277,8 @@ export default function AdminAds() {
       const saved = selectedAd ? response.ad : response.ad;
       if (!saved) throw new Error(t("admin.ads.saveFailed", "Ad save failed."));
       await loadAds();
-      setSuccess(selectedAd ? t("admin.ads.updated", "Ad updated.") : t("admin.ads.saved", "Ad saved."));
       if (!selectedAd) resetForm();
+      setSuccess(selectedAd ? t("admin.ads.updated", "Ad updated.") : t("admin.ads.saved", "Ad saved."));
       if (selectedAd) setSelectedAd(saved);
     } catch (err) {
       setError(err.message || t("admin.ads.saveFailed", "Ad save failed."));
@@ -275,7 +321,7 @@ export default function AdminAds() {
     if (!form.mediaUrl) return null;
     if (form.mediaType === "video") {
       return (
-        <video className="h-full w-full rounded-3xl object-cover" src={form.mediaUrl} muted playsInline loop preload="metadata" />
+        <video className="h-full w-full rounded-3xl object-cover" src={form.mediaUrl} controls muted playsInline preload="metadata" />
       );
     }
     return (
@@ -301,6 +347,18 @@ export default function AdminAds() {
 
       {error ? <div className="card border border-rose-500 p-4 text-rose-200" role="alert">{error}</div> : null}
       {success ? <div className="card border border-emerald-500 p-4 text-emerald-200" role="status">{success}</div> : null}
+
+      <section className="card p-5 bg-slate-950/90 border border-white/10" aria-labelledby="ad-rotation-heading">
+        <h2 id="ad-rotation-heading" className="text-2xl font-black font-serif">{t("admin.ads.rotationInterval", "Ad rotation interval")}</h2>
+        <p className="mt-2 text-sm text-slatebody">{t("admin.ads.rotationIntervalHelp", "Choose how many minutes to wait before showing the next eligible ad. Rotation wraps when every ad has been shown.")}</p>
+        <form className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end" onSubmit={saveRotationConfig}>
+          <label className="block text-sm text-slatebody" htmlFor="admin-ad-rotation-minutes">
+            {t("admin.ads.rotationMinutes", "Minutes between ads")}
+            <input id="admin-ad-rotation-minutes" name="rotationMinutes" type="number" min={1} max={1440} required className="input mt-2 w-full sm:w-48" value={rotationMinutes} onChange={(event) => setRotationMinutes(event.target.value)} />
+          </label>
+          <button className="btn-primary" type="submit" disabled={rotationSaving}>{rotationSaving ? t("admin.ads.saving", "Saving…") : t("admin.ads.saveRotation", "Save rotation")}</button>
+        </form>
+      </section>
 
       <section className="card p-5 bg-slate-950/90 border border-white/10" aria-labelledby="ad-analytics-heading">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -335,11 +393,11 @@ export default function AdminAds() {
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="block text-sm text-slatebody">
                 {t("admin.ads.titleLabel", "Title")}
-                <input required className="input mt-2 w-full" value={form.title} onChange={(event) => handleInput("title", event.target.value)} />
+                <input id="admin-ad-title" name="title" required className="input mt-2 w-full" value={form.title} onChange={(event) => handleInput("title", event.target.value)} />
               </label>
               <label className="block text-sm text-slatebody">
                 {t("admin.ads.placement", "Placement")}
-                <select required className="input mt-2 w-full" value={form.placement} onChange={(event) => handleInput("placement", event.target.value)}>
+                <select id="admin-ad-placement" name="placement" required className="input mt-2 w-full" value={form.placement} onChange={(event) => handleInput("placement", event.target.value)}>
                   {placements.map((placement) => (
                     <option key={placement} value={placement}>{placementLabel(placement, t)}</option>
                   ))}
@@ -350,11 +408,11 @@ export default function AdminAds() {
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="block text-sm text-slatebody">
                 {t("admin.ads.linkUrl", "Link URL")}
-                <input type="url" className="input mt-2 w-full" value={form.linkUrl} onChange={(event) => handleInput("linkUrl", event.target.value)} placeholder="https://" />
+                <input id="admin-ad-link-url" name="linkUrl" type="url" className="input mt-2 w-full" value={form.linkUrl} onChange={(event) => handleInput("linkUrl", event.target.value)} placeholder="https://" />
               </label>
               <label className="block text-sm text-slatebody">
                 {t("admin.ads.mediaType", "Media type")}
-                <select required className="input mt-2 w-full" value={form.mediaType} onChange={(event) => handleInput("mediaType", event.target.value)}>
+                <select id="admin-ad-media-type" name="mediaType" required className="input mt-2 w-full" value={form.mediaType} onChange={(event) => handleInput("mediaType", event.target.value)}>
                   {mediaTypes.map((type) => <option key={type.value} value={type.value}>{t(`admin.ads.${type.value}Ad`, type.label)}</option>)}
                 </select>
               </label>
@@ -362,39 +420,39 @@ export default function AdminAds() {
 
             <label className="block text-sm text-slatebody">
               {t("admin.ads.description", "Description")}
-              <textarea className="input mt-2 min-h-[110px] w-full" value={form.description} onChange={(event) => handleInput("description", event.target.value)} maxLength={240} />
+              <textarea id="admin-ad-description" name="description" className="input mt-2 min-h-[110px] w-full" value={form.description} onChange={(event) => handleInput("description", event.target.value)} maxLength={240} />
             </label>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="block text-sm text-slatebody">
                 {t("admin.ads.displaySeconds", "Display seconds")}
-                <input type="number" min={5} max={60} className="input mt-2 w-full" value={form.displaySeconds} onChange={(event) => handleInput("displaySeconds", event.target.value)} />
+                <input id="admin-ad-display-seconds" name="displaySeconds" type="number" min={5} max={60} className="input mt-2 w-full" value={form.displaySeconds} onChange={(event) => handleInput("displaySeconds", event.target.value)} />
               </label>
               <label className="block text-sm text-slatebody">
                 {t("admin.ads.priority", "Priority")}
-                <input type="number" min={0} max={1000} className="input mt-2 w-full" value={form.priority} onChange={(event) => handleInput("priority", event.target.value)} />
+                <input id="admin-ad-priority" name="priority" type="number" min={0} max={1000} className="input mt-2 w-full" value={form.priority} onChange={(event) => handleInput("priority", event.target.value)} />
               </label>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="block text-sm text-slatebody">
                 {t("admin.ads.startsAt", "Starts at")}
-                <input type="datetime-local" className="input mt-2 w-full" value={form.startsAt} onChange={(event) => handleInput("startsAt", event.target.value)} />
+                <input id="admin-ad-starts-at" name="startsAt" type="datetime-local" className="input mt-2 w-full" value={form.startsAt} onChange={(event) => handleInput("startsAt", event.target.value)} />
               </label>
               <label className="block text-sm text-slatebody">
                 {t("admin.ads.endsAt", "Ends at")}
-                <input type="datetime-local" className="input mt-2 w-full" value={form.endsAt} onChange={(event) => handleInput("endsAt", event.target.value)} />
+                <input id="admin-ad-ends-at" name="endsAt" type="datetime-local" className="input mt-2 w-full" value={form.endsAt} onChange={(event) => handleInput("endsAt", event.target.value)} />
               </label>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="flex items-center gap-3 text-sm text-slatebody">
-                <input type="checkbox" checked={form.active} onChange={(event) => handleInput("active", event.target.checked)} />
+                <input id="admin-ad-active" name="active" type="checkbox" checked={form.active} onChange={(event) => handleInput("active", event.target.checked)} />
                 {t("admin.ads.active", "Active")}
               </label>
               <label className="block text-sm text-slatebody">
                 {t("admin.ads.mediaUrl", "External media URL")}
-                <input type="url" className="input mt-2 w-full" value={form.mediaUrl} onChange={(event) => handleInput("mediaUrl", event.target.value)} placeholder="https://" />
+                <input id="admin-ad-media-url" name="mediaUrl" type="url" className="input mt-2 w-full" value={form.mediaUrl} onChange={(event) => { handleInput("mediaUrl", event.target.value); setFileInfo(null); }} placeholder="https://" />
               </label>
             </div>
 
@@ -404,9 +462,10 @@ export default function AdminAds() {
               <div className="mt-4 flex items-center gap-3 flex-wrap">
                 <label className="btn-ghost cursor-pointer">
                   {uploading ? t("admin.ads.uploading", "Uploading…") : t("admin.ads.chooseFile", "Choose file")}
-                  <input type="file" accept="image/*,video/*" className="hidden" onChange={handleFileChange} />
+                  <input id="admin-ad-media-file" name="mediaFile" type="file" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime" className="hidden" onChange={handleFileChange} disabled={uploading} />
                 </label>
-                {fileInfo ? <span className="text-sm text-slatebody">{fileInfo.name} · {fileInfo.size}</span> : null}
+                {fileInfo ? <span className={fileInfo.uploaded === false ? "text-sm text-rose-300" : "text-sm text-slatebody"}>{fileInfo.name} · {fileInfo.size}{fileInfo.uploaded ? ` · ${t("admin.ads.uploaded", "Uploaded")}` : ""}</span> : null}
+                {form.mediaUrl ? <button type="button" className="btn-ghost" onClick={() => { handleInput("mediaUrl", ""); setFileInfo(null); }}>{t("common.remove", "Remove")}</button> : null}
               </div>
             </div>
 

@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
 import { api, currentUser, getToken, getGuestToken, setSession } from "../lib/api";
 import { useLanguage } from "../lib/i18n";
+import { APP_NAME } from "../lib/appConfig.js";
 
 const API_URL = import.meta.env.VITE_API_URL || "";
 
@@ -56,10 +57,14 @@ export default function AuthPage({ mode }) {
       <AppTopbar variant="public" />
       <main className="page-shell flex min-h-[75vh] items-center justify-center">
         <form onSubmit={submit} className="card w-full max-w-md space-y-4 p-5 sm:p-7">
+          <p className="text-sm font-bold uppercase tracking-[0.24em] text-primary">{APP_NAME}</p>
           <h1 className="font-serif text-3xl font-black">{isSignup ? t("authPage.createAccountTitle") : t("authPage.welcomeBack")}</h1>
           
           {isSignup && (
             <input 
+              id="auth-name"
+              name="name"
+              aria-label={t("authPage.namePlaceholder")}
               className="field" 
               placeholder={t("authPage.namePlaceholder")} 
               value={form.name} 
@@ -68,6 +73,9 @@ export default function AuthPage({ mode }) {
           )}
           
             <input 
+              id="auth-email"
+              name="email"
+              aria-label={t("authPage.emailPlaceholder")}
               className="field" 
               type="email" 
               placeholder={t("authPage.emailPlaceholder")} 
@@ -77,6 +85,9 @@ export default function AuthPage({ mode }) {
           
           <div className="relative">
             <input 
+              id="auth-password"
+              name="password"
+              aria-label={t("authPage.passwordPlaceholder")}
               className="field pr-14" 
               type={showPassword ? "text" : "password"} 
               placeholder={t("authPage.passwordPlaceholder")} 

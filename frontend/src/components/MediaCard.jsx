@@ -98,6 +98,8 @@ export default function MediaCard({ upload, selected, onSelect, onApprove, onRej
           </div>
           {onSelect && (
             <input
+              id={`media-select-${upload.id}`}
+              name={`selectedUpload-${upload.id}`}
               aria-label={t("hardcoded.selectUpload")}
               type="checkbox"
               checked={selected}
@@ -121,7 +123,7 @@ export default function MediaCard({ upload, selected, onSelect, onApprove, onRej
         {onChangeDownloadItem ? (
           <div className="form-panel p-3 text-sm">
             <label className="mb-2 block font-semibold">{t("common.downloadAccess")}</label>
-            <select className="field" value={currentDownloadItemId || ""} onChange={(event) => onChangeDownloadItem(upload.id, event.target.value || null)}>
+            <select id={`media-download-item-${upload.id}`} name={`downloadItem-${upload.id}`} className="field" value={currentDownloadItemId || ""} onChange={(event) => onChangeDownloadItem(upload.id, event.target.value || null)}>
               <option value="">{t("hardcoded.noDownloadAssetAssigned")}</option>
               {downloadOptions?.map((item) => (
                 <option key={item.id} value={item.id}>{item.name} - ${((item.priceCents || 0) / 100).toFixed(2)}</option>

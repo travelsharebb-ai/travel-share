@@ -2195,6 +2195,9 @@ export default function MapView() {
           <div className="mb-6">
             <div className="relative">
               <input
+                id="map-location-search"
+                name="locationSearch"
+                aria-label={t('map.searchPlaceholder','Search locations or addresses...')}
                 type="text"
                 placeholder={t('map.searchPlaceholder','Search locations or addresses...')}
                 value={searchText}
@@ -2242,8 +2245,10 @@ export default function MapView() {
 
           <div className="flex gap-4 mb-6">
             <div className="flex-1">
-              <label className="block text-sm font-semibold text-slate-300 mb-2">{t("map.country")}</label>
+              <label htmlFor="map-country-filter" className="block text-sm font-semibold text-slate-300 mb-2">{t("map.country")}</label>
               <select
+                id="map-country-filter"
+                name="countryFilter"
                 value={countryFilter}
                 onChange={(e) => {
                   setCountryFilter(e.target.value);
@@ -2264,8 +2269,10 @@ export default function MapView() {
               </select>
             </div>
             <div className="flex-1">
-              <label className="block text-sm font-semibold text-slate-300 mb-2">{t("map.region")}</label>
+              <label htmlFor="map-region-filter" className="block text-sm font-semibold text-slate-300 mb-2">{t("map.region")}</label>
               <select
+                id="map-region-filter"
+                name="regionFilter"
                 value={regionFilter}
                 onChange={(e) => setRegionFilter(e.target.value)}
                 className="field w-full"
@@ -2702,8 +2709,10 @@ export default function MapView() {
                   <div className="space-y-3">
                     {adminError ? <div className="text-sm text-red-400">{t(adminError)}</div> : null}
                     <div>
-                      <label className="block text-sm font-semibold text-white mb-2">{t('map.selectPin','Select pin')}</label>
+                      <label htmlFor="map-admin-location" className="block text-sm font-semibold text-white mb-2">{t('map.selectPin','Select pin')}</label>
                       <select
+                        id="map-admin-location"
+                        name="adminLocationId"
                         value={selectedAdminLocationId || ''}
                         onChange={(e) => setSelectedAdminLocationId(e.target.value || null)}
                         className="field w-full"

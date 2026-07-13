@@ -14,12 +14,18 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
+    "prisma:status": "prisma migrate status",
+    "test:backend:ci": "vitest run tests/admin-controls.test.js tests/analytics-service.test.js tests/reporting-depth.test.js tests/event-souvenir.test.js tests/unit/env.test.js tests/unit/payments-readiness.test.js tests/ad-analytics.test.js tests/oauth-security.test.js tests/oauth-temp-store.test.js tests/e2e/private-upload-flow.test.js",
+    "env:validate:production": "node scripts/validate-production-env.mjs",
     "worker:uploads": "RUN_WORKER=true node scripts/upload-retry-worker.mjs",
     "seed:platform-settings": "node scripts/seed-platform-settings.mjs",
     "demo:seed": "node scripts/seed-demo-data.js",
     "demo:clear": "node scripts/clear-demo-data.js",
     "demo:reset": "node scripts/reset-demo-data.js",
-    "cleanup:guests": "node scripts/cleanup-expired-guests.mjs"
+    "cleanup:guests": "node scripts/cleanup-expired-guests.mjs",
+    "guest:cleanup": "node scripts/cleanup-expired-guests.mjs",
+    "skins:import": "node scripts/import-skin-catalog.mjs",
+    "skins:verify": "node scripts/verify-skins.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1068.0",

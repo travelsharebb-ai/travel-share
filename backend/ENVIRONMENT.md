@@ -30,6 +30,7 @@ OAuth state records expire after 10 minutes and OAuth login handoff codes expire
 - `STRIPE_CURRENCY`: Checkout currency. Defaults to `usd`.
 - `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`: Required for PayPal checkout.
 - `PAYPAL_WEBHOOK_ID`: Reserved for future PayPal webhook verification.
+- `PAYPAL_ENABLED`: Keep `false` for launch. PayPal checkout remains disabled until verified webhook handling is implemented.
 - `PAYPAL_API_BASE`: Optional. Defaults to PayPal sandbox: `https://api-m.sandbox.paypal.com`
 - `ALLOW_DEV_PURCHASES`: Set `true` only in local/dev if you want paid store items to unlock without checkout.
 - `PAYMENT_PROVIDER`: Example: `stripe`.
@@ -52,6 +53,8 @@ Recommended backend start command:
 
 ```bash
 prisma generate && prisma migrate deploy && node src/index.js
+
+Check the explicitly selected deployment database with `npm run prisma:status`. `prisma migrate dev` is local-development only; use `prisma migrate deploy` for staging/production and never run `prisma migrate reset` in either environment. See `../docs/LAUNCH_GATES.md`.
 ```
 
 The backend `package.json` `start` script already runs that command.

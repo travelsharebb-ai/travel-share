@@ -621,6 +621,13 @@ const translations = {
       "placement": "Plaatsing",
       "priority": "Prioriteit",
       "displaySeconds": "Weergaveseconden",
+      "rotationInterval": "Rotatie-interval voor advertenties",
+      "rotationIntervalHelp": "Kies hoeveel minuten wordt gewacht voordat de volgende beschikbare advertentie verschijnt. De rotatie begint opnieuw nadat alle advertenties zijn getoond.",
+      "rotationMinutes": "Minuten tussen advertenties",
+      "saveRotation": "Rotatie opslaan",
+      "rotationLoadError": "Het rotatie-interval voor advertenties kon niet worden geladen.",
+      "rotationSaved": "Rotatie-interval voor advertenties bijgewerkt.",
+      "rotationSaveError": "Het rotatie-interval voor advertenties kon niet worden bijgewerkt.",
       "startsAt": "Begint op",
       "endsAt": "Eindigt op",
       "active": "Actief",
@@ -643,6 +650,8 @@ const translations = {
       "loadError": "Advertenties konden niet worden geladen.",
       "invalidFileType": "Alleen afbeeldingen en video's zijn toegestaan.",
       "uploadFailed": "Upload mislukt. Probeer het opnieuw.",
+      "uploadComplete": "De media is geüpload en aan deze advertentie gekoppeld.",
+      "uploaded": "Geüpload",
       "uploadMedia": "Afbeelding of video uploaden",
       "uploadHelp": "Kies een lokaal afbeeldings- of videobestand om te uploaden en op te slaan voor deze advertentie.",
       "chooseFile": "Bestand kiezen",
@@ -826,6 +835,7 @@ const translations = {
       "pendingContent": "Inhoud in behandeling",
       "activeStoreItems": "Actieve winkelitems",
       "purchases": "Aankopen",
+      "paymentReadiness": "Betaalgereedheid", "stripe": "Stripe", "paypal": "PayPal", "ready": "Gereed", "notReady": "Niet gereed", "disabled": "Uitgeschakeld", "paidTransactions": "Betaalde transacties", "topEvents": "Top-evenementen op uploads",
       "qrScans": "QR-scans",
       "qrSpaces": "{count} actieve QR-ruimtes",
       "activityTrend": "Activiteitstrend",
@@ -1854,6 +1864,14 @@ const translations = {
   "uploadSuccess": {
     "message": "Je geheugen is succesvol geüpload.",
     "defaultDestination": "Travel Share"
+  },
+  "souvenir": {
+    "open": "Evenementherinnering openen", "back": "Terug naar evenement", "badge": "Evenementherinnering", "loading": "Evenementherinnering laden…",
+    "unavailable": "Herinnering niet beschikbaar", "unavailableDescription": "Deze herinnering is privé, niet beschikbaar of het evenement is nog niet afgelopen.",
+    "dateUnavailable": "Datum niet beschikbaar", "defaultDescription": "Een verzameling goedgekeurde herinneringen van dit evenement.",
+    "copyLink": "Link kopiëren", "copied": "Link gekopieerd", "approvedMemories": "Goedgekeurde herinneringen", "zones": "Zones",
+    "highlights": "Fotohoogtepunten", "gallery": "Herinneringengalerij", "memoryAlt": "Goedgekeurde evenementherinnering", "memoryFallback": "Evenementherinnering",
+    "emptyGallery": "Er zijn nog geen goedgekeurde herinneringen.", "zoneSummary": "Kaart- en zoneoverzicht", "noZones": "Er zijn geen evenementzones beschikbaar."
   },
   "verifyEmail": {
     "missingToken": "Verificatietoken ontbreekt.",

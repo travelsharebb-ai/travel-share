@@ -39,6 +39,7 @@ export default function AdminReports() {
   }, [days]);
 
   const summary = analytics?.summary;
+  const reporting = analytics?.reporting;
   const trend = analytics?.trend || [];
   const trendMaximum = useMemo(
     () => Math.max(1, ...trend.map((item) => item.users + item.guests + item.uploads)),
@@ -65,7 +66,7 @@ export default function AdminReports() {
         <p className="mt-4 max-w-3xl leading-7 text-slatebody">{t("admin.reports.description")}</p>
         <label className="mt-5 block max-w-xs text-sm font-bold text-slatebody">
           <span className="mb-2 block">{t("admin.reports.rangeLabel")}</span>
-          <select className="field" value={days} onChange={(event) => setDays(Number(event.target.value))}>
+          <select id="admin-reports-range" name="reportRangeDays" className="field" value={days} onChange={(event) => setDays(Number(event.target.value))}>
             <option value={7}>{t("admin.reports.last7Days")}</option>
             <option value={30}>{t("admin.reports.last30Days")}</option>
           </select>
@@ -124,6 +125,31 @@ export default function AdminReports() {
                   </div>
                 );
               }) : <p className="text-slatebody">{t("admin.reports.noTrend")}</p>}
+            </div>
+          </section>
+
+          <section className="grid gap-4 lg:grid-cols-2">
+            <div className="card p-5">
+              <p className="text-sm uppercase tracking-[0.28em] text-primary">{t("admin.ads.analytics")}</p>
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                <MetricCard label={t("admin.ads.impressions")} value={reporting?.ads?.impressions || 0} />
+                <MetricCard label={t("admin.ads.clicks")} value={reporting?.ads?.clicks || 0} />
+                <MetricCard label={t("admin.ads.ctr")} value={`${reporting?.ads?.ctr || 0}%`} />
+              </div>
+            </div>
+            <div className="card p-5">
+              <p className="text-sm uppercase tracking-[0.28em] text-primary">{t("admin.reports.paymentReadiness")}</p>
+              <div className="mt-4 space-y-2 text-sm text-slatebody">
+                <p>{t("admin.reports.stripe")}: {reporting?.payments?.readiness?.stripeReady ? t("admin.reports.ready") : t("admin.reports.notReady")}</p>
+                <p>{t("admin.reports.paypal")}: {reporting?.payments?.readiness?.paypalReady ? t("admin.reports.ready") : t("admin.reports.disabled")}</p>
+                <p>{t("admin.reports.paidTransactions")}: {reporting?.payments?.statuses?.paid || 0}</p>
+              </div>
+            </div>
+            <div className="card p-5 lg:col-span-2">
+              <p className="text-sm uppercase tracking-[0.28em] text-primary">{t("admin.reports.topEvents")}</p>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {reporting?.topEvents?.length ? reporting.topEvents.map((event) => <div key={event.id} className="rounded-2xl border border-borderline p-4"><p className="font-bold">{event.title}</p><p className="mt-1 text-sm text-slatebody">{event.uploads} {t("admin.reports.uploads")}</p></div>) : <p className="text-slatebody">{t("admin.reports.noAnalytics")}</p>}
+              </div>
             </div>
           </section>
 

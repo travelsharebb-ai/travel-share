@@ -160,7 +160,7 @@ export default function GuestDashboard() {
             {guestAccessLink ? (
               <>
                 <div className="flex items-center gap-3 flex-wrap">
-                  <input className="field guest-link-field flex-1" readOnly value={guestAccessLink} />
+                  <input id="guest-dashboard-access-link" name="guestAccessLink" aria-label={t("guestDashboard.accessLinkTitle", "Guest access link")} className="field guest-link-field flex-1" readOnly value={guestAccessLink} />
                   <button className="btn-secondary" onClick={async () => {
                     try {
                       const ok = await copyToClipboard(guestAccessLink);

@@ -5,25 +5,37 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   adFindFirst: vi.fn(),
   adFindMany: vi.fn(),
+  adFindUnique: vi.fn(),
+  adCreate: vi.fn(),
+  adUpdate: vi.fn(),
+  platformFindUnique: vi.fn(),
+  platformUpsert: vi.fn(),
   interactionCreate: vi.fn(),
-  interactionGroupBy: vi.fn()
+  interactionGroupBy: vi.fn(),
+  uploadMedia: vi.fn()
 }));
 
 vi.mock("../src/utils/prisma.js", () => ({
   prisma: {
     internalAd: {
       findFirst: mocks.adFindFirst,
-      findMany: mocks.adFindMany
+      findMany: mocks.adFindMany,
+      findUnique: mocks.adFindUnique,
+      create: mocks.adCreate,
+      update: mocks.adUpdate
     },
     adInteraction: {
       create: mocks.interactionCreate,
       groupBy: mocks.interactionGroupBy
+    },
+    platformSetting: {
+      findUnique: mocks.platformFindUnique,
+      upsert: mocks.platformUpsert
     }
   }
 }));
 
-vi.mock("../src/services/uploadOrchestrator.js", () => ({ default: { executeUploadPipeline: vi.fn() } }));
-vi.mock("../src/utils/storage.js", () => ({ uploadMedia: vi.fn() }));
+vi.mock("../src/utils/storage.js", () => ({ uploadMedia: mocks.uploadMedia }));
 
 import adsRoutes from "../src/routes/ads.js";
 import adminRoutes from "../src/routes/admin.js";
@@ -60,7 +72,123 @@ beforeEach(() => {
   mocks.adFindFirst.mockResolvedValue({ id: "ad-1" });
   mocks.interactionCreate.mockResolvedValue({ id: "interaction-1" });
   mocks.adFindMany.mockResolvedValue([{ id: "ad-1", title: "Test ad" }]);
+  mocks.adFindUnique.mockResolvedValue({ id: "ad-1" });
+  mocks.adCreate.mockImplementation(async ({ data }) => ({ id: "ad-new", ...data }));
+  mocks.adUpdate.mockImplementation(async ({ data }) => ({ id: "ad-1", ...data }));
+  mocks.platformFindUnique.mockResolvedValue({ value: "5" });
+  mocks.platformUpsert.mockResolvedValue({ key: "adRotationMinutes", value: "5" });
   mocks.interactionGroupBy.mockResolvedValue([]);
+  mocks.uploadMedia.mockImplementation(async (file) => ({
+    fileUrl: `https://media.example/${file.originalname}`,
+    filePublicId: `ads/${file.originalname}`,
+    fileType: file.mimetype.startsWith("video/") ? "video" : "image"
+  }));
+});
+
+describe("admin ad media upload", () => {
+  it.each([
+    ["image", "banner.png", "image/png"],
+    ["video", "launch.mp4", "video/mp4"]
+  ])("accepts an admin %s upload and returns stable media fields", async (mediaType, filename, contentType) => {
+    const response = await request(createAdminApp())
+      .post("/api/admin/ads/media")
+      .attach("file", Buffer.from("test-media"), { filename, contentType });
+
+    expect(response.status).toBe(201);
+    expect(response.body).toMatchObject({
+      url: `https://media.example/${filename}`,
+      mediaUrl: `https://media.example/${filename}`,
+      mediaType,
+      filename,
+      mimeType: contentType,
+      media: { fileUrl: `https://media.example/${filename}`, fileType: mediaType }
+    });
+    expect(mocks.uploadMedia).toHaveBeenCalledOnce();
+  });
+
+  it("rejects an unsafe file type before storage", async () => {
+    const response = await request(createAdminApp())
+      .post("/api/admin/ads/media")
+      .attach("file", Buffer.from("not-media"), { filename: "payload.html", contentType: "text/html" });
+
+    expect(response.status).toBe(400);
+    expect(mocks.uploadMedia).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["image", "banner.png"],
+    ["video", "launch.mp4"]
+  ])("persists uploaded %s fields when creating an ad", async (mediaType, filename) => {
+    const mediaUrl = `https://media.example/${filename}`;
+    const response = await request(createAdminApp())
+      .post("/api/admin/ads")
+      .send({
+        title: `Launch ${mediaType}`,
+        mediaUrl,
+        mediaType,
+        placement: "global"
+      });
+
+    expect(response.status).toBe(201);
+    expect(mocks.adCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        mediaUrl,
+        mediaType,
+        createdById: "admin-id"
+      })
+    });
+  });
+
+  it("persists replacement video fields when updating an ad", async () => {
+    const response = await request(createAdminApp())
+      .patch("/api/admin/ads/ad-1")
+      .send({ mediaUrl: "https://media.example/replacement.webm", mediaType: "video" });
+
+    expect(response.status).toBe(200);
+    expect(mocks.adUpdate).toHaveBeenCalledWith({
+      where: { id: "ad-1" },
+      data: expect.objectContaining({
+        mediaUrl: "https://media.example/replacement.webm",
+        mediaType: "video"
+      })
+    });
+  });
+
+  it.each([
+    ["video", "launch.mp4"],
+    ["image", "banner.png"]
+  ])("returns uploaded %s fields from the public ads endpoint", async (mediaType, filename) => {
+    const mediaUrl = `https://media.example/${filename}`;
+    mocks.adFindMany.mockResolvedValue([{
+      id: "ad-1",
+      title: `Launch ${mediaType}`,
+      mediaUrl,
+      mediaType
+    }]);
+
+    const response = await request(createPublicApp()).get("/api/ads?placement=global");
+
+    expect(response.status).toBe(200);
+    expect(response.body.rotationMinutes).toBe(5);
+    expect(response.body.ads[0]).toMatchObject({
+      mediaUrl,
+      mediaType
+    });
+  });
+
+  it("lets an admin update the global rotation interval", async () => {
+    const response = await request(createAdminApp())
+      .patch("/api/admin/ads/config")
+      .send({ rotationMinutes: 8 });
+
+    expect(response.status).toBe(200);
+    expect(response.body.rotationMinutes).toBe(8);
+    expect(mocks.platformUpsert).toHaveBeenCalledWith({
+      where: { key: "adRotationMinutes" },
+      update: { value: "8" },
+      create: { key: "adRotationMinutes", value: "8" }
+    });
+  });
 });
 
 describe("public ad interaction tracking", () => {

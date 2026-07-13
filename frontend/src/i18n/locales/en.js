@@ -610,6 +610,13 @@ const translations = {
       "placement": "Placement",
       "priority": "Priority",
       "displaySeconds": "Display seconds",
+      "rotationInterval": "Ad rotation interval",
+      "rotationIntervalHelp": "Choose how many minutes to wait before showing the next eligible ad. Rotation wraps when every ad has been shown.",
+      "rotationMinutes": "Minutes between ads",
+      "saveRotation": "Save rotation",
+      "rotationLoadError": "Unable to load the ad rotation interval.",
+      "rotationSaved": "Ad rotation interval updated.",
+      "rotationSaveError": "Unable to update the ad rotation interval.",
       "startsAt": "Starts at",
       "endsAt": "Ends at",
       "active": "Active",
@@ -631,6 +638,8 @@ const translations = {
       "videoAd": "Video ad",
       "loadError": "Unable to load ads.",
       "uploadFailed": "Upload failed. Please try again.",
+      "uploadComplete": "Media uploaded and attached to this ad.",
+      "uploaded": "Uploaded",
       "uploadMedia": "Upload image or video",
       "uploadHelp": "Choose a local image or video file to upload and store it for this ad.",
       "invalidFileType": "Only image and video files are allowed.",
@@ -722,6 +731,7 @@ const translations = {
       "pendingContent": "Pending content",
       "activeStoreItems": "Active store items",
       "purchases": "Purchases",
+      "paymentReadiness": "Payment readiness", "stripe": "Stripe", "paypal": "PayPal", "ready": "Ready", "notReady": "Not ready", "disabled": "Disabled", "paidTransactions": "Paid transactions", "topEvents": "Top events by uploads",
       "qrScans": "QR scans",
       "qrSpaces": "{count} active QR spaces",
       "activityTrend": "Activity trend",
@@ -1789,6 +1799,14 @@ const translations = {
   "uploadSuccess": {
     "message": "Your memory was uploaded successfully.",
     "defaultDestination": "Travel Share"
+  },
+  "souvenir": {
+    "open": "Open event souvenir", "back": "Back to event", "badge": "Event souvenir", "loading": "Loading event souvenir…",
+    "unavailable": "Souvenir unavailable", "unavailableDescription": "This souvenir is private, unavailable, or the event has not ended yet.",
+    "dateUnavailable": "Date unavailable", "defaultDescription": "A collection of approved memories from this event.",
+    "copyLink": "Copy link", "copied": "Link copied", "approvedMemories": "Approved memories", "zones": "Zones",
+    "highlights": "Photo highlights", "gallery": "Memory gallery", "memoryAlt": "Approved event memory", "memoryFallback": "Event memory",
+    "emptyGallery": "No approved memories are available yet.", "zoneSummary": "Map and zone summary", "noZones": "No event zones are available."
   },
   "verifyEmail": {
     "missingToken": "Missing verification token.",

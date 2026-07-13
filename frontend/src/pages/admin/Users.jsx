@@ -78,7 +78,7 @@ export default function AdminUsers() {
                     <tr className="border-b border-borderline hover:bg-white/5">
                       <td className="py-3 pr-4 font-semibold text-white">
                         {editingId === user.id ? (
-                            <input className="input" value={form.name || ''} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
+                            <input id={`admin-user-name-${user.id}`} name={`userName-${user.id}`} aria-label={t("admin.users.table.name", "Name")} className="input" value={form.name || ''} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
                         ) : (
                           user.name
                         )}
@@ -86,7 +86,7 @@ export default function AdminUsers() {
                       <td className="py-3 pr-4 text-slatebody">{user.email}</td>
                       <td className="py-3 pr-4 text-slatebody capitalize">
                           {editingId === user.id ? (
-                            <select className="input" disabled={me?.role !== "platform_admin"} value={form.role || user.role} onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}>
+                            <select id={`admin-user-role-${user.id}`} name={`userRole-${user.id}`} aria-label={t("admin.users.table.role", "Role")} className="input" disabled={me?.role !== "platform_admin"} value={form.role || user.role} onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}>
                               <option value="tourist">{t("admin.users.roleTourist", "tourist")}</option>
                               <option value="organizer">{t("admin.users.roleOrganizer", "organizer")}</option>
                               <option value="admin">{t("admin.users.roleAdmin", "admin")}</option>

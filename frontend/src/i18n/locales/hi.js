@@ -442,6 +442,7 @@ const translations = {
       "pendingContent": "लंबित सामग्री",
       "activeStoreItems": "सक्रिय स्टोर आइटम",
       "purchases": "खरीदारी",
+      "paymentReadiness": "भुगतान तैयारी", "stripe": "Stripe", "paypal": "PayPal", "ready": "तैयार", "notReady": "तैयार नहीं", "disabled": "अक्षम", "paidTransactions": "भुगतान किए गए लेन-देन", "topEvents": "अपलोड के अनुसार शीर्ष इवेंट",
       "qrScans": "QR स्कैन",
       "qrSpaces": "{count} सक्रिय QR स्थान",
       "activityTrend": "गतिविधि रुझान",
@@ -623,6 +624,13 @@ const translations = {
       "placement": "प्लेसमेंट",
       "priority": "प्राथमिकता",
       "displaySeconds": "प्रदर्शन सेकंड",
+      "rotationInterval": "विज्ञापन रोटेशन अंतराल",
+      "rotationIntervalHelp": "अगला उपलब्ध विज्ञापन दिखाने से पहले प्रतीक्षा के मिनट चुनें। सभी विज्ञापन दिखने के बाद रोटेशन फिर शुरू होगा।",
+      "rotationMinutes": "विज्ञापनों के बीच मिनट",
+      "saveRotation": "रोटेशन सहेजें",
+      "rotationLoadError": "विज्ञापन रोटेशन अंतराल लोड नहीं हो सका।",
+      "rotationSaved": "विज्ञापन रोटेशन अंतराल अपडेट किया गया।",
+      "rotationSaveError": "विज्ञापन रोटेशन अंतराल अपडेट नहीं हो सका।",
       "startsAt": "शुरू होता है",
       "endsAt": "समाप्त होता है",
       "active": "सक्रिय",
@@ -645,6 +653,8 @@ const translations = {
       "loadError": "विज्ञापन लोड नहीं किए जा सके।",
       "invalidFileType": "केवल छवि और वीडियो की अनुमति है।",
       "uploadFailed": "अपलोड विफल। कृपया पुनः प्रयास करें।",
+      "uploadComplete": "मीडिया अपलोड करके इस विज्ञापन से जोड़ दिया गया है।",
+      "uploaded": "अपलोड किया गया",
       "uploadMedia": "छवि या वीडियो अपलोड करें",
       "uploadHelp": "इस विज्ञापन के लिए एक स्थानीय छवि या वीडियो फ़ाइल चुनें और अपलोड करें।",
       "chooseFile": "फ़ाइल चुनें",
@@ -1802,6 +1812,14 @@ const translations = {
   "uploadSuccess": {
     "message": "आपकी स्मृति को सफलतापूर्वक अपलोड किया गया था।.",
     "defaultDestination": "Travel Share"
+  },
+  "souvenir": {
+    "open": "इवेंट स्मृति खोलें", "back": "इवेंट पर वापस जाएँ", "badge": "इवेंट स्मृति", "loading": "इवेंट स्मृति लोड हो रही है…",
+    "unavailable": "स्मृति उपलब्ध नहीं", "unavailableDescription": "यह स्मृति निजी, अनुपलब्ध है या इवेंट अभी समाप्त नहीं हुआ है।",
+    "dateUnavailable": "तारीख उपलब्ध नहीं", "defaultDescription": "इस इवेंट की स्वीकृत यादों का संग्रह।",
+    "copyLink": "लिंक कॉपी करें", "copied": "लिंक कॉपी हुआ", "approvedMemories": "स्वीकृत यादें", "zones": "ज़ोन",
+    "highlights": "फोटो हाइलाइट", "gallery": "यादों की गैलरी", "memoryAlt": "स्वीकृत इवेंट स्मृति", "memoryFallback": "इवेंट स्मृति",
+    "emptyGallery": "अभी कोई स्वीकृत स्मृति उपलब्ध नहीं है।", "zoneSummary": "मानचित्र और ज़ोन सारांश", "noZones": "कोई इवेंट ज़ोन उपलब्ध नहीं है।"
   },
   "verifyEmail": {
     "missingToken": "लापता सत्यापन टोकन।.",

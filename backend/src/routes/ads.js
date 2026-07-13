@@ -4,6 +4,12 @@ import { prisma } from "../utils/prisma.js";
 import { adInteractionLimiter } from "../middleware/rateLimits.js";
 
 const router = Router();
+const DEFAULT_ROTATION_MINUTES = 5;
+
+function validRotationMinutes(value) {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed >= 1 && parsed <= 1440 ? parsed : DEFAULT_ROTATION_MINUTES;
+}
 
 const querySchema = z.object({
   placement: z.enum(["global", "tourist", "event", "guest", "map", "upload_success"]).optional()
@@ -29,22 +35,25 @@ router.get("/", async (req, res, next) => {
     if (query.placement) {
       filters.OR = [{ placement: query.placement }, { placement: "global" }];
     }
-    const ads = await prisma.internalAd.findMany({
-      where: filters,
-      orderBy: [{ priority: "desc" }, { updatedAt: "desc" }],
-      take: 10,
-      select: {
-        id: true,
-        title: true,
-        description: true,
-        mediaUrl: true,
-        mediaType: true,
-        linkUrl: true,
-        placement: true,
-        displaySeconds: true
-      }
-    });
-    res.json({ ads });
+    const [ads, rotationSetting] = await Promise.all([
+      prisma.internalAd.findMany({
+        where: filters,
+        orderBy: [{ priority: "desc" }, { updatedAt: "desc" }],
+        take: 10,
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          mediaUrl: true,
+          mediaType: true,
+          linkUrl: true,
+          placement: true,
+          displaySeconds: true
+        }
+      }),
+      prisma.platformSetting.findUnique({ where: { key: "adRotationMinutes" }, select: { value: true } })
+    ]);
+    res.json({ ads, rotationMinutes: validRotationMinutes(rotationSetting?.value) });
   } catch (err) {
     next(err);
   }

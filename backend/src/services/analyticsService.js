@@ -1,4 +1,5 @@
 import { prisma } from "../utils/prisma.js";
+import { getPaymentReadiness } from "../utils/payments.js";
 
 function rangeStart(now, days) {
   const start = new Date(now);
@@ -218,5 +219,27 @@ export async function getAdminAnalytics({ days = 30, db = prisma, now = new Date
       crowdStatus: zone.crowdStatus
     })),
     mapHotspots: mapHotspots.map((item) => ({ locationName: item.locationName, count: item._count.id }))
+  };
+}
+
+export async function getAdminReportingDepth({ days = 30, db = prisma, now = new Date() } = {}) {
+  const from = rangeStart(now, days);
+  const [impressions, clicks, topEvents, paymentStatuses] = await Promise.all([
+    db.adInteraction.count({ where: { type: "impression", createdAt: { gte: from } } }),
+    db.adInteraction.count({ where: { type: "click", createdAt: { gte: from } } }),
+    db.event.findMany({
+      where: { uploads: { some: { createdAt: { gte: from } } } },
+      select: { id: true, title: true, _count: { select: { uploads: { where: { createdAt: { gte: from } } } } } },
+      take: 100
+    }),
+    db.paymentTransaction.groupBy({ by: ["status"], where: { createdAt: { gte: from } }, _count: { id: true } })
+  ]);
+  return {
+    ads: { impressions, clicks, ctr: impressions > 0 ? Number(((clicks / impressions) * 100).toFixed(2)) : 0 },
+    topEvents: topEvents
+      .map((event) => ({ id: event.id, title: event.title, uploads: event._count.uploads }))
+      .sort((left, right) => right.uploads - left.uploads)
+      .slice(0, 10),
+    payments: { statuses: countMap(paymentStatuses, "status"), readiness: getPaymentReadiness() }
   };
 }
