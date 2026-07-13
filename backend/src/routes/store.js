@@ -2,7 +2,7 @@ import { Router } from "express";
 import { prisma } from "../utils/prisma.js";
 import { isPlatformAdmin } from "../middleware/auth.js";
 import { finalizePaidTransaction, updateTransactionPaymentStatus } from "../services/paymentFinalizationService.js";
-import { capturePaypalOrder, createPaypalOrder, createStripeCheckout, getPaymentCurrency, verifyStripeCheckout } from "../utils/payments.js";
+import { capturePaypalOrder, createPaypalOrder, createStripeCheckout, getPaymentCurrency, getPaymentReadiness, verifyStripeCheckout } from "../utils/payments.js";
 import { ensureBasicSkinUnlocks } from "../utils/skins.js";
 
 const router = Router();
@@ -48,6 +48,12 @@ router.post("/:itemId/checkout", async (req, res, next) => {
   if (!req.user) return res.status(401).json({ error: "Please sign up or log in to purchase or download this item." });
   try {
     const provider = ["stripe", "paypal"].includes(req.body?.provider) ? req.body.provider : "stripe";
+    const readiness = getPaymentReadiness();
+    const providerAllowed = readiness.provider === provider || readiness.provider === "both";
+    const providerReady = provider === "stripe" ? readiness.stripeReady : readiness.paypalReady;
+    if (!providerAllowed || !providerReady) {
+      return res.status(503).json({ error: `${provider === "stripe" ? "Stripe" : "PayPal"} payments are not ready.` });
+    }
     const item = await prisma.purchaseItem.findFirst({ where: { id: req.params.itemId, active: true } });
     if (!item) return res.status(404).json({ error: "Store item not found." });
     if (item.priceCents <= 0) return res.status(400).json({ error: "Free items can be unlocked directly." });
@@ -107,6 +113,9 @@ router.post("/payments/:transactionId/confirm", async (req, res, next) => {
     if (!transaction) return res.status(404).json({ error: "Payment transaction not found." });
     if (transaction.status === "paid") return res.json({ status: "paid", item: transaction.item });
     if (!transaction.providerRef) return res.status(400).json({ error: "Payment transaction has no provider reference." });
+    const readiness = getPaymentReadiness();
+    const providerReady = transaction.provider === "paypal" ? readiness.paypalReady : readiness.stripeReady;
+    if (!providerReady) return res.status(503).json({ error: `${transaction.provider === "paypal" ? "PayPal" : "Stripe"} payments are not ready.` });
 
     const result = transaction.provider === "paypal"
       ? await capturePaypalOrder(transaction.providerRef)

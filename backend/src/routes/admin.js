@@ -4,11 +4,11 @@ import multer from "multer";
 import { prisma } from "../utils/prisma.js";
 import { secureToken } from "../utils/tokens.js";
 import { uploadMedia } from "../utils/storage.js";
-import orchestrator from "../services/uploadOrchestrator.js";
 import { cleanEvent, cleanGuestSession, cleanTrip, cleanUpload, cleanUser } from "../utils/exportImport.js";
 import { executeAdminImport, getImportPreview } from "../utils/adminImport.js";
 import { createNotification } from "../services/notifications.js";
-import { getAdminAnalytics } from "../services/analyticsService.js";
+import { getAdminAnalytics, getAdminReportingDepth } from "../services/analyticsService.js";
+import { getPaymentReadiness } from "../utils/payments.js";
 
 const router = Router();
 const maxMb = Number(process.env.MAX_UPLOAD_SIZE_MB || 50);
@@ -570,11 +570,19 @@ router.get("/analytics", async (req, res, next) => {
   }
 
   try {
-    const analytics = await getAdminAnalytics({ days: query.data.days });
+    const [analytics, reporting] = await Promise.all([
+      getAdminAnalytics({ days: query.data.days }),
+      getAdminReportingDepth({ days: query.data.days })
+    ]);
+    analytics.reporting = reporting;
     return res.json({ analytics });
   } catch (error) {
     return next(error);
   }
+});
+
+router.get("/payments/status", (_req, res) => {
+  res.json({ payments: getPaymentReadiness() });
 });
 
 router.get("/settings", async (_req, res) => {
@@ -1036,11 +1044,63 @@ router.patch("/store/:itemId", async (req, res, next) => {
   }
 });
 
+const allowedAdMediaMimeTypes = new Set([
+  "image/jpeg", "image/png", "image/webp", "image/gif",
+  "video/mp4", "video/webm", "video/quicktime"
+]);
+const allowedAdMediaExtensions = new Set(["jpg", "jpeg", "png", "webp", "gif", "mp4", "webm", "mov"]);
+const adRotationSchema = z.object({
+  rotationMinutes: z.coerce.number().int().min(1).max(1440)
+});
+
+function normalizeAdMediaType(value, mimeType = "") {
+  const candidate = String(value || mimeType).toLowerCase();
+  return candidate === "video" || candidate.startsWith("video/") ? "video" : "image";
+}
+
+router.get("/ads/config", async (_req, res, next) => {
+  try {
+    const rotationMinutes = Number(await settingValue("adRotationMinutes", 5));
+    res.json({ rotationMinutes: Number.isInteger(rotationMinutes) && rotationMinutes >= 1 && rotationMinutes <= 1440 ? rotationMinutes : 5 });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.patch("/ads/config", async (req, res, next) => {
+  try {
+    const { rotationMinutes } = adRotationSchema.parse(req.body);
+    await prisma.platformSetting.upsert({
+      where: { key: "adRotationMinutes" },
+      update: { value: String(rotationMinutes) },
+      create: { key: "adRotationMinutes", value: String(rotationMinutes) }
+    });
+    res.json({ rotationMinutes });
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.post("/ads/media", upload.single("file"), async (req, res, next) => {
   try {
     if (!req.file) return res.status(400).json({ error: "An image or video file is required." });
-    const result = await orchestrator.executeUploadPipeline({ file: req.file, body: {}, context: { type: 'admin', entityId: null, params: {} }, idempotencyKey: null, fingerprint: null, sessionToken: null });
-    res.status(201).json({ media: result.media });
+    const extension = req.file.originalname?.split(".").pop()?.toLowerCase() || "";
+    if (!allowedAdMediaMimeTypes.has(req.file.mimetype) || !allowedAdMediaExtensions.has(extension)) {
+      return res.status(400).json({ error: "Only JPG, PNG, WEBP, GIF, MP4, WEBM, and MOV ad media files are allowed." });
+    }
+    const media = await uploadMedia(req.file, { key: `travel-share/ads/${secureToken(18)}.${extension}` });
+    const mediaUrl = media?.fileUrl;
+    const mediaType = normalizeAdMediaType(media?.fileType, req.file.mimetype);
+    if (!mediaUrl) throw Object.assign(new Error("Ad media storage did not return a public URL."), { status: 502, expose: true });
+    const filename = req.file.originalname.replace(/[^a-zA-Z0-9._ -]/g, "_").slice(0, 180);
+    res.status(201).json({
+      url: mediaUrl,
+      mediaUrl,
+      mediaType,
+      filename,
+      mimeType: req.file.mimetype,
+      media: { fileUrl: mediaUrl, fileType: mediaType }
+    });
   } catch (error) {
     next(error);
   }

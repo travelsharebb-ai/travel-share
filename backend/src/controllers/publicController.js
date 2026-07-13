@@ -9,6 +9,7 @@ import * as uploadService from "../services/uploadService.js";
 import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { z } from "zod";
 import { readCookie, setGuestSessionCookie, fingerprintFromRequest, getOrSetUploaderSession, secureToken, hashToken } from "../utils/tokens.js";
 import { get as getPlatformSetting } from "../services/platformService.js";
 import { publicQRSpacePayload, resolveQRUploadSpaceByToken } from "../services/qrSpaceService.js";
@@ -53,6 +54,16 @@ async function qrResponse(type, data, guest, platformCache) {
     type,
     guest: await guestPayload(guest, platformCache),
     data
+  };
+}
+
+function publicTripQrPayload(trip) {
+  return {
+    id: trip.id,
+    title: trip.title,
+    destination: trip.destination,
+    touristFirstName: trip.user?.name?.trim().split(/\s+/)[0] || "Guest host",
+    supportEmail: process.env.SUPPORT_EMAIL || "support@example.com"
   };
 }
 
@@ -144,6 +155,36 @@ export async function publicEvents(req, res, next) {
     });
   } catch (err) {
     next(err);
+  }
+}
+
+export async function publicEventSouvenir(req, res, next) {
+  try {
+    const event = await prisma.event.findFirst({
+      where: {
+        id: req.params.eventId,
+        visibility: { in: ["public", "unlisted"] },
+        status: { in: ["ended", "archived"] }
+      },
+      select: {
+        id: true, title: true, description: true, category: true, location: true,
+        startDate: true, endDate: true, coverImageUrl: true, visibility: true, status: true,
+        latitude: true, longitude: true,
+        uploads: {
+          where: { status: "approved" },
+          orderBy: { createdAt: "desc" },
+          select: { id: true, caption: true, fileUrl: true, fileType: true, createdAt: true, zoneId: true }
+        },
+        zones: {
+          orderBy: { displayOrder: "asc" },
+          select: { id: true, name: true, type: true, description: true, latitude: true, longitude: true }
+        }
+      }
+    });
+    if (!event) return res.status(404).json({ error: "Event souvenir not found." });
+    return res.json({ event });
+  } catch (error) {
+    return next(error);
   }
 }
 
@@ -339,6 +380,89 @@ export async function storePreview(req, res, next) {
   }
 }
 
+export async function shareUnlock(req, res, next) {
+  try {
+    const { pin } = z.object({
+      pin: z.string().optional().nullable()
+    }).parse(req.body || {});
+
+    const link = await prisma.shareLink.findUnique({
+      where: { token: req.params.token },
+      select: {
+        active: true,
+        pinHash: true,
+        trip: {
+          select: {
+            title: true,
+            destination: true,
+            user: { select: { name: true } },
+            uploads: {
+              where: { status: "approved" },
+              orderBy: { approvedAt: "desc" },
+              select: {
+                id: true,
+                fileUrl: true,
+                fileType: true,
+                approvedAt: true
+              }
+            }
+          }
+        },
+        event: {
+          select: {
+            title: true,
+            location: true,
+            uploads: {
+              where: { status: "approved" },
+              orderBy: { approvedAt: "desc" },
+              select: {
+                id: true,
+                fileUrl: true,
+                fileType: true,
+                approvedAt: true
+              }
+            }
+          }
+        }
+      }
+    });
+
+    if (!link || !link.active) {
+      return res.status(404).json({ error: "Shared album not found." });
+    }
+
+    if (link.pinHash) {
+      const valid = typeof pin === "string" && await bcrypt.compare(pin, link.pinHash);
+      if (!valid) return res.status(401).json({ error: "PIN required." });
+    }
+
+    if (link.trip) {
+      return res.json({
+        trip: {
+          title: link.trip.title,
+          destination: link.trip.destination,
+          touristName: link.trip.user?.name || "Guest host",
+          uploads: link.trip.uploads
+        }
+      });
+    }
+
+    if (link.event) {
+      return res.json({
+        event: {
+          title: link.event.title,
+          location: link.event.location,
+          uploads: link.event.uploads
+        }
+      });
+    }
+
+    return res.status(404).json({ error: "Shared album not found." });
+  } catch (error) {
+    next(error);
+  }
+}
+
 /**
  * =========================
  * 🔥 CLEAN QR SYSTEM (FIXED)
@@ -352,7 +476,7 @@ export async function qrGet(req, res, next) {
     // 1. TRIP
     const trip = await prisma.trip.findUnique({
       where: { qrToken: token },
-      include: { user: true }
+      include: { user: { select: { name: true } } }
     });
 
     if (trip) {
@@ -366,18 +490,14 @@ export async function qrGet(req, res, next) {
 
       if (guest) setGuestSessionCookie(res, guest.token);
 
-      return res.json(
-        await qrResponse(
-          "trip",
-          {
-            id: trip.id,
-            title: trip.title,
-            destination: trip.destination
-          },
-          guest,
-          req.platformCache
-        )
-      );
+      const publicTrip = publicTripQrPayload(trip);
+      const response = await qrResponse("trip", publicTrip, guest, req.platformCache);
+
+      return res.json({
+        ...response,
+        // Backward-compatible contract used by the original public QR upload flow.
+        trip: publicTrip
+      });
     }
 
     // 2. EVENT

@@ -59,8 +59,8 @@ export default function AdSlot({ placement = "global", variant = "inline", onClo
     }
   };
 
-  const media = ad.mediaType === "video" ? (
-    <video className="w-full rounded-3xl" src={ad.mediaUrl} controls muted />
+  const media = !ad.mediaUrl ? null : ad.mediaType === "video" ? (
+    <video className="w-full rounded-3xl" src={ad.mediaUrl} autoPlay={variant === "banner"} controls muted playsInline loop preload="metadata" />
   ) : (
     <img className="w-full rounded-3xl object-cover" src={ad.mediaUrl} alt={ad.title || t("admin.ads.sponsored", "Sponsored")} />
   );
@@ -73,7 +73,7 @@ export default function AdSlot({ placement = "global", variant = "inline", onClo
           <div className="text-sm uppercase tracking-[0.32em] text-primary">{t("admin.ads.sponsored", "Sponsored")}</div>
           <div className="mt-3 text-2xl font-black text-white">{ad.title}</div>
           {ad.description ? <p className="mt-2 text-sm text-slatebody">{ad.description}</p> : null}
-          <div className="mt-4 cursor-pointer" onClick={handleClick}>{media}</div>
+          {media ? <div className="mt-4 cursor-pointer" onClick={handleClick}>{media}</div> : null}
           {ad.linkUrl ? <button className="btn-primary mt-4 w-full" onClick={handleClick}>{t("admin.ads.openAd", "Open ad")}</button> : null}
         </div>
       </div>
@@ -82,6 +82,7 @@ export default function AdSlot({ placement = "global", variant = "inline", onClo
 
   return (
     <div className={variant === "banner" ? "fixed bottom-4 left-4 right-4 z-40 rounded-3xl border border-white/10 bg-slate-950/95 p-4 shadow-2xl" : "rounded-3xl border border-white/10 bg-slate-950 p-4"}>
+      {media ? <div className="mb-4 overflow-hidden rounded-3xl bg-slate-900">{media}</div> : null}
       <div className="flex items-start gap-4">
         <div className="min-w-0 flex-1">
           <div className="text-sm uppercase tracking-[0.32em] text-primary">{t("admin.ads.sponsored", "Sponsored")}</div>

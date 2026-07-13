@@ -428,6 +428,7 @@ const translations = {
       "pendingContent": "待处理内容",
       "activeStoreItems": "在售商店项目",
       "purchases": "购买记录",
+      "paymentReadiness": "支付就绪状态", "stripe": "Stripe", "paypal": "PayPal", "ready": "已就绪", "notReady": "未就绪", "disabled": "已禁用", "paidTransactions": "已支付交易", "topEvents": "上传量最高的活动",
       "qrScans": "QR 扫描",
       "qrSpaces": "{count} 个活跃 QR 空间",
       "activityTrend": "活动趋势",
@@ -609,6 +610,13 @@ const translations = {
       "placement": "投放位置",
       "priority": "优先级",
       "displaySeconds": "展示秒数",
+      "rotationInterval": "广告轮播间隔",
+      "rotationIntervalHelp": "选择显示下一个可用广告前等待的分钟数。所有广告显示后将重新开始轮播。",
+      "rotationMinutes": "广告之间的分钟数",
+      "saveRotation": "保存轮播设置",
+      "rotationLoadError": "无法加载广告轮播间隔。",
+      "rotationSaved": "广告轮播间隔已更新。",
+      "rotationSaveError": "无法更新广告轮播间隔。",
       "startsAt": "开始时间",
       "endsAt": "结束时间",
       "active": "活动",
@@ -631,6 +639,8 @@ const translations = {
       "loadError": "无法加载广告。",
       "invalidFileType": "仅允许图像和视频。",
       "uploadFailed": "上传失败。请重试。",
+      "uploadComplete": "媒体已上传并附加到此广告。",
+      "uploaded": "已上传",
       "uploadMedia": "上传图片或视频",
       "uploadHelp": "选择本地图片或视频文件上传并为此广告存储。",
       "chooseFile": "选择文件",
@@ -1788,6 +1798,14 @@ const translations = {
   "uploadSuccess": {
     "message": "您的内存已成功上传 .",
     "defaultDestination": "津巴布韦"
+  },
+  "souvenir": {
+    "open": "打开活动纪念页", "back": "返回活动", "badge": "活动纪念", "loading": "正在加载活动纪念页…",
+    "unavailable": "纪念页不可用", "unavailableDescription": "此纪念页为私密、不可用或活动尚未结束。",
+    "dateUnavailable": "日期不可用", "defaultDescription": "此活动已审核通过的回忆合集。",
+    "copyLink": "复制链接", "copied": "链接已复制", "approvedMemories": "已审核回忆", "zones": "区域",
+    "highlights": "照片精选", "gallery": "回忆相册", "memoryAlt": "已审核的活动回忆", "memoryFallback": "活动回忆",
+    "emptyGallery": "暂无已审核通过的回忆。", "zoneSummary": "地图与区域摘要", "noZones": "暂无活动区域。"
   },
   "verifyEmail": {
     "missingToken": "缺少验证符 .",

@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { QrCode, Users, MapPin, ShieldCheck } from "lucide-react";
 import AppTopbar from "../components/AppTopbar";
 import { currentUser } from "../lib/api";
+import { APP_NAME } from "../lib/appConfig.js";
 
 export default function Landing() {
   const { t } = useLanguage();
@@ -17,7 +18,7 @@ export default function Landing() {
         <section className="hero-copy-panel min-w-0 space-y-6">
           <p className="inline-flex rounded-full border border-primary/30 bg-primary/10 px-4 py-2 text-sm font-bold text-primary">{t("hardcoded.qrPoweredTravelAndEventMemories")}</p>
           <h1 className="max-w-3xl break-words font-serif text-5xl font-black leading-tight sm:text-6xl">
-            TravelShare
+            {APP_NAME}
           </h1>
           <p className="max-w-2xl text-lg leading-8 text-slatebody">{t("hardcoded.collectMemoriesFromTouristsGuestsAndEventCrowds")}</p>
           <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">

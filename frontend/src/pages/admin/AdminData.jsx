@@ -110,7 +110,7 @@ export default function AdminData() {
         <p className="mt-2 text-sm text-slatebody">{t("admin.data.importHelp", "Upload a JSON export to validate (dry-run) or to request an import. Full restores should use DB backups where possible.")}</p>
         <div className="mt-4 grid gap-3 sm:grid-cols-3">
           <label className="inline-flex items-center gap-2">
-            <input type="file" accept="application/json" onChange={handleImportFile} />
+            <input id="admin-data-import-file" name="importFile" type="file" accept="application/json" onChange={handleImportFile} />
             <span className="text-sm text-slatebody">{importFileName || t("admin.data.chooseFile", "Choose import JSON file")}</span>
           </label>
           <button className="btn-ghost" onClick={runDryRun} disabled={!importPreview || running}>{t("admin.data.runDryRun", "Run dry-run")}</button>

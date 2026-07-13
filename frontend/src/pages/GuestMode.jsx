@@ -274,7 +274,7 @@ export default function GuestMode() {
             <div className="mt-4 rounded-3xl border border-borderline bg-slate-950/5 p-4">
               <p className="text-sm text-slatebody">{t("hardcoded.guestAccessLink")}</p>
               <div className="mt-2 flex flex-col gap-3 sm:flex-row">
-                <input className="field guest-link-field flex-1" readOnly value={resumeLink} />
+                <input id="guest-mode-resume-link" name="guestResumeLink" aria-label={t("hardcoded.guestAccessLink")} className="field guest-link-field flex-1" readOnly value={resumeLink} />
                 <button type="button" className="btn-ghost" onClick={copyResumeLink}>{t("hardcoded.copyAccessLink")}</button>
               </div>
               {copiedResumeLink && <p className="mt-2 text-sm text-green-400">{t("hardcoded.guestAccessLinkCopied")}</p>}

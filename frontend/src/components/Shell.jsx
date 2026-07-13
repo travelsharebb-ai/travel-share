@@ -5,6 +5,7 @@ import { LANGUAGES, useLanguage } from "../lib/i18n";
 import { getTheme, setTheme } from "../lib/theme.js";
 import ThemeToggleButton from "./ThemeToggleButton";
 import { useState, useRef, useEffect } from "react";
+import { APP_NAME } from "../lib/appConfig.js";
 const SIDEBAR_KEY = "travelShareSidebarCollapsed";
 
 function translatedRole(role, t) {
@@ -254,7 +255,7 @@ export default function Shell({ children }) {
                 <div className="flex items-center gap-3">
                   <Link to="/dashboard" className="flex min-w-0 items-center gap-2 font-serif text-xl font-black text-primary">
                     <Compass size={22} />
-                    <span className="truncate">TravelShare</span>
+                    <span className="truncate">{APP_NAME}</span>
                   </Link>
                 </div>
                 <div className="flex items-center gap-3">
@@ -413,7 +414,7 @@ export default function Shell({ children }) {
               <div className="flex items-center justify-between gap-2 px-3 py-3">
                 <Link to="/dashboard" className="flex min-w-0 items-center gap-1.5 font-serif text-lg font-black text-primary">
                   <Compass size={22} />
-                  <span className="truncate">TravelShare</span>
+                  <span className="truncate">{APP_NAME}</span>
                 </Link>
                 <div className="flex shrink-0 items-center gap-1">
                   <div className="relative">
@@ -504,7 +505,7 @@ export default function Shell({ children }) {
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
                       <Compass size={20} />
-                      <span className="font-serif text-lg font-black">TravelShare</span>
+                      <span className="font-serif text-lg font-black">{APP_NAME}</span>
                     </div>
                     <button className="btn-ghost" onClick={() => setDrawerOpen(false)} aria-label={t('shell.closeMenu', 'Close menu')}><X size={18} /></button>
                   </div>
@@ -545,7 +546,7 @@ export default function Shell({ children }) {
                 )}
                 <Link to="/" className="flex min-w-0 items-center gap-2 font-serif text-xl font-black text-primary">
                   <Camera size={22} />
-                  <span className="truncate">TravelShare</span>
+                  <span className="truncate">{APP_NAME}</span>
                 </Link>
               </div>
                 <div className="flex items-center gap-2">

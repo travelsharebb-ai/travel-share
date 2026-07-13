@@ -234,7 +234,7 @@ export default function Settings() {
                     <p className="text-sm">{t("hardcoded.saveThisAccessLinkToResumeTheGuest")}</p>
                     <div className="mt-3 flex items-center gap-3">
                       {guestAccessLink ? (
-                        <input className="field guest-link-field flex-1" readOnly value={guestAccessLink} />
+                        <input id="settings-guest-access-link" name="guestAccessLink" aria-label={t("hardcoded.guestAccessLink")} className="field guest-link-field flex-1" readOnly value={guestAccessLink} />
                       ) : (
                         <p className="text-slatebody">{t("hardcoded.guestAccessLinkIsNotAvailableForThis")}</p>
                       )}
@@ -265,8 +265,10 @@ export default function Settings() {
           </div>
           <div className="space-y-4 text-slatebody">
             <div>
-              <label className="text-sm uppercase tracking-[0.28em] text-slatebody/70">{t('settingsPage.name', 'Name')}</label>
+              <label htmlFor="settings-profile-name" className="text-sm uppercase tracking-[0.28em] text-slatebody/70">{t('settingsPage.name', 'Name')}</label>
               <input
+                id="settings-profile-name"
+                name="name"
                 className="field w-full mt-2"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -280,9 +282,9 @@ export default function Settings() {
               </div>
             </div>
             <div>
-              <label className="text-sm uppercase tracking-[0.28em] text-slatebody/70">{t('settingsPage.changeEmail', 'Change email')}</label>
+              <label htmlFor="settings-new-email" className="text-sm uppercase tracking-[0.28em] text-slatebody/70">{t('settingsPage.changeEmail', 'Change email')}</label>
               <div className="flex gap-2 mt-2">
-                <input className="field flex-1" placeholder={t('settingsPage.newEmailPlaceholder', 'new@example.com')} value={newEmail} onChange={(e) => setNewEmail(e.target.value)} />
+                <input id="settings-new-email" name="newEmail" className="field flex-1" placeholder={t('settingsPage.newEmailPlaceholder', 'new@example.com')} value={newEmail} onChange={(e) => setNewEmail(e.target.value)} />
                     <button className="btn-primary" type="button" onClick={requestEmailChange} disabled={loading}>{t('settingsPage.requestEmailChange', 'Request email change')}</button>
               </div>
               {pendingEmail && (
@@ -319,8 +321,8 @@ export default function Settings() {
             <p className="text-sm uppercase tracking-[0.32em] text-primary">{t('settingsPage.notifications', 'Notifications')}</p>
             <h2 className="mt-2 text-2xl font-black font-serif">{t('settingsPage.stayInLoop', 'Stay in the loop')}</h2>
           </div>
-          <Toggle label={t('settingsPage.emailNotifications', 'Email notifications')} checked={settings.emailNotifications} onChange={(v) => update("emailNotifications", v)} />
-          <Toggle label={t('settingsPage.uploadAlerts', 'Upload alerts')} checked={settings.uploadAlerts} onChange={(v) => update("uploadAlerts", v)} />
+          <Toggle name="emailNotifications" label={t('settingsPage.emailNotifications', 'Email notifications')} checked={settings.emailNotifications} onChange={(v) => update("emailNotifications", v)} />
+          <Toggle name="uploadAlerts" label={t('settingsPage.uploadAlerts', 'Upload alerts')} checked={settings.uploadAlerts} onChange={(v) => update("uploadAlerts", v)} />
         </div>
 
         <div className="card p-5 bg-slate-950/90 border border-white/10 space-y-5">
@@ -329,8 +331,10 @@ export default function Settings() {
             <h2 className="mt-2 text-2xl font-black font-serif">{t('settingsPage.controlFootprint', 'Control your footprint')}</h2>
           </div>
           <div className="space-y-4">
-            <label className="block text-sm uppercase tracking-[0.28em] text-slatebody/70">{t('settingsPage.defaultLocationPrivacy', 'Default location privacy')}</label>
+            <label htmlFor="settings-location-privacy" className="block text-sm uppercase tracking-[0.28em] text-slatebody/70">{t('settingsPage.defaultLocationPrivacy', 'Default location privacy')}</label>
             <select
+              id="settings-location-privacy"
+              name="locationPrivacy"
               value={settings.locationPrivacy}
               onChange={(e) => update("locationPrivacy", e.target.value)}
               className="field w-full"
@@ -341,8 +345,10 @@ export default function Settings() {
             </select>
           </div>
             <div className="space-y-4">
-              <label className="block text-sm uppercase tracking-[0.28em] text-slatebody/70">{t('settings.themeMode', 'Theme mode')}</label>
+              <label htmlFor="settings-theme-mode" className="block text-sm uppercase tracking-[0.28em] text-slatebody/70">{t('settings.themeMode', 'Theme mode')}</label>
               <select
+                id="settings-theme-mode"
+                name="themeMode"
                 value={settings.themeMode}
                 onChange={(e) => update("themeMode", e.target.value)}
                 className="field w-full"
@@ -362,11 +368,12 @@ export default function Settings() {
   );
 }
 
-function Toggle({ label, checked, onChange }) {
+function Toggle({ name, label, checked, onChange }) {
+  const id = `settings-${name}`;
   return (
-    <label style={styles.toggle}>
+    <label htmlFor={id} style={styles.toggle}>
       <span>{label}</span>
-      <input className="form-checkbox" type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      <input id={id} name={name} className="form-checkbox" type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
     </label>
   );
 }

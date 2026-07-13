@@ -128,7 +128,7 @@ export async function upload(file, options = {}) {
       return await uploadToLocalDisk(file, options);
     }
 
-    if (provider === "s3") {
+    if (provider === "s3" || provider === "r2") {
       return await uploadToS3(file, options);
     }
 
@@ -170,7 +170,7 @@ export async function deleteMedia(filePublicId) {
       return false;
     }
 
-    if (provider === 's3') {
+    if (provider === 's3' || provider === 'r2') {
       const client = new S3Client({
         region: process.env.S3_REGION,
         endpoint: process.env.S3_ENDPOINT || undefined,

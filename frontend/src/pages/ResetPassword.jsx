@@ -23,8 +23,10 @@ export default function ResetPassword() {
         </div>
 
         <div className="space-y-3">
-          <label className="block text-sm uppercase tracking-[0.28em] text-slatebody/70">{t("hardcoded.newPassword")}</label>
+          <label htmlFor="reset-password-new" className="block text-sm uppercase tracking-[0.28em] text-slatebody/70">{t("hardcoded.newPassword")}</label>
           <input
+            id="reset-password-new"
+            name="password"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -33,8 +35,10 @@ export default function ResetPassword() {
         </div>
 
         <div className="space-y-3">
-          <label className="block text-sm uppercase tracking-[0.28em] text-slatebody/70">{t("hardcoded.confirmPassword")}</label>
+          <label htmlFor="reset-password-confirm" className="block text-sm uppercase tracking-[0.28em] text-slatebody/70">{t("hardcoded.confirmPassword")}</label>
           <input
+            id="reset-password-confirm"
+            name="confirmPassword"
             type="password"
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}

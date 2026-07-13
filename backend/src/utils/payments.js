@@ -8,6 +8,26 @@ function checkoutReturnPath(result, transaction) {
   return `/store?${params.toString()}`;
 }
 
+export function getPaymentReadiness(env = process.env) {
+  const provider = String(env.PAYMENT_PROVIDER || "disabled").toLowerCase();
+  const stripeConfigured = Boolean(env.STRIPE_SECRET_KEY);
+  const stripeWebhookConfigured = Boolean(env.STRIPE_WEBHOOK_SECRET);
+  const paypalConfigured = Boolean(env.PAYPAL_CLIENT_ID && env.PAYPAL_CLIENT_SECRET);
+  // PayPal stays launch-disabled until verified webhook handling is implemented.
+  const paypalWebhookConfigured = false;
+  const paypalEnabled = env.PAYPAL_ENABLED === "true";
+  const stripeReady = stripeConfigured && stripeWebhookConfigured;
+  const paypalReady = paypalEnabled && paypalConfigured && paypalWebhookConfigured;
+  const paymentsReady = provider === "stripe"
+    ? stripeReady
+    : provider === "paypal"
+      ? paypalReady
+      : provider === "both"
+        ? stripeReady && paypalReady
+        : false;
+  return { provider, stripeConfigured, stripeWebhookConfigured, stripeReady, paypalConfigured, paypalWebhookConfigured, paypalEnabled, paypalReady, paymentsReady };
+}
+
 export function getPaymentCurrency() {
   return String(process.env.STRIPE_CURRENCY || "usd").toLowerCase();
 }

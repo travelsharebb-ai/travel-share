@@ -104,6 +104,9 @@ export default function EventDetails() {
                   <Link className="btn-primary" to={`/qr-spaces/new?targetType=event&targetId=${encodeURIComponent(event.id)}`}>
                     {t("qrSpaces.createForEvent")}
                   </Link>
+                  {["ended", "archived"].includes(event.status) ? (
+                    <Link className="btn-ghost" to={`/events/${event.id}/souvenir`}>{t("souvenir.open")}</Link>
+                  ) : null}
                   <p className="text-sm text-slatebody">{t("qrSpaces.createForEventHelp")}</p>
                 </div>
               </div>

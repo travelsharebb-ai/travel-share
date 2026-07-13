@@ -25,6 +25,7 @@ jobs:
 
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/travel_share
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/travel_share_test
       JWT_SECRET: test-secret
       FINGERPRINT_SECRET: test-secret
       CI_QR_TOKEN: test-ci-token
@@ -56,8 +57,18 @@ jobs:
         run: npx prisma migrate deploy
         working-directory: backend
 
+      - name: Create and migrate isolated HTTP test database
+        run: |
+          PGPASSWORD=postgres createdb --host=localhost --username=postgres travel_share_test
+          DATABASE_URL="$TEST_DATABASE_URL" npx prisma migrate deploy
+        working-directory: backend
+
       - name: Seed database (CI bootstrap)
         run: npx prisma db seed
+        working-directory: backend
+
+      - name: Complete backend unit and HTTP test suite
+        run: npm run test:backend:ci
         working-directory: backend
 
       - name: Start backend server

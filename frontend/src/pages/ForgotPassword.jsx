@@ -29,6 +29,9 @@ export default function ForgotPassword() {
           <h1 className="font-serif text-3xl font-black">{t("hardcoded.resetYourPassword")}</h1>
           
           <input 
+            id="forgot-password-email"
+            name="email"
+            aria-label={t("settingsPage.email")}
             className="field" 
             type="email" 
             placeholder={t("settingsPage.email")} 

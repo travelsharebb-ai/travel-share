@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Sun, Moon } from "lucide-react";
 import { getTheme, setTheme } from "../lib/theme";
 import { useLanguage } from "../lib/i18n";
+import { APP_NAME } from "../lib/appConfig.js";
 
 export default function PublicTopbar({ showBack }) {
   const { t, language, setLanguage } = useLanguage();
@@ -42,12 +43,12 @@ export default function PublicTopbar({ showBack }) {
                 <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.5" />
               </svg>
             </div>
-            <span className={`font-bold text-lg ${theme === "dark" ? "text-white" : "text-navy-900"}`}>TravelShare</span>
+            <span className={`font-bold text-lg ${theme === "dark" ? "text-white" : "text-navy-900"}`}>{APP_NAME}</span>
           </Link>
         </div>
 
         <div className="flex items-center gap-3">
-          <select aria-label={t("shell.changeLanguage", "Change language")} value={language} onChange={onChangeLanguage} className="field h-9">
+          <select id="public-topbar-language" name="language" aria-label={t("shell.changeLanguage", "Change language")} value={language} onChange={onChangeLanguage} className="field h-9">
             <option value="en">EN</option>
             <option value="es">ES</option>
             <option value="fr">FR</option>

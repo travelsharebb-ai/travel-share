@@ -4,6 +4,7 @@ import { Globe2, ArrowLeft, Camera } from "lucide-react";
 import { LANGUAGES, useLanguage } from "../lib/i18n";
 import { getTheme, setTheme } from "../lib/theme";
 import ThemeToggleButton from "./ThemeToggleButton";
+import { APP_NAME } from "../lib/appConfig.js";
 
 export default function AppTopbar({ variant = "public" }) {
   const { t, language, setLanguage } = useLanguage();
@@ -37,7 +38,7 @@ export default function AppTopbar({ variant = "public" }) {
           )}
           <Link to={variant === 'public' ? '/' : '/dashboard'} className="flex min-w-0 items-center gap-2 font-serif text-xl font-black text-primary">
             <Camera size={22} />
-            <span className="truncate">TravelShare</span>
+            <span className="truncate">{APP_NAME}</span>
           </Link>
         </div>
 

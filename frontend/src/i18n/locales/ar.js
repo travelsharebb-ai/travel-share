@@ -428,6 +428,7 @@ const translations = {
       "pendingContent": "المحتوى المعلّق",
       "activeStoreItems": "عناصر المتجر النشطة",
       "purchases": "المشتريات",
+      "paymentReadiness": "جاهزية الدفع", "stripe": "Stripe", "paypal": "PayPal", "ready": "جاهز", "notReady": "غير جاهز", "disabled": "معطّل", "paidTransactions": "المعاملات المدفوعة", "topEvents": "أبرز الفعاليات حسب التحميلات",
       "qrScans": "عمليات مسح QR",
       "qrSpaces": "{count} مساحات QR نشطة",
       "activityTrend": "اتجاه النشاط",
@@ -609,6 +610,13 @@ const translations = {
       "placement": "الموقع",
       "priority": "الأولوية",
       "displaySeconds": "ثوانٍ العرض",
+      "rotationInterval": "الفاصل الزمني لتناوب الإعلانات",
+      "rotationIntervalHelp": "اختر عدد الدقائق قبل عرض الإعلان المتاح التالي. يبدأ التناوب من جديد بعد عرض جميع الإعلانات.",
+      "rotationMinutes": "الدقائق بين الإعلانات",
+      "saveRotation": "حفظ التناوب",
+      "rotationLoadError": "تعذر تحميل الفاصل الزمني لتناوب الإعلانات.",
+      "rotationSaved": "تم تحديث الفاصل الزمني لتناوب الإعلانات.",
+      "rotationSaveError": "تعذر تحديث الفاصل الزمني لتناوب الإعلانات.",
       "startsAt": "يبدأ في",
       "endsAt": "ينتهي في",
       "active": "نشط",
@@ -631,6 +639,8 @@ const translations = {
       "loadError": "تعذر تحميل الإعلانات.",
       "invalidFileType": "يسمح فقط بالصور ومقاطع الفيديو.",
       "uploadFailed": "فشل التحميل. يرجى المحاولة مرة أخرى.",
+      "uploadComplete": "تم تحميل الوسائط وإرفاقها بهذا الإعلان.",
+      "uploaded": "تم التحميل",
       "uploadMedia": "تحميل صورة أو فيديو",
       "uploadHelp": "اختر ملف صورة أو فيديو محليًا للتحميل وتخزينه لهذا الإعلان.",
       "chooseFile": "اختر ملف",
@@ -1788,6 +1798,14 @@ const translations = {
   "uploadSuccess": {
     "message": "تم تحميل ذاكرتك بنجاح.",
     "defaultDestination": "Travel Share"
+  },
+  "souvenir": {
+    "open": "فتح تذكار الفعالية", "back": "العودة إلى الفعالية", "badge": "تذكار الفعالية", "loading": "جارٍ تحميل تذكار الفعالية…",
+    "unavailable": "التذكار غير متاح", "unavailableDescription": "هذا التذكار خاص أو غير متاح أو أن الفعالية لم تنتهِ بعد.",
+    "dateUnavailable": "التاريخ غير متاح", "defaultDescription": "مجموعة من الذكريات المعتمدة من هذه الفعالية.",
+    "copyLink": "نسخ الرابط", "copied": "تم نسخ الرابط", "approvedMemories": "الذكريات المعتمدة", "zones": "المناطق",
+    "highlights": "أبرز الصور", "gallery": "معرض الذكريات", "memoryAlt": "ذكرى فعالية معتمدة", "memoryFallback": "ذكرى الفعالية",
+    "emptyGallery": "لا توجد ذكريات معتمدة بعد.", "zoneSummary": "ملخص الخريطة والمناطق", "noZones": "لا توجد مناطق للفعالية."
   },
   "verifyEmail": {
     "missingToken": "رمز التحقق مفقود.",

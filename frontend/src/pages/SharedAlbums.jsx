@@ -74,7 +74,7 @@ export default function SharedAlbums() {
         <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-end">
           <label className="grid gap-2">
             <span className="form-label">{t("sharedAlbums.selectTrip", "Select trip")}</span>
-            <select className="field" value={selectedTripId} onChange={(event) => setSelectedTripId(event.target.value)}>
+            <select id="shared-albums-trip" name="tripId" className="field" value={selectedTripId} onChange={(event) => setSelectedTripId(event.target.value)}>
               {trips.length === 0 ? <option value="">{t("trips.emptyTitle", "No trips yet.")}</option> : null}
               {trips.map((trip) => (
                 <option key={trip.id} value={trip.id}>{trip.title || t("trips.untitled", "Untitled trip")}</option>

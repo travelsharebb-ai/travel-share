@@ -621,6 +621,13 @@ const translations = {
       "placement": "Posizione",
       "priority": "Priorità",
       "displaySeconds": "Secondi di visualizzazione",
+      "rotationInterval": "Intervallo di rotazione degli annunci",
+      "rotationIntervalHelp": "Scegli quanti minuti attendere prima di mostrare il prossimo annuncio disponibile. La rotazione ricomincia dopo che tutti gli annunci sono stati mostrati.",
+      "rotationMinutes": "Minuti tra gli annunci",
+      "saveRotation": "Salva rotazione",
+      "rotationLoadError": "Impossibile caricare l’intervallo di rotazione degli annunci.",
+      "rotationSaved": "Intervallo di rotazione degli annunci aggiornato.",
+      "rotationSaveError": "Impossibile aggiornare l’intervallo di rotazione degli annunci.",
       "startsAt": "Inizia il",
       "endsAt": "Termina il",
       "active": "Attivo",
@@ -643,6 +650,8 @@ const translations = {
       "loadError": "Impossibile caricare gli annunci.",
       "invalidFileType": "Sono consentiti solo immagini e video.",
       "uploadFailed": "Upload non riuscito. Riprova.",
+      "uploadComplete": "Il file multimediale è stato caricato e allegato a questo annuncio.",
+      "uploaded": "Caricato",
       "uploadMedia": "Carica immagine o video",
       "uploadHelp": "Scegli un file immagine o video locale da caricare e archiviare per questo annuncio.",
       "chooseFile": "Scegli file",
@@ -826,6 +835,7 @@ const translations = {
       "pendingContent": "Contenuti in attesa",
       "activeStoreItems": "Articoli attivi del negozio",
       "purchases": "Acquisti",
+      "paymentReadiness": "Stato dei pagamenti", "stripe": "Stripe", "paypal": "PayPal", "ready": "Pronto", "notReady": "Non pronto", "disabled": "Disattivato", "paidTransactions": "Transazioni pagate", "topEvents": "Eventi principali per caricamenti",
       "qrScans": "Scansioni QR",
       "qrSpaces": "{count} spazi QR attivi",
       "activityTrend": "Andamento attività",
@@ -1854,6 +1864,14 @@ const translations = {
   "uploadSuccess": {
     "message": "La tua memoria è stata caricata con successo.",
     "defaultDestination": "Travel Share"
+  },
+  "souvenir": {
+    "open": "Apri ricordo dell’evento", "back": "Torna all’evento", "badge": "Ricordo dell’evento", "loading": "Caricamento del ricordo…",
+    "unavailable": "Ricordo non disponibile", "unavailableDescription": "Questo ricordo è privato, non disponibile o l’evento non è ancora terminato.",
+    "dateUnavailable": "Data non disponibile", "defaultDescription": "Una raccolta di ricordi approvati di questo evento.",
+    "copyLink": "Copia link", "copied": "Link copiato", "approvedMemories": "Ricordi approvati", "zones": "Zone",
+    "highlights": "Foto in evidenza", "gallery": "Galleria dei ricordi", "memoryAlt": "Ricordo approvato dell’evento", "memoryFallback": "Ricordo dell’evento",
+    "emptyGallery": "Non ci sono ancora ricordi approvati.", "zoneSummary": "Riepilogo mappa e zone", "noZones": "Nessuna zona dell’evento disponibile."
   },
   "verifyEmail": {
     "missingToken": "Token di verifica mancante.",

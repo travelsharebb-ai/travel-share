@@ -14,15 +14,19 @@
     "start": "npm run start --workspace backend",
     "test:e2e": "npm run test:e2e --workspace backend",
     "prisma:migrate": "npm run prisma:migrate --workspace backend",
-    "prisma:deploy": "npm run prisma:deploy --workspace backend"
-  }
-  ,
+    "prisma:deploy": "npm run prisma:deploy --workspace backend",
+    "test:backend:ci": "npm run test:backend:ci --workspace backend",
+    "env:validate:production": "npm run env:validate:production --workspace backend",
+    "guest:cleanup": "npm run guest:cleanup --workspace backend",
+    "skins:import": "npm run skins:import --workspace backend",
+    "skins:verify": "npm run skins:verify --workspace backend",
+    "smoke:staging": "node scripts/staging-smoke.mjs"
+  },
   "postinstall": "npm rebuild sharp --workspace backend --update-binary || npm install --workspace backend --platform=linux --arch=x64 sharp || true",
   "overrides": {
      "form-data": "4.0.6",
     "multer": "2.2.0"
-  }
-  ,
+  },
   "engines": {
     "node": ">=24 <25"
   }

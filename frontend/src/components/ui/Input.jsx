@@ -1,4 +1,8 @@
+import { useId } from "react";
+
 export default function Input({
+  id,
+  name,
   label,
   type = "text",
   value,
@@ -6,12 +10,18 @@ export default function Input({
   placeholder,
   textarea = false
 }) {
+  const generatedId = useId().replace(/:/g, "");
+  const fieldId = id || `field-${generatedId}`;
+  const fieldName = name || id || `field-${generatedId}`;
+
   return (
-    <label style={styles.wrap}>
+    <label htmlFor={fieldId} style={styles.wrap}>
       <span style={styles.label}>{label}</span>
 
       {textarea ? (
         <textarea
+          id={fieldId}
+          name={fieldName}
           value={value}
           onChange={onChange}
           placeholder={placeholder}
@@ -19,6 +29,8 @@ export default function Input({
         />
       ) : (
         <input
+          id={fieldId}
+          name={fieldName}
           type={type}
           value={value}
           onChange={onChange}

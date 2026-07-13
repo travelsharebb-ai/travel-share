@@ -934,6 +934,13 @@ const translations = {
       "placement": "Ubicación",
       "priority": "Prioridad",
       "displaySeconds": "Segundos de visualización",
+      "rotationInterval": "Intervalo de rotación de anuncios",
+      "rotationIntervalHelp": "Elige cuántos minutos esperar antes de mostrar el siguiente anuncio disponible. La rotación vuelve al inicio después de mostrar todos los anuncios.",
+      "rotationMinutes": "Minutos entre anuncios",
+      "saveRotation": "Guardar rotación",
+      "rotationLoadError": "No se pudo cargar el intervalo de rotación de anuncios.",
+      "rotationSaved": "Intervalo de rotación de anuncios actualizado.",
+      "rotationSaveError": "No se pudo actualizar el intervalo de rotación de anuncios.",
       "startsAt": "Comienza en",
       "endsAt": "Termina en",
       "active": "Activo",
@@ -955,6 +962,8 @@ const translations = {
       "videoAd": "Anuncio de video",
       "loadError": "No se pudieron cargar los anuncios.",
       "uploadFailed": "Error al subir. Por favor, inténtelo de nuevo.",
+      "uploadComplete": "El archivo se cargó y se adjuntó a este anuncio.",
+      "uploaded": "Cargado",
       "uploadMedia": "Subir imagen o video",
       "uploadHelp": "Elige un archivo de imagen o video local para subir y usar en este anuncio.",
       "invalidFileType": "Solo se permiten imágenes y videos.",
@@ -1039,6 +1048,7 @@ const translations = {
       "storeItems": "Almacenar artículos",
       "noStoreItems": "No se encontraron artículos de la tienda.",
       "purchases": "Compras",
+      "paymentReadiness": "Preparación de pagos", "stripe": "Stripe", "paypal": "PayPal", "ready": "Listo", "notReady": "No listo", "disabled": "Desactivado", "paidTransactions": "Transacciones pagadas", "topEvents": "Eventos principales por cargas",
       "ads": "anuncios",
       "noAds": "No se encontraron anuncios.",
       "deactivate": "Desactivar",
@@ -1108,6 +1118,7 @@ const translations = {
       "pendingContent": "Contenido pendiente",
       "activeStoreItems": "Artículos activos de la tienda",
       "purchases": "Compras",
+      "paymentReadiness": "Preparación de pagos", "stripe": "Stripe", "paypal": "PayPal", "ready": "Listo", "notReady": "No listo", "disabled": "Desactivado", "paidTransactions": "Transacciones pagadas", "topEvents": "Eventos principales por cargas",
       "qrScans": "Escaneos QR",
       "qrSpaces": "{count} espacios QR activos",
       "activityTrend": "Tendencia de actividad",
@@ -1999,6 +2010,14 @@ const translations = {
   "uploadSuccess": {
     "message": "Tu memoria fue cargada exitosamente.",
     "defaultDestination": "Travel Share"
+  },
+  "souvenir": {
+    "open": "Abrir recuerdo del evento", "back": "Volver al evento", "badge": "Recuerdo del evento", "loading": "Cargando el recuerdo del evento…",
+    "unavailable": "Recuerdo no disponible", "unavailableDescription": "Este recuerdo es privado, no está disponible o el evento aún no ha terminado.",
+    "dateUnavailable": "Fecha no disponible", "defaultDescription": "Una colección de recuerdos aprobados de este evento.",
+    "copyLink": "Copiar enlace", "copied": "Enlace copiado", "approvedMemories": "Recuerdos aprobados", "zones": "Zonas",
+    "highlights": "Fotos destacadas", "gallery": "Galería de recuerdos", "memoryAlt": "Recuerdo aprobado del evento", "memoryFallback": "Recuerdo del evento",
+    "emptyGallery": "Todavía no hay recuerdos aprobados.", "zoneSummary": "Resumen del mapa y las zonas", "noZones": "No hay zonas del evento disponibles."
   },
   "verifyEmail": {
     "missingToken": "Falta el token de verificación.",

@@ -3,9 +3,11 @@ import { useLanguage } from "../lib/i18n.js";
 import { useLocation } from "react-router-dom";
 import { api } from "../lib/api.js";
 
-const SESSION_KEY_PREFIX = "travelShareAdSeen:";
+const LAST_AD_ID_KEY = "travelShareAdRotation:lastAdId";
+const LAST_SHOWN_AT_KEY = "travelShareAdRotation:lastShownAt";
 const HIDE_DURATION_MS = 500;
 const DEFAULT_DISPLAY_SECONDS = 15;
+const DEFAULT_ROTATION_MINUTES = 5;
 const HIDE_EXCLUDED_PATHS = [
   "/login",
   "/signup",
@@ -52,7 +54,8 @@ export default function AdBanner() {
   const [ad, setAd] = useState(null);
   const [visibleState, setVisibleState] = useState("hidden");
   const [impressionLogged, setImpressionLogged] = useState(false);
-  const [sessionDisabled, setSessionDisabled] = useState(false);
+  const [rotationMinutes, setRotationMinutes] = useState(DEFAULT_ROTATION_MINUTES);
+  const [rotationCycle, setRotationCycle] = useState(0);
 
   useEffect(() => {
     const nextPlacement = determinePlacement(location.pathname);
@@ -60,26 +63,47 @@ export default function AdBanner() {
     setAd(null);
     setVisibleState("hidden");
     setImpressionLogged(false);
-    setSessionDisabled(false);
   }, [location.pathname]);
 
   useEffect(() => {
     if (!placement) return undefined;
     let mounted = true;
+    let showTimer;
     api(`/api/ads?placement=${encodeURIComponent(placement)}`)
       .then((data) => {
         if (!mounted) return;
-        if (!Array.isArray(data.ads) || data.ads.length === 0) return;
-        const candidate = data.ads[0];
-        if (sessionStorage.getItem(`${SESSION_KEY_PREFIX}${candidate.id}`)) {
-          setSessionDisabled(true);
+        const candidates = Array.isArray(data.ads) ? data.ads : [];
+        const configuredMinutes = Number(data.rotationMinutes);
+        const nextRotationMinutes = Number.isInteger(configuredMinutes) && configuredMinutes >= 1 && configuredMinutes <= 1440
+          ? configuredMinutes
+          : DEFAULT_ROTATION_MINUTES;
+        setRotationMinutes(nextRotationMinutes);
+
+        if (candidates.length === 0) {
+          showTimer = window.setTimeout(() => {
+            if (mounted) setRotationCycle((current) => current + 1);
+          }, nextRotationMinutes * 60 * 1000);
           return;
         }
-        setAd(candidate);
+
+        const lastShownAt = Number(sessionStorage.getItem(LAST_SHOWN_AT_KEY) || 0);
+        const waitMs = Math.max(0, (nextRotationMinutes * 60 * 1000) - (Date.now() - lastShownAt));
+        showTimer = window.setTimeout(() => {
+          if (!mounted) return;
+          const lastAdId = sessionStorage.getItem(LAST_AD_ID_KEY);
+          const previousIndex = candidates.findIndex((candidate) => candidate.id === lastAdId);
+          const nextIndex = previousIndex >= 0 ? (previousIndex + 1) % candidates.length : 0;
+          setAd(candidates[nextIndex]);
+          setVisibleState("hidden");
+          setImpressionLogged(false);
+        }, waitMs);
       })
       .catch(() => {});
-    return () => { mounted = false; };
-  }, [placement]);
+    return () => {
+      mounted = false;
+      if (showTimer) window.clearTimeout(showTimer);
+    };
+  }, [placement, location.pathname, rotationCycle]);
 
   useEffect(() => {
     if (!ad) return undefined;
@@ -88,21 +112,27 @@ export default function AdBanner() {
     const displayMs = ((ad.displaySeconds || DEFAULT_DISPLAY_SECONDS) * 1000) + 50;
     const hideTimer = window.setTimeout(() => setVisibleState("exiting"), displayMs);
     const cleanup = window.setTimeout(() => setVisibleState("hidden"), displayMs + HIDE_DURATION_MS);
+    const nextRotation = window.setTimeout(
+      () => setRotationCycle((current) => current + 1),
+      Math.max(rotationMinutes * 60 * 1000, displayMs + HIDE_DURATION_MS)
+    );
     return () => {
       window.clearTimeout(enter);
       window.clearTimeout(hideTimer);
       window.clearTimeout(cleanup);
+      window.clearTimeout(nextRotation);
     };
-  }, [ad]);
+  }, [ad, rotationMinutes]);
 
   useEffect(() => {
     if (!ad || visibleState !== "visible" || impressionLogged) return undefined;
-    sessionStorage.setItem(`${SESSION_KEY_PREFIX}${ad.id}`, "1");
+    sessionStorage.setItem(LAST_AD_ID_KEY, ad.id);
+    sessionStorage.setItem(LAST_SHOWN_AT_KEY, String(Date.now()));
     setImpressionLogged(true);
     trackInteraction(ad.id, "impression", placement, location.pathname);
   }, [ad, visibleState, impressionLogged, placement, location.pathname]);
 
-  if (!ad || visibleState === "hidden" || sessionDisabled) return null;
+  if (!ad || visibleState === "hidden") return null;
 
   const isVideo = ad.mediaType === "video";
   const handleClose = () => setVisibleState("exiting");
@@ -122,13 +152,15 @@ export default function AdBanner() {
         style={{ transform, opacity, transition: "transform 450ms ease, opacity 450ms ease" }}
       >
         <div className="flex items-start gap-4 sm:gap-5">
-          <div className="flex-shrink-0 w-24 h-24 overflow-hidden rounded-3xl bg-slate-900 sm:w-28 sm:h-28">
-            {isVideo ? (
-              <video className="h-full w-full object-cover" src={ad.mediaUrl} muted playsInline loop preload="metadata" />
-            ) : (
-              <img className="h-full w-full object-cover" src={ad.mediaUrl} alt={ad.title || "Sponsored"} />
-            )}
-          </div>
+          {ad.mediaUrl ? (
+            <div className="flex-shrink-0 w-24 h-24 overflow-hidden rounded-3xl bg-slate-900 sm:w-28 sm:h-28">
+              {isVideo ? (
+                <video className="h-full w-full object-cover" src={ad.mediaUrl} autoPlay controls muted playsInline loop preload="metadata" />
+              ) : (
+                <img className="h-full w-full object-cover" src={ad.mediaUrl} alt={ad.title || t("admin.ads.sponsored", "Sponsored")} />
+              )}
+            </div>
+          ) : null}
 
           <div className="min-w-0 flex-1">
             <div className="flex items-center justify-between gap-3">

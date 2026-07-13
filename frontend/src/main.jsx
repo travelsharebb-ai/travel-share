@@ -7,10 +7,13 @@ import { LanguageProvider } from './lib/i18n.js'
 import './index.css'
 // console token check
 import './mapbox_token_check'
+import { APP_NAME } from './lib/appConfig.js'
+
+document.title = APP_NAME
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <BrowserRouter>
+    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <LanguageProvider>
       <App />
       </LanguageProvider>
