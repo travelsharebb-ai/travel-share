@@ -1,5 +1,5 @@
 import { Route, Routes, Navigate } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import PrivateRoute from "./components/PrivateRoute.jsx";
 import SessionSync from "./components/SessionSync.jsx";
 import ScreenshotGuard from "./components/ScreenshotGuard.jsx";
@@ -7,49 +7,51 @@ import AppBackground from "./components/AppBackground.jsx";
 import BottomAd from "./components/BottomAd.jsx";
 import Shell from "./components/Shell.jsx";
 import AppTopbar from "./components/AppTopbar.jsx";
-import AuthPage from "./pages/AuthPage.jsx";
-import Landing from "./pages/Landing.jsx";
-import ForgotPassword from "./pages/ForgotPassword.jsx";
-import ResetPassword from "./pages/ResetPassword.jsx";
-import GuestMode from "./pages/GuestMode.jsx";
-import GuestAccess from "./pages/GuestAccess.jsx";
-import Legal from "./pages/Legal.jsx";
-import MapView from "./pages/MapView.jsx";
-import Dashboard from "./pages/Dashboard.jsx";
-import TouristDashboard from "./pages/TouristDashboard.jsx";
-import EventsDashboard from "./pages/EventsDashboard.jsx";
-import EventDetails from "./pages/EventDetails.jsx";
-import EventCreate from "./pages/EventCreate.jsx";
-import Trips from "./pages/Trips.jsx";
-import TripCreate from "./pages/TripCreate.jsx";
-import TripDetails from "./pages/TripDetails.jsx";
-import TripUpload from "./pages/TripUpload.jsx";
-import MyUploads from "./pages/MyUploads.jsx";
-import Approvals from "./pages/Approvals.jsx";
-import SharedAlbums from "./pages/SharedAlbums.jsx";
-import Store from "./pages/Store.jsx";
-import Settings from "./pages/Settings.jsx";
-import Admin from "./pages/Admin.jsx";
-import VerifyEmailChange from "./pages/VerifyEmailChange.jsx";
-import AdminUsers from "./pages/admin/Users.jsx";
-import AdminModeration from "./pages/admin/Moderation.jsx";
-import AdminReports from "./pages/admin/Reports.jsx";
-import AdminSettings from "./pages/admin/Settings.jsx";
-import AdminTools from "./pages/admin/Tools.jsx";
-import AdminManagement from "./pages/admin/Management.jsx";
-import DiscoverEvents from "./pages/DiscoverEvents.jsx";
-import OAuthCallback from "./pages/OAuthCallback.jsx";
-import QRScanner from "./components/QRScanner.jsx";
-import UploadSuccess from "./pages/UploadSuccess.jsx";
-import ShareAlbum from "./pages/ShareAlbum.jsx";
-import PublicTripJoin from "./pages/PublicTripJoin.jsx";
-import PublicUpload from "./pages/PublicUpload.jsx";
-import QRResolver from "./pages/QRResolver.jsx";
-import GuestDashboard from "./pages/GuestDashboard.jsx";
-import QRSpaces from "./pages/QRSpaces.jsx";
-import QRSpaceCreate from "./pages/QRSpaceCreate.jsx";
-import QRSpaceDetails from "./pages/QRSpaceDetails.jsx";
+const AuthPage = lazy(() => import("./pages/AuthPage.jsx"));
+const Landing = lazy(() => import("./pages/Landing.jsx"));
+const ForgotPassword = lazy(() => import("./pages/ForgotPassword.jsx"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword.jsx"));
+const GuestMode = lazy(() => import("./pages/GuestMode.jsx"));
+const GuestAccess = lazy(() => import("./pages/GuestAccess.jsx"));
+const Legal = lazy(() => import("./pages/Legal.jsx"));
+const Dashboard = lazy(() => import("./pages/Dashboard.jsx"));
+const TouristDashboard = lazy(() => import("./pages/TouristDashboard.jsx"));
+const EventCreate = lazy(() => import("./pages/EventCreate.jsx"));
+const Trips = lazy(() => import("./pages/Trips.jsx"));
+const TripCreate = lazy(() => import("./pages/TripCreate.jsx"));
+const TripUpload = lazy(() => import("./pages/TripUpload.jsx"));
+const MyUploads = lazy(() => import("./pages/MyUploads.jsx"));
+const Approvals = lazy(() => import("./pages/Approvals.jsx"));
+const SharedAlbums = lazy(() => import("./pages/SharedAlbums.jsx"));
+const Settings = lazy(() => import("./pages/Settings.jsx"));
+const VerifyEmailChange = lazy(() => import("./pages/VerifyEmailChange.jsx"));
+const DiscoverEvents = lazy(() => import("./pages/DiscoverEvents.jsx"));
+const OAuthCallback = lazy(() => import("./pages/OAuthCallback.jsx"));
+const UploadSuccess = lazy(() => import("./pages/UploadSuccess.jsx"));
+const ShareAlbum = lazy(() => import("./pages/ShareAlbum.jsx"));
+const PublicTripJoin = lazy(() => import("./pages/PublicTripJoin.jsx"));
+const PublicUpload = lazy(() => import("./pages/PublicUpload.jsx"));
+const QRResolver = lazy(() => import("./pages/QRResolver.jsx"));
+const GuestDashboard = lazy(() => import("./pages/GuestDashboard.jsx"));
+const QRSpaces = lazy(() => import("./pages/QRSpaces.jsx"));
+const QRSpaceCreate = lazy(() => import("./pages/QRSpaceCreate.jsx"));
+const QRSpaceDetails = lazy(() => import("./pages/QRSpaceDetails.jsx"));
 import { currentUser } from "./lib/api";
+import { useLanguage } from "./lib/i18n";
+
+const MapView = lazy(() => import("./pages/MapView.jsx"));
+const EventsDashboard = lazy(() => import("./pages/EventsDashboard.jsx"));
+const EventDetails = lazy(() => import("./pages/EventDetails.jsx"));
+const TripDetails = lazy(() => import("./pages/TripDetails.jsx"));
+const Store = lazy(() => import("./pages/Store.jsx"));
+const Admin = lazy(() => import("./pages/Admin.jsx"));
+const AdminUsers = lazy(() => import("./pages/admin/Users.jsx"));
+const AdminModeration = lazy(() => import("./pages/admin/Moderation.jsx"));
+const AdminReports = lazy(() => import("./pages/admin/Reports.jsx"));
+const AdminSettings = lazy(() => import("./pages/admin/Settings.jsx"));
+const AdminTools = lazy(() => import("./pages/admin/Tools.jsx"));
+const AdminManagement = lazy(() => import("./pages/admin/Management.jsx"));
+const QRScanner = lazy(() => import("./components/QRScanner.jsx"));
 
 export default function App() {
   const [user, setUser] = useState(() => currentUser());
@@ -70,6 +72,15 @@ export default function App() {
         <AppTopbar variant="public" />
         {children}
       </>
+    );
+  }
+
+  function LoadingFallback() {
+    const { t } = useLanguage();
+    return (
+      <div className="page-shell p-12">
+        <p className="text-lg text-white">{t("common.loading", "Loading…")}</p>
+      </div>
     );
   }
 
@@ -117,7 +128,7 @@ export default function App() {
   function EventsRoute() {
     if (!user) return <Navigate to="/login" replace />;
     if (["organizer", "admin", "platform_admin"].includes(user.role)) {
-      return <EventsDashboard />;
+      return <Suspense fallback={<LoadingFallback />}><EventsDashboard /></Suspense>;
     }
     return <DiscoverEvents />;
   }
@@ -127,6 +138,7 @@ export default function App() {
       <ScreenshotGuard />
       <AppBackground />
 
+      <Suspense fallback={<LoadingFallback />}>
       <Routes>
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<AuthPage mode="login" />} />
@@ -174,6 +186,7 @@ export default function App() {
       <Route path="/qr/:qrToken" element={<PublicPage><QRResolver /></PublicPage>} />
       <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </Suspense>
       <BottomAd />
     </>
   );
