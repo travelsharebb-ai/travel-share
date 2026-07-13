@@ -9,6 +9,7 @@ import * as uploadService from "../services/uploadService.js";
 import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { z } from "zod";
 import { readCookie, setGuestSessionCookie, fingerprintFromRequest, getOrSetUploaderSession, secureToken, hashToken } from "../utils/tokens.js";
 import { get as getPlatformSetting } from "../services/platformService.js";
 import { publicQRSpacePayload, resolveQRUploadSpaceByToken } from "../services/qrSpaceService.js";
@@ -376,6 +377,89 @@ export async function storePreview(req, res, next) {
     res.json({ items: mapped });
   } catch (err) {
     next(err);
+  }
+}
+
+export async function shareUnlock(req, res, next) {
+  try {
+    const { pin } = z.object({
+      pin: z.string().optional().nullable()
+    }).parse(req.body || {});
+
+    const link = await prisma.shareLink.findUnique({
+      where: { token: req.params.token },
+      select: {
+        active: true,
+        pinHash: true,
+        trip: {
+          select: {
+            title: true,
+            destination: true,
+            user: { select: { name: true } },
+            uploads: {
+              where: { status: "approved" },
+              orderBy: { approvedAt: "desc" },
+              select: {
+                id: true,
+                fileUrl: true,
+                fileType: true,
+                approvedAt: true
+              }
+            }
+          }
+        },
+        event: {
+          select: {
+            title: true,
+            location: true,
+            uploads: {
+              where: { status: "approved" },
+              orderBy: { approvedAt: "desc" },
+              select: {
+                id: true,
+                fileUrl: true,
+                fileType: true,
+                approvedAt: true
+              }
+            }
+          }
+        }
+      }
+    });
+
+    if (!link || !link.active) {
+      return res.status(404).json({ error: "Shared album not found." });
+    }
+
+    if (link.pinHash) {
+      const valid = typeof pin === "string" && await bcrypt.compare(pin, link.pinHash);
+      if (!valid) return res.status(401).json({ error: "PIN required." });
+    }
+
+    if (link.trip) {
+      return res.json({
+        trip: {
+          title: link.trip.title,
+          destination: link.trip.destination,
+          touristName: link.trip.user?.name || "Guest host",
+          uploads: link.trip.uploads
+        }
+      });
+    }
+
+    if (link.event) {
+      return res.json({
+        event: {
+          title: link.event.title,
+          location: link.event.location,
+          uploads: link.event.uploads
+        }
+      });
+    }
+
+    return res.status(404).json({ error: "Shared album not found." });
+  } catch (error) {
+    next(error);
   }
 }
 

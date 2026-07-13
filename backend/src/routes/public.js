@@ -24,6 +24,7 @@ router.get("/appearance", publicController.appearance);
 router.get("/events", publicController.publicEvents);
 router.get("/events/:eventId/souvenir", publicController.publicEventSouvenir);
 router.get("/store-preview", publicController.storePreview);
+router.post("/share/:token/unlock", publicController.shareUnlock);
 
 router.get("/guest/session", publicController.guestSessionStatus);
 router.post("/guest/session", publicController.guestSessionCreate);

@@ -234,6 +234,15 @@ router.post("/:tripId/share-links", async (req, res, next) => {
         tripId: trip.id,
         token: crypto.randomBytes(16).toString("hex"),
         pinHash: data.pin ? await bcrypt.hash(data.pin, 12) : null
+      },
+      select: {
+        id: true,
+        tripId: true,
+        eventId: true,
+        token: true,
+        active: true,
+        createdAt: true,
+        updatedAt: true
       }
     });
 

@@ -152,6 +152,8 @@ router.get("/trips/:tripId/uploads", async (req, res) => {
       locationName: true,
       region: true,
       locationVisibility: true,
+      aiFlagged: true,
+      moderationProvider: true,
       moderationStatus: true,
       createdAt: true,
       approvedAt: true,
@@ -161,7 +163,13 @@ router.get("/trips/:tripId/uploads", async (req, res) => {
     orderBy: { createdAt: "desc" }
   });
   const hydrated = await hydrateUploads(uploads);
-  res.json({ uploads: hydrated });
+  res.json({
+    uploads: hydrated.map((upload) => ({
+      ...upload,
+      aiFlagged: Boolean(upload.aiFlagged),
+      moderationProvider: upload.moderationProvider || null
+    }))
+  });
 });
 
 router.get("/uploads/mine", async (req, res) => {
