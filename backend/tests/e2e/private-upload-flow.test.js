@@ -80,6 +80,9 @@ run("private QR upload approval flow", () => {
 
     uploadId = upload.body.upload.id;
     expect(upload.body.upload.status).toBe("pending");
+    expect(upload.body.upload.locationVisibility).toBe("hidden");
+    expect(upload.body.upload.latitude).toBeNull();
+    expect(upload.body.upload.longitude).toBeNull();
 
     const pending = await request(app)
       .get(`/api/trips/${trip.id}/uploads?status=pending`)

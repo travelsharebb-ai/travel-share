@@ -277,7 +277,14 @@ export async function executeUploadPipeline({ file, body = {}, context = {}, ide
     }
 
     if (createData.locationVisibility === 'hidden' || createData.latitude === null || createData.longitude === null) {
-      throw Object.assign(new Error('Upload location is required so this memory can appear on the map.'), { status: 400 });
+      // Legacy QR clients do not send location data, and an explicitly hidden
+      // location must remain uploadable. Keep those memories off the map rather
+      // than rejecting the private upload flow or retaining partial coordinates.
+      createData.locationVisibility = 'hidden';
+      createData.latitude = null;
+      createData.longitude = null;
+      createData.approximateLatitude = null;
+      createData.approximateLongitude = null;
     }
 
     finalUpload = await prisma.$transaction(async (tx) => {
