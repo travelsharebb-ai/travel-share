@@ -7,6 +7,7 @@ import publicRoutes from "./routes/public.js";
 import uploadRoutes from "./routes/uploads.js";
 import locationRoutes from "./routes/locations.js";
 import adminRoutes from "./routes/admin.js";
+import adsRoutes from "./routes/ads.js";
 import eventRoutes from "./routes/events.js";
 import qrSpacesRoutes from "./routes/qrSpaces.js";
 import storeRoutes from "./routes/store.js";
@@ -63,6 +64,7 @@ export function createApp() {
   app.use("/api/auth", authRoutes);
   app.use("/api/public", publicRoutes);
   app.use("/api/skins", skinRoutes);
+  app.use("/api/ads", adsRoutes);
   app.use("/api/trips", requireAuth, tripRoutes);
   app.use("/api/events", requireAuth, requireOrganizerOrAdmin, eventRoutes);
   app.use("/api/qr-spaces", requireAuth, qrSpacesRoutes);

@@ -1,5 +1,6 @@
 import { useLanguage } from "../lib/i18n";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
+import AdSlot from "../components/AdSlot.jsx";
 
 export default function UploadSuccess() {
   const { t } = useLanguage();
@@ -42,6 +43,7 @@ export default function UploadSuccess() {
           <button className="btn-indigo w-full" onClick={() => navigate("/")}>{t("hardcoded.backHome")}</button>
         </div>
       </section>
+      <AdSlot placement="upload_success" variant="modal" />
     </main>
   );
 }

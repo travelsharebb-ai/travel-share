@@ -7,6 +7,9 @@ import AppBackground from "./components/AppBackground.jsx";
 import BottomAd from "./components/BottomAd.jsx";
 import Shell from "./components/Shell.jsx";
 import AppTopbar from "./components/AppTopbar.jsx";
+import { currentUser } from "./lib/api";
+import { useLanguage } from "./lib/i18n";
+
 const AuthPage = lazy(() => import("./pages/AuthPage.jsx"));
 const Landing = lazy(() => import("./pages/Landing.jsx"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword.jsx"));
@@ -14,19 +17,34 @@ const ResetPassword = lazy(() => import("./pages/ResetPassword.jsx"));
 const GuestMode = lazy(() => import("./pages/GuestMode.jsx"));
 const GuestAccess = lazy(() => import("./pages/GuestAccess.jsx"));
 const Legal = lazy(() => import("./pages/Legal.jsx"));
+const MapView = lazy(() => import("./pages/MapView.jsx"));
 const Dashboard = lazy(() => import("./pages/Dashboard.jsx"));
 const TouristDashboard = lazy(() => import("./pages/TouristDashboard.jsx"));
+const EventsDashboard = lazy(() => import("./pages/EventsDashboard.jsx"));
+const EventDetails = lazy(() => import("./pages/EventDetails.jsx"));
 const EventCreate = lazy(() => import("./pages/EventCreate.jsx"));
 const Trips = lazy(() => import("./pages/Trips.jsx"));
 const TripCreate = lazy(() => import("./pages/TripCreate.jsx"));
+const TripDetails = lazy(() => import("./pages/TripDetails.jsx"));
 const TripUpload = lazy(() => import("./pages/TripUpload.jsx"));
 const MyUploads = lazy(() => import("./pages/MyUploads.jsx"));
 const Approvals = lazy(() => import("./pages/Approvals.jsx"));
 const SharedAlbums = lazy(() => import("./pages/SharedAlbums.jsx"));
+const Store = lazy(() => import("./pages/Store.jsx"));
 const Settings = lazy(() => import("./pages/Settings.jsx"));
+const Admin = lazy(() => import("./pages/Admin.jsx"));
 const VerifyEmailChange = lazy(() => import("./pages/VerifyEmailChange.jsx"));
+const AdminUsers = lazy(() => import("./pages/admin/Users.jsx"));
+const AdminModeration = lazy(() => import("./pages/admin/Moderation.jsx"));
+const AdminReports = lazy(() => import("./pages/admin/Reports.jsx"));
+const AdminSettings = lazy(() => import("./pages/admin/Settings.jsx"));
+const AdminTools = lazy(() => import("./pages/admin/Tools.jsx"));
+const AdminManagement = lazy(() => import("./pages/admin/Management.jsx"));
+const AdminData = lazy(() => import("./pages/admin/AdminData.jsx"));
+const AdminAds = lazy(() => import("./pages/admin/Ads.jsx"));
 const DiscoverEvents = lazy(() => import("./pages/DiscoverEvents.jsx"));
 const OAuthCallback = lazy(() => import("./pages/OAuthCallback.jsx"));
+const QRScanner = lazy(() => import("./components/QRScanner.jsx"));
 const UploadSuccess = lazy(() => import("./pages/UploadSuccess.jsx"));
 const ShareAlbum = lazy(() => import("./pages/ShareAlbum.jsx"));
 const PublicTripJoin = lazy(() => import("./pages/PublicTripJoin.jsx"));
@@ -36,22 +54,6 @@ const GuestDashboard = lazy(() => import("./pages/GuestDashboard.jsx"));
 const QRSpaces = lazy(() => import("./pages/QRSpaces.jsx"));
 const QRSpaceCreate = lazy(() => import("./pages/QRSpaceCreate.jsx"));
 const QRSpaceDetails = lazy(() => import("./pages/QRSpaceDetails.jsx"));
-import { currentUser } from "./lib/api";
-import { useLanguage } from "./lib/i18n";
-
-const MapView = lazy(() => import("./pages/MapView.jsx"));
-const EventsDashboard = lazy(() => import("./pages/EventsDashboard.jsx"));
-const EventDetails = lazy(() => import("./pages/EventDetails.jsx"));
-const TripDetails = lazy(() => import("./pages/TripDetails.jsx"));
-const Store = lazy(() => import("./pages/Store.jsx"));
-const Admin = lazy(() => import("./pages/Admin.jsx"));
-const AdminUsers = lazy(() => import("./pages/admin/Users.jsx"));
-const AdminModeration = lazy(() => import("./pages/admin/Moderation.jsx"));
-const AdminReports = lazy(() => import("./pages/admin/Reports.jsx"));
-const AdminSettings = lazy(() => import("./pages/admin/Settings.jsx"));
-const AdminTools = lazy(() => import("./pages/admin/Tools.jsx"));
-const AdminManagement = lazy(() => import("./pages/admin/Management.jsx"));
-const QRScanner = lazy(() => import("./components/QRScanner.jsx"));
 
 export default function App() {
   const [user, setUser] = useState(() => currentUser());
@@ -176,6 +178,8 @@ export default function App() {
       <Route path="/admin/settings" element={<PrivateRoute roles={["admin", "platform_admin"]}><AdminSettings /></PrivateRoute>} />
       <Route path="/admin/tools" element={<PrivateRoute roles={["admin", "platform_admin"]}><AdminTools /></PrivateRoute>} />
       <Route path="/admin/management" element={<PrivateRoute roles={["admin", "platform_admin"]}><AdminManagement /></PrivateRoute>} />
+      <Route path="/admin/data" element={<PrivateRoute roles={["admin", "platform_admin"]}><AdminData /></PrivateRoute>} />
+      <Route path="/admin/ads" element={<PrivateRoute roles={["admin", "platform_admin"]}><AdminAds /></PrivateRoute>} />
       <Route path="/share/:token" element={<PublicPage><ShareAlbum /></PublicPage>} />
       <Route path="/join/:tripId" element={<PublicPage><PublicTripJoin /></PublicPage>} />
       <Route path="/qr/:qrToken/upload" element={<PublicPage><PublicUpload /></PublicPage>} />

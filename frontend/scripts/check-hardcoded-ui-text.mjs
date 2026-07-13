@@ -24,6 +24,8 @@ const ALLOWED_EXACT = new Set([
   "Redis",
   "JWT",
   "GPS"
+  ,"cd /path/to/repo ./db-backup.sh"
+  ,"cd /path/to/repo ./db-restore.sh"
 ]);
 
 function stripComments(source) {
