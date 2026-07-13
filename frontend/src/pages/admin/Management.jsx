@@ -11,6 +11,10 @@ export default function AdminManagement() {
   const [success, setSuccess] = useState("");
   const [sending, setSending] = useState(false);
   const [notification, setNotification] = useState({ userId: "", title: "", message: "", type: "info", targetUrl: "" });
+  const [importFileName, setImportFileName] = useState("");
+  const [importPreview, setImportPreview] = useState(null);
+  const [importResult, setImportResult] = useState(null);
+  const [importRunning, setImportRunning] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -106,6 +110,77 @@ export default function AdminManagement() {
     }
   }
 
+  async function downloadSiteExport() {
+    try {
+      const response = await api("/api/admin/export/site", { method: "POST" });
+      // Trigger download
+      const blob = new Blob([JSON.stringify(response)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `travelshare-site-export-${new Date().toISOString()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err.message || t("admin.management.exportError", "Could not export site."));
+    }
+  }
+
+  async function downloadMyExport() {
+    try {
+      // user-level export endpoint returns JSON directly
+      const response = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/export`, { credentials: "include" });
+      if (!response.ok) throw new Error(`Export failed: ${response.statusText}`);
+      const json = await response.json();
+      const blob = new Blob([JSON.stringify(json)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `travelshare-user-export-${new Date().toISOString()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err.message || t("admin.management.userExportError", "Could not export user data."));
+    }
+  }
+
+  function handleImportFile(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setImportFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(String(reader.result));
+        setImportPreview(parsed);
+        setImportResult(null);
+      } catch (err) {
+        setError(t("admin.management.invalidJson", "Selected file is not valid JSON."));
+        setImportPreview(null);
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  async function runImportDryRun() {
+    if (!importPreview) return setError(t("admin.management.noImportFile", "No import file loaded."));
+    setImportRunning(true);
+    setError("");
+    setImportResult(null);
+    try {
+      const response = await api(`/api/admin/import?dryRun=true`, { method: "POST", body: JSON.stringify(importPreview) });
+      setImportResult(response);
+    } catch (err) {
+      setError(err.message || t("admin.management.importError", "Import dry-run failed."));
+    } finally {
+      setImportRunning(false);
+    }
+  }
+
   return (
     <main className="page-shell space-y-6">
       <section className="hero-copy-panel">
@@ -137,7 +212,11 @@ export default function AdminManagement() {
 
             <div className="card p-5 bg-slate-950/90 border border-white/10">
               <h2 className="text-2xl font-black font-serif">{t("admin.management.ads", "Advertisements")}</h2>
+              <p className="mt-2 text-sm text-slatebody">{t("admin.management.adsHelp", "Use this page for quick ad toggles, or open the full ad management page for detail edits.")}</p>
               {data.ads.length === 0 ? <p className="mt-4 text-slatebody">{t("admin.management.noAds", "No advertisements found.")}</p> : <div className="mt-4 space-y-3">{data.ads.map((ad) => <div className="rounded-2xl border border-borderline p-4" key={ad.id}><p className="font-semibold text-white">{ad.title}</p><p className="text-sm text-slatebody">{ad.placement} · {ad.mediaType}</p><div className="mt-3 flex flex-wrap gap-2"><button className="btn-ghost" onClick={() => toggleAd(ad)}>{ad.active ? t("admin.management.deactivate", "Deactivate") : t("admin.management.activate", "Activate")}</button><button className="btn-danger" onClick={() => deleteAd(ad)}>{t("admin.management.delete", "Delete")}</button></div></div>)}</div>}
+              <div className="mt-4">
+                <Link className="btn-ghost" to="/admin/ads">{t("admin.management.viewAllAds", "Manage all ads")}</Link>
+              </div>
             </div>
           </section>
 
@@ -165,6 +244,35 @@ export default function AdminManagement() {
         <Link className="btn-ghost w-full" to="/admin/tools">{t("admin.tools.backToAdmin", "Back to admin dashboard")}</Link>
         <button className="btn-primary w-full" onClick={load} disabled={loading}>{t("common.refresh", "Refresh")}</button>
       </div>
+      
+      <section className="card p-5 bg-slate-950/90 border border-white/10">
+        <h2 className="text-2xl font-black font-serif">{t("admin.management.dataExportImport", "Export / Import")}</h2>
+        <p className="mt-2 text-sm text-slatebody">{t("admin.management.dataExportImportHelp", "Download a full site export, download your user export, or validate an import package (dry-run). For full restores use DB backup/restore scripts.")}</p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <button className="btn-ghost" onClick={downloadSiteExport}>{t("admin.management.downloadSiteExport", "Download site export")}</button>
+          <button className="btn-ghost" onClick={downloadMyExport}>{t("admin.management.downloadUserExport", "Download my user export")}</button>
+          <label className="inline-flex items-center gap-2">
+            <input type="file" accept="application/json" onChange={handleImportFile} />
+            <span className="text-sm text-slatebody">{importFileName || t("admin.management.chooseImportFile", "Choose import JSON file")}</span>
+          </label>
+        </div>
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <button className="btn-primary" onClick={runImportDryRun} disabled={!importPreview || importRunning}>{importRunning ? t("admin.management.running", "Running…") : t("admin.management.runDryRun", "Run import dry-run")}</button>
+          <button className="btn-ghost" onClick={() => { setImportPreview(null); setImportFileName(""); setImportResult(null); }}>{t("admin.management.clearImport", "Clear import")}</button>
+        </div>
+
+        {importResult ? (
+          <div className="mt-4 rounded-2xl border border-borderline p-4 bg-slate-900 text-sm text-slatebody">
+            <pre className="whitespace-pre-wrap break-words">{JSON.stringify(importResult, null, 2)}</pre>
+          </div>
+        ) : importPreview ? (
+          <div className="mt-4 rounded-2xl border border-borderline p-4 bg-slate-900 text-sm text-slatebody">
+            <p className="font-semibold text-white">{t("admin.management.importPreview", "Import preview")}</p>
+            <p className="mt-2 text-sm">{t("admin.management.previewCounts", "Users: {users}, Trips: {trips}, Events: {events}, Uploads: {uploads}", { users: Array.isArray(importPreview.users) ? importPreview.users.length : 0, trips: Array.isArray(importPreview.trips) ? importPreview.trips.length : 0, events: Array.isArray(importPreview.events) ? importPreview.events.length : 0, uploads: Array.isArray(importPreview.uploads) ? importPreview.uploads.length : 0 })}</p>
+          </div>
+        ) : null}
+      </section>
     </main>
   );
 }

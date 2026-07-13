@@ -3,17 +3,7 @@ import i18next from "i18next";
 import { I18nextProvider, initReactI18next, useTranslation } from "react-i18next";
 
 import en from "./locales/en.js";
-import es from "./locales/es.js";
-import fr from "./locales/fr.js";
-import pt from "./locales/pt.js";
-import de from "./locales/de.js";
-import it from "./locales/it.js";
-import nl from "./locales/nl.js";
-import ar from "./locales/ar.js";
-import hi from "./locales/hi.js";
-import zh from "./locales/zh.js";
-import ja from "./locales/ja.js";
-import { getLocaleResources } from "./locale-utils.js";
+import { getLocaleResources, normalizeLocaleResource } from "./locale-utils.js";
 
 const STORAGE_KEY = "travelShareLanguage";
 export const supportedLanguages = [
@@ -60,18 +50,47 @@ function persistLanguage(language) {
   window.dispatchEvent(new Event("travelShareLanguageChanged"));
 }
 
-const localeModules = { en, es, fr, pt, de, it, nl, ar, hi, zh, ja };
+const localeLoaders = {
+  es: () => import("./locales/es.js"),
+  fr: () => import("./locales/fr.js"),
+  pt: () => import("./locales/pt.js"),
+  nl: () => import("./locales/nl.js"),
+  de: () => import("./locales/de.js"),
+  it: () => import("./locales/it.js"),
+  ar: () => import("./locales/ar.js"),
+  hi: () => import("./locales/hi.js"),
+  zh: () => import("./locales/zh.js"),
+  ja: () => import("./locales/ja.js")
+};
 
-const resources = getLocaleResources(localeModules);
+const resources = getLocaleResources({ en });
+const loadedLanguages = new Set(["en"]);
 
 const i18nInstance = i18next.createInstance();
+
+async function loadLocale(language) {
+  const normalizedLanguage = normalizeLanguage(language);
+  if (loadedLanguages.has(normalizedLanguage)) return;
+  const loader = localeLoaders[normalizedLanguage];
+  if (!loader) return;
+  const module = await loader();
+  const resource = module && typeof module === "object" && "default" in module ? module.default : module;
+  i18nInstance.addResourceBundle(
+    normalizedLanguage,
+    "translation",
+    normalizeLocaleResource(resource),
+    true,
+    true
+  );
+  loadedLanguages.add(normalizedLanguage);
+}
 
 if (!i18nInstance.isInitialized) {
   i18nInstance
     .use(initReactI18next)
     .init({
       resources,
-      lng: getStoredLanguage(),
+      lng: "en",
       fallbackLng: "en",
       supportedLngs: supportedLanguages.map(([code]) => code),
       interpolation: { escapeValue: false, prefix: "{", suffix: "}" },
@@ -89,14 +108,14 @@ const LanguageContext = createContext({
 });
 
 export function LanguageProvider({ children }) {
-  const [language, setLanguageState] = useState(() => i18n.language || getStoredLanguage());
+  const [language, setLanguageState] = useState(() => getStoredLanguage());
 
   useEffect(() => {
     const storedLanguage = getStoredLanguage();
-    if (storedLanguage && storedLanguage !== i18n.language) {
-      i18n.changeLanguage(storedLanguage);
-      setLanguageState(storedLanguage);
-    }
+    loadLocale(storedLanguage)
+      .then(() => i18n.changeLanguage(storedLanguage))
+      .catch(() => i18n.changeLanguage("en"));
+    setLanguageState(storedLanguage);
     persistLanguage(storedLanguage || i18n.language || "en");
   }, []);
   useEffect(() => {
@@ -112,7 +131,9 @@ export function LanguageProvider({ children }) {
   const setLanguage = useCallback((nextLanguage) => {
     const normalizedLanguage = normalizeLanguage(nextLanguage);
     if (normalizedLanguage !== i18n.language) {
-      i18n.changeLanguage(normalizedLanguage);
+      loadLocale(normalizedLanguage)
+        .then(() => i18n.changeLanguage(normalizedLanguage))
+        .catch(() => i18n.changeLanguage("en"));
     }
     setLanguageState(normalizedLanguage);
     persistLanguage(normalizedLanguage);
@@ -155,7 +176,9 @@ export function useLanguage() {
   const setLanguage = useCallback((nextLanguage) => {
     const normalizedLanguage = normalizeLanguage(nextLanguage);
     if (normalizedLanguage !== activeI18n.language) {
-      activeI18n.changeLanguage(normalizedLanguage);
+      loadLocale(normalizedLanguage)
+        .then(() => activeI18n.changeLanguage(normalizedLanguage))
+        .catch(() => activeI18n.changeLanguage("en"));
     }
     setLanguageState(normalizedLanguage);
     persistLanguage(normalizedLanguage);
@@ -183,7 +206,9 @@ export function setLanguage(nextLanguage) {
   const normalizedLanguage = normalizeLanguage(nextLanguage);
   persistLanguage(normalizedLanguage);
   if (normalizedLanguage !== i18n.language) {
-    i18n.changeLanguage(normalizedLanguage);
+    loadLocale(normalizedLanguage)
+      .then(() => i18n.changeLanguage(normalizedLanguage))
+      .catch(() => i18n.changeLanguage("en"));
   }
   return normalizedLanguage;
 }

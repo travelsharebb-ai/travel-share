@@ -6,6 +6,7 @@ import { secureToken } from "../utils/tokens.js";
 import { uploadMedia } from "../utils/storage.js";
 import orchestrator from "../services/uploadOrchestrator.js";
 import { cleanEvent, cleanGuestSession, cleanTrip, cleanUpload, cleanUser } from "../utils/exportImport.js";
+import { executeAdminImport, getImportPreview } from "../utils/adminImport.js";
 import { createNotification } from "../services/notifications.js";
 import { getAdminAnalytics } from "../services/analyticsService.js";
 
@@ -382,20 +383,30 @@ router.post("/export/site", async (req, res, next) => {
   }
 });
 
-router.post("/import", async (req, res) => {
-  const dryRun = req.query.dryRun !== "false";
-  res.json({
-    dryRun,
-    valid: true,
-    counts: {
-      users: Array.isArray(req.body?.users) ? req.body.users.length : 0,
-      trips: Array.isArray(req.body?.trips) ? req.body.trips.length : 0,
-      events: Array.isArray(req.body?.events) ? req.body.events.length : 0,
-      uploads: Array.isArray(req.body?.uploads) ? req.body.uploads.length : 0,
-      storeItems: Array.isArray(req.body?.storeItems) ? req.body.storeItems.length : 0
-    },
-    message: "Dry-run validation complete. Full admin restore should use database backup/restore for now."
-  });
+router.post("/import", async (req, res, next) => {
+  try {
+    const dryRun = req.query.dryRun !== "false";
+    const preview = getImportPreview(req.body || {});
+    if (dryRun) {
+      return res.json({
+        dryRun: true,
+        valid: true,
+        counts: preview.counts,
+        warnings: preview.warnings,
+        message: "Dry-run validation complete. Full admin restore should use database backup/restore for now."
+      });
+    }
+
+    const result = await executeAdminImport(req.body || {}, req.user?.id);
+    res.json({
+      dryRun: false,
+      valid: true,
+      ...result,
+      message: "Import completed. Note: full database restore is still recommended for complete platform recovery."
+    });
+  } catch (error) {
+    next(error);
+  }
 });
 
 router.get("/users", async (req, res) => {

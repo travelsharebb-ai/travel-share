@@ -35,6 +35,7 @@ export default function Admin() {
     { id: "map", to: "/map", title: t("nav.map", "Map"), copy: t("admin.mapHelper", "View pins, uploads, locations, and public travel activity") },
     { id: "uploads", to: "/admin/moderation", title: t("admin.stats.uploads", "Uploads"), copy: t("admin.actions.moderateUploads", "Moderate guest content") },
     { id: "store", to: "/admin/management", title: t("nav.store", "Store"), copy: t("admin.actions.manageStore", "Manage premium items") },
+    { id: "ads", to: "/admin/ads", title: t("admin.stats.ads", "Ads"), copy: t("admin.actions.manageAds", "Manage internal advertisements") },
     { id: "settings", to: "/admin/settings", title: t("nav.settings", "Settings"), copy: t("admin.actions.platformConfig", "Platform configuration") },
     { id: "reports", to: "/admin/reports", title: t("admin.reports.title", "Reports"), copy: t("admin.actions.reviewActivity", "Review flagged activity") }
   ];
