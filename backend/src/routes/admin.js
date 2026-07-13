@@ -930,6 +930,49 @@ router.post("/moderation/:uploadId/log", async (req, res, next) => {
   }
 });
 
+router.get("/ads/analytics", async (req, res, next) => {
+  try {
+    const { days } = analyticsQuerySchema.parse(req.query);
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    const [ads, counts] = await Promise.all([
+      prisma.internalAd.findMany({
+        orderBy: [{ active: "desc" }, { priority: "desc" }, { updatedAt: "desc" }],
+        take: 100,
+        select: { id: true, title: true }
+      }),
+      prisma.adInteraction.groupBy({
+        by: ["adId", "type"],
+        where: { createdAt: { gte: since } },
+        _count: { _all: true }
+      })
+    ]);
+
+    const countsByAd = new Map();
+    for (const count of counts) {
+      const current = countsByAd.get(count.adId) || { impressions: 0, clicks: 0 };
+      if (count.type === "impression") current.impressions = count._count._all;
+      if (count.type === "click") current.clicks = count._count._all;
+      countsByAd.set(count.adId, current);
+    }
+
+    res.json({
+      days,
+      updatedAt: new Date().toISOString(),
+      ads: ads.map((ad) => {
+        const summary = countsByAd.get(ad.id) || { impressions: 0, clicks: 0 };
+        return {
+          adId: ad.id,
+          impressions: summary.impressions,
+          clicks: summary.clicks,
+          ctr: summary.impressions > 0 ? Number(((summary.clicks / summary.impressions) * 100).toFixed(2)) : 0
+        };
+      })
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.get("/ads", async (_req, res) => {
   const ads = await prisma.internalAd.findMany({
     orderBy: [{ active: "desc" }, { priority: "desc" }, { updatedAt: "desc" }],

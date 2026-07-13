@@ -40,3 +40,11 @@ export const uploadLimiter = rateLimit({
   legacyHeaders: false,
   store: createStore()
 });
+
+export const adInteractionLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: createStore()
+});
