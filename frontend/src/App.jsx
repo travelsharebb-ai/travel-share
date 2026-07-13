@@ -130,7 +130,7 @@ export default function App() {
   function EventsRoute() {
     if (!user) return <Navigate to="/login" replace />;
     if (["organizer", "admin", "platform_admin"].includes(user.role)) {
-      return <EventsDashboard />;
+      return <Suspense fallback={<LoadingFallback />}><EventsDashboard /></Suspense>;
     }
     return <DiscoverEvents />;
   }

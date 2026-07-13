@@ -383,9 +383,28 @@ router.post("/export/site", async (req, res, next) => {
   }
 });
 
+router.get("/audit/moderation", async (req, res, next) => {
+  try {
+    const logs = await prisma.adminModerationLog.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 50,
+      include: {
+        admin: { select: { id: true, name: true, email: true, role: true } },
+        upload: { select: { id: true, caption: true, fileUrl: true, status: true } }
+      }
+    });
+    res.json({ logs });
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.post("/import", async (req, res, next) => {
   try {
     const dryRun = req.query.dryRun !== "false";
+    if (!dryRun && req.user.role !== "platform_admin") {
+      return res.status(403).json({ error: "Platform admin access is required to run actual imports." });
+    }
     const preview = getImportPreview(req.body || {});
     if (dryRun) {
       return res.json({
