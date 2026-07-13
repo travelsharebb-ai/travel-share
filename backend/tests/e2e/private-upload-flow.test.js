@@ -67,6 +67,9 @@ run("private QR upload approval flow", () => {
 
     const landing = await request(app).get(`/api/public/qr/${trip.qrToken}`).expect(200);
     const cookie = landing.headers["set-cookie"];
+    expect(cookie).toBeDefined();
+    expect(landing.body.type).toBe("trip");
+    expect(landing.body.data).toMatchObject({ id: trip.id, title: trip.title });
     expect(landing.body.trip.touristFirstName).toBe("Maya");
 
     const upload = await request(app)

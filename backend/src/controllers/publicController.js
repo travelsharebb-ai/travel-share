@@ -56,6 +56,16 @@ async function qrResponse(type, data, guest, platformCache) {
   };
 }
 
+function publicTripQrPayload(trip) {
+  return {
+    id: trip.id,
+    title: trip.title,
+    destination: trip.destination,
+    touristFirstName: trip.user?.name?.trim().split(/\s+/)[0] || "Guest host",
+    supportEmail: process.env.SUPPORT_EMAIL || "support@example.com"
+  };
+}
+
 async function optionalAuthenticatedUser(req) {
   try {
     const header = req.get("authorization") || "";
@@ -382,7 +392,7 @@ export async function qrGet(req, res, next) {
     // 1. TRIP
     const trip = await prisma.trip.findUnique({
       where: { qrToken: token },
-      include: { user: true }
+      include: { user: { select: { name: true } } }
     });
 
     if (trip) {
@@ -396,18 +406,14 @@ export async function qrGet(req, res, next) {
 
       if (guest) setGuestSessionCookie(res, guest.token);
 
-      return res.json(
-        await qrResponse(
-          "trip",
-          {
-            id: trip.id,
-            title: trip.title,
-            destination: trip.destination
-          },
-          guest,
-          req.platformCache
-        )
-      );
+      const publicTrip = publicTripQrPayload(trip);
+      const response = await qrResponse("trip", publicTrip, guest, req.platformCache);
+
+      return res.json({
+        ...response,
+        // Backward-compatible contract used by the original public QR upload flow.
+        trip: publicTrip
+      });
     }
 
     // 2. EVENT
