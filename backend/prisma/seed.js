@@ -2,6 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import dotenv from 'dotenv';
 import fs from 'fs/promises';
 import path from 'path';
+import { skinCatalog, skinMetadata } from '../scripts/skin-catalog.mjs';
 
 dotenv.config();
 const prisma = new PrismaClient();
@@ -9,58 +10,25 @@ const SEEDED_EVENT_QR_TOKEN = 'test-ci-token';
 
 async function loadSkinsFromPublic() {
   const skinsRoot = path.resolve(process.cwd(), 'public', 'assets', 'skins');
-  const categories = await fs.readdir(skinsRoot, { withFileTypes: true }).catch(() => []);
   const created = [];
 
-  for (const entry of categories) {
-    if (!entry.isDirectory()) continue;
-    const category = entry.name; // basic, premium, seasonal, etc.
-    const dir = path.join(skinsRoot, category);
-    const files = await fs.readdir(dir).catch(() => []);
-    for (const file of files) {
-      const ext = path.extname(file).toLowerCase();
-      if (!['.png', '.jpg', '.jpeg', '.webp'].includes(ext)) continue;
-      const sku = `${category}/${file}`;
-      const name = file.replace(/[-_]+/g, ' ').replace(ext, '').replace(/\b(\w)/g, (m) => m.toUpperCase());
-      const previewUrl = `/assets/skins/${category}/${file}`;
-      const isBasic = category === 'basic' || category === 'pending-naming';
-      const isPremium = category === 'premium' || category === 'seasonal';
-      const priceCents = isBasic ? 0 : 199;
-
-      const metadata = {
-        category: isBasic ? 'basic' : isPremium ? 'premium' : category,
-        frameAssetUrl: previewUrl,
-        previewImage: previewUrl,
-        isPremium: !isBasic,
-        unlockType: isBasic ? 'included' : 'purchase',
-        productionSlug: file.replace(ext, '').toLowerCase().replace(/[^a-z0-9]+/g, '-')
-      };
-
-      // Upsert by sku so seed is idempotent
-      const item = await prisma.purchaseItem.upsert({
-        where: { sku },
-        update: {
-          name,
-          description: null,
-          type: 'image_skin',
-          priceCents,
-          previewUrl,
-          active: true,
-          metadata
-        },
-        create: {
-          sku,
-          name,
-          description: null,
-          type: 'image_skin',
-          priceCents,
-          previewUrl,
-          active: true,
-          metadata
-        }
-      });
-      created.push(item);
-    }
+  for (const skin of skinCatalog) {
+    await fs.access(path.join(skinsRoot, skin.category, skin.filename));
+    const data = {
+      name: skin.name,
+      description: `${skin.name} photo frame`,
+      type: 'image_skin',
+      priceCents: skin.priceCents,
+      previewUrl: skin.previewUrl,
+      active: true,
+      metadata: skinMetadata(skin)
+    };
+    const item = await prisma.purchaseItem.upsert({
+      where: { sku: skin.sku },
+      update: data,
+      create: { sku: skin.sku, ...data }
+    });
+    created.push(item);
   }
 
   return created;
@@ -79,25 +47,39 @@ async function main() {
     }
   });
 
-  // Ensure at least one default purchase item exists (fallback)
+  // Retain the legacy fallback record without allowing it to become a third
+  // active/free/basic skin or overwrite the canonical Modern Tiles product.
   await prisma.purchaseItem.upsert({
     where: { sku: 'default/default-skin' },
     update: {
-      name: 'Default Skin',
+      name: 'Modern Tiles',
       type: 'image_skin',
       priceCents: 0,
-      active: true,
-      metadata: { category: 'basic', unlockType: 'included' }
+      previewUrl: '/assets/skins/basic/basic-modern-tiles.png',
+      active: false,
+      metadata: {
+        category: 'legacy',
+        frameAssetUrl: '/assets/skins/basic/basic-modern-tiles.png',
+        previewImage: '/assets/skins/basic/basic-modern-tiles.png',
+        isPremium: false,
+        unlockType: 'included'
+      }
     },
     create: {
       sku: 'default/default-skin',
-      name: 'Default Skin',
+      name: 'Modern Tiles',
       description: null,
       type: 'image_skin',
       priceCents: 0,
       previewUrl: '/assets/skins/basic/basic-modern-tiles.png',
-      active: true,
-      metadata: { category: 'basic', unlockType: 'included', previewImage: '/assets/skins/basic/basic-modern-tiles.png' }
+      active: false,
+      metadata: {
+        category: 'legacy',
+        frameAssetUrl: '/assets/skins/basic/basic-modern-tiles.png',
+        previewImage: '/assets/skins/basic/basic-modern-tiles.png',
+        isPremium: false,
+        unlockType: 'included'
+      }
     }
   });
 
