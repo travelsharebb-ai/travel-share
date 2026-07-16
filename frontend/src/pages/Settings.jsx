@@ -33,6 +33,10 @@ export default function Settings() {
   const [message, setMessage] = useState(null);
   const [error, setError] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
+  const [passwordStatus, setPasswordStatus] = useState({ loading: false, error: "", success: "" });
+  const [pinForm, setPinForm] = useState({ currentPin: "", newPin: "", confirmPin: "" });
+  const [pinStatus, setPinStatus] = useState({ loading: false, error: "", success: "" });
   const [now, setNow] = useState(() => new Date());
   const storedGuestAccessLink = typeof window !== 'undefined'
     ? localStorage.getItem('travelShareGuestAccessLink')
@@ -194,6 +198,41 @@ export default function Settings() {
     }
   }
 
+  async function changePassword(event) {
+    event.preventDefault();
+    setPasswordStatus({ loading: true, error: "", success: "" });
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setPasswordStatus({ loading: false, error: t("security.passwordMismatch"), success: "" });
+      return;
+    }
+    try {
+      await api("/api/auth/me/password", { method: "PATCH", body: JSON.stringify(passwordForm) });
+      const nextUser = { ...user, mustResetPassword: false };
+      setUser(nextUser);
+      updateStoredUser(nextUser);
+      setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+      setPasswordStatus({ loading: false, error: "", success: t("security.passwordChanged") });
+    } catch (requestError) {
+      setPasswordStatus({ loading: false, error: requestError.message || t("security.passwordChangeFailed"), success: "" });
+    }
+  }
+
+  async function changeGuestPin(event) {
+    event.preventDefault();
+    setPinStatus({ loading: true, error: "", success: "" });
+    if (pinForm.newPin !== pinForm.confirmPin) {
+      setPinStatus({ loading: false, error: t("security.pinMismatch"), success: "" });
+      return;
+    }
+    try {
+      await api("/api/public/guest/pin", { method: "PATCH", body: JSON.stringify(pinForm) });
+      setPinForm({ currentPin: "", newPin: "", confirmPin: "" });
+      setPinStatus({ loading: false, error: "", success: t("security.pinChanged") });
+    } catch (requestError) {
+      setPinStatus({ loading: false, error: requestError.message || t("security.pinChangeFailed"), success: "" });
+    }
+  }
+
   return (
     <main className="page-shell space-y-6">
       <section className="hero-copy-panel">
@@ -255,6 +294,37 @@ export default function Settings() {
             </div>
           </div>
         </section>
+      )}
+
+      {user?.role === "guest" ? (
+        <form className="card p-5 bg-slate-950/90 border border-white/10" onSubmit={changeGuestPin}>
+          <p className="text-sm uppercase tracking-[0.32em] text-primary">{t("security.guestSecurity")}</p>
+          <h2 className="mt-2 text-3xl font-black font-serif">{t("security.changePin")}</h2>
+          <p className="mt-2 text-slatebody">{t("security.changePinHelp")}</p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            <input className="field" name="currentPin" type="password" inputMode="numeric" pattern="[0-9]{4}" maxLength={4} required placeholder={t("security.currentPin")} value={pinForm.currentPin} onChange={(event) => setPinForm((value) => ({ ...value, currentPin: event.target.value }))} />
+            <input className="field" name="newPin" type="password" inputMode="numeric" pattern="[0-9]{4}" maxLength={4} required placeholder={t("security.newPin")} value={pinForm.newPin} onChange={(event) => setPinForm((value) => ({ ...value, newPin: event.target.value }))} />
+            <input className="field" name="confirmPin" type="password" inputMode="numeric" pattern="[0-9]{4}" maxLength={4} required placeholder={t("security.confirmPin")} value={pinForm.confirmPin} onChange={(event) => setPinForm((value) => ({ ...value, confirmPin: event.target.value }))} />
+          </div>
+          {pinStatus.error ? <p className="mt-3 text-sm text-red-400" role="alert">{pinStatus.error}</p> : null}
+          {pinStatus.success ? <p className="mt-3 text-sm text-green-400" role="status">{pinStatus.success}</p> : null}
+          <button className="btn-primary mt-4" disabled={pinStatus.loading}>{pinStatus.loading ? t("common.loading") : t("security.changePin")}</button>
+        </form>
+      ) : (
+        <form className="card p-5 bg-slate-950/90 border border-white/10" onSubmit={changePassword}>
+          <p className="text-sm uppercase tracking-[0.32em] text-primary">{t("security.accountSecurity")}</p>
+          <h2 className="mt-2 text-3xl font-black font-serif">{t("security.changePassword")}</h2>
+          <p className="mt-2 text-slatebody">{user?.mustResetPassword ? t("security.forcedPasswordReset") : t("security.changePasswordHelp")}</p>
+          <div className="mt-4 grid gap-3">
+            <input className="field" name="currentPassword" type="password" autoComplete="current-password" required placeholder={t("security.currentPassword")} value={passwordForm.currentPassword} onChange={(event) => setPasswordForm((value) => ({ ...value, currentPassword: event.target.value }))} />
+            <input className="field" name="newPassword" type="password" autoComplete="new-password" minLength={10} required placeholder={t("security.newPassword")} value={passwordForm.newPassword} onChange={(event) => setPasswordForm((value) => ({ ...value, newPassword: event.target.value }))} />
+            <input className="field" name="confirmPassword" type="password" autoComplete="new-password" minLength={10} required placeholder={t("security.confirmPassword")} value={passwordForm.confirmPassword} onChange={(event) => setPasswordForm((value) => ({ ...value, confirmPassword: event.target.value }))} />
+          </div>
+          <p className="mt-3 text-sm text-slatebody">{t("security.passwordRequirements")}</p>
+          {passwordStatus.error ? <p className="mt-3 text-sm text-red-400" role="alert">{passwordStatus.error}</p> : null}
+          {passwordStatus.success ? <p className="mt-3 text-sm text-green-400" role="status">{passwordStatus.success}</p> : null}
+          <button className="btn-primary mt-4" disabled={passwordStatus.loading}>{passwordStatus.loading ? t("common.loading") : t("security.changePassword")}</button>
+        </form>
       )}
 
       <section className="grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">

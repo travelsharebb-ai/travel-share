@@ -30,6 +30,9 @@ router.post("/share/:token/unlock", publicController.shareUnlock);
 router.get("/guest/session", publicController.guestSessionStatus);
 router.post("/guest/session", authLimiter, publicController.guestSessionCreate);
 router.post("/guest/resume", authLimiter, publicController.guestSessionResume);
+router.patch("/guest/pin", authLimiter, publicController.guestPinChange);
+router.get("/guest/reset-pin/:token", authLimiter, publicController.guestPinResetStatus);
+router.post("/guest/reset-pin", authLimiter, publicController.guestPinReset);
 
 // =======================
 // 🔥 SINGLE QR ENTRY POINT

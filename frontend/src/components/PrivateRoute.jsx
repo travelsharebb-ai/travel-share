@@ -15,6 +15,10 @@ export default function PrivateRoute({ children, roles }) {
     return <Navigate to="/dashboard" replace />;
   }
 
+  if (user.mustResetPassword && location.pathname !== "/settings") {
+    return <Navigate to="/settings" replace state={{ passwordResetRequired: true }} />;
+  }
+
   // Wrap protected pages with the application Shell so sidebar/user card/logout are consistent
   return <Shell>{children}</Shell>;
 }

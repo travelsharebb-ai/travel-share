@@ -21,6 +21,10 @@ async function deliver({ to, subject, text, html }) {
     return provider;
   }
 
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("Email delivery is not configured for production.");
+  }
+
   console.log(`[email:${provider}] ${subject} -> ${to}\n${text}`);
   return provider;
 }
