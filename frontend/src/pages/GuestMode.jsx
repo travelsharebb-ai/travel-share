@@ -5,6 +5,7 @@ import { useState } from "react";
 import AppTopbar from "../components/AppTopbar";
 import { clearGuestToken, createGuestSessionProfile, resumeGuestSession, getGuestToken, setGuestSession, setGuestToken, validateGuestSession } from "../lib/api";
 import { copyToClipboard } from "../lib/clipboard";
+import GuestPinResetRequestForm from "../components/GuestPinResetRequestForm.jsx";
 
 function HeaderBlock({ eyebrow, title, copy }) {
   return (
@@ -31,6 +32,7 @@ export default function GuestMode() {
   const [resumeLink, setResumeLink] = useState(null);
   const [savedSessionProblem, setSavedSessionProblem] = useState(null);
   const [copiedResumeLink, setCopiedResumeLink] = useState(false);
+  const [showResetRequest, setShowResetRequest] = useState(false);
 
   async function createProfileAndAccess(e) {
     e?.preventDefault();
@@ -211,7 +213,7 @@ export default function GuestMode() {
             <Lock size={18} />{t("hardcoded.resumeExistingGuestSession")}</button>
           <Link className="btn-primary" to="/discover">
             <MapPin size={18} />{t("hardcoded.discoverPublicEvents")}</Link>
-          <Link className="btn-primary btn-signup" to="/signup">{t("hardcoded.createAccountToHost")}</Link>
+          <Link className="btn-primary btn-signup guest-host-cta" to="/signup">{t("hardcoded.createAccountToHost")}</Link>
         </div>
       </section>
 
@@ -385,6 +387,12 @@ export default function GuestMode() {
             <p className="text-sm text-slatebody">{t("security.forgotPinExplanation")}</p>
             {errorMessage && <p className="text-reject mt-2">{errorMessage}</p>}
           </form>
+          <div className="mt-4 max-w-2xl border-t border-borderline pt-4">
+            <button type="button" className="btn-ghost" onClick={() => setShowResetRequest((value) => !value)}>
+              {showResetRequest ? t("security.resetRequests.hideGuestRequest") : t("security.resetRequests.requestGuest")}
+            </button>
+            {showResetRequest ? <GuestPinResetRequestForm initialGuestName={resumeName} /> : null}
+          </div>
         </section>
       )}
 

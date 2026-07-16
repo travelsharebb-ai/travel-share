@@ -1110,7 +1110,14 @@ const translations = {
     "revokeGuestLinks": "अतिथि लिंक रद्द करें",
     "forceGuestPin": "नया PIN अनिवार्य करें",
     "revokeGuestAccess": "अतिथि पहुंच रद्द करें",
-    "deleteGuestSession": "अतिथि सत्र हटाएं"
+    "deleteGuestSession": "अतिथि सत्र हटाएं",
+    "resetRequests": {
+      "guestName": "अतिथि का नाम", "contactEmail": "संपर्क ईमेल", "contactNote": "संपर्क नोट (फ़ोन या पसंदीदा तरीका)", "contextNote": "यात्रा, कार्यक्रम या संदर्भ (वैकल्पिक)", "message": "सहायता के लिए कारण या संदेश", "contactRequired": "संपर्क ईमेल या नोट दें।", "failed": "रीसेट अनुरोध भेजा नहीं जा सका।",
+      "guestHelp": "सुरक्षित एक-बार लिंक बनाने से पहले सहायता आपकी जानकारी सत्यापित करेगी। केवल नाम से पिन रीसेट नहीं हो सकता।", "guestSent": "आपका अनुरोध सहायता को भेज दिया गया। लिंक भेजने से पहले व्यवस्थापक विवरण सत्यापित करेगा।", "submitGuest": "पिन रीसेट लिंक का अनुरोध करें", "requestGuest": "पिन रीसेट लिंक का अनुरोध करें", "hideGuestRequest": "अनुरोध छिपाएँ", "guestTitle": "पिन भूल गए या बदलना है", "guestSettingsEyebrow": "अतिथि पिन सहायता", "guestSettingsHelp": "वर्तमान पिन न जानने पर सत्यापित अनुरोध भेजें। व्यवस्थापक आपका पिन कभी नहीं देखता।",
+      "accountHelpEyebrow": "खाता पुनर्प्राप्ति", "passwordTitle": "पासवर्ड रीसेट सहायता का अनुरोध", "passwordHelp": "सहायता अनुरोध भेजें। व्यवस्थापक लिंक भेज सकता है, लेकिन पासवर्ड देख या तय नहीं कर सकता।", "submitPassword": "पासवर्ड रीसेट लिंक माँगें", "passwordSent": "आपका पासवर्ड अनुरोध समीक्षा के लिए भेजा गया।",
+      "supportQueueEyebrow": "सहायता कतार", "pendingTitle": "लंबित रीसेट अनुरोध", "nonePending": "कोई लंबित अनुरोध नहीं।", "passwordRequest": "पासवर्ड रीसेट अनुरोध", "guestRequest": "अतिथि पिन अनुरोध", "contactNoteLabel": "संपर्क नोट", "contextNoteLabel": "संदर्भ", "selectVerifiedGuest": "सत्यापित अतिथि सत्र चुनें", "selectGuestRequired": "लिंक बनाने से पहले सत्यापित सत्र चुनें।", "oneTimeGuestLink": "एक-बार अतिथि पुनर्प्राप्ति लिंक:", "resolve": "हल किया चिह्नित करें", "dismiss": "खारिज करें",
+      "guestAccountsEyebrow": "अतिथि सहायता", "guestAccountsTitle": "अतिथि खाते और सत्र", "guestAccountsHelp": "पिन, टोकन या रहस्य दिखाए बिना स्थिति और गतिविधि देखें।", "noGuests": "कोई अतिथि सत्र नहीं मिला।", "status": "स्थिति", "lastActive": "अंतिम सक्रियता", "linkedActivity": "यात्राएँ + अपलोड", "guestStatuses": { "active": "सक्रिय", "grace": "छूट अवधि", "expired": "समाप्त", "revoked": "रद्द", "deleted": "हटाया गया", "pin_reset_required": "पिन रीसेट आवश्यक" }
+    }
   },
   "settingsPage": {
     "accountSettings": "अकाउंट सेटिंग",

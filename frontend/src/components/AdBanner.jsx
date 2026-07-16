@@ -148,12 +148,12 @@ export default function AdBanner() {
   return (
     <div className="fixed inset-x-0 bottom-6 z-50 flex justify-center px-4 pointer-events-none">
       <div
-        className="pointer-events-auto max-w-[720px] w-full rounded-3xl border border-white/10 bg-slate-950/95 p-4 shadow-2xl backdrop-blur"
+        className="ad-surface pointer-events-auto max-w-[720px] w-full rounded-3xl border p-4 shadow-2xl backdrop-blur"
         style={{ transform, opacity, transition: "transform 450ms ease, opacity 450ms ease" }}
       >
         <div className="flex items-start gap-4 sm:gap-5">
           {ad.mediaUrl ? (
-            <div className="flex-shrink-0 w-24 h-24 overflow-hidden rounded-3xl bg-slate-900 sm:w-28 sm:h-28">
+            <div className="ad-media-surface flex-shrink-0 w-24 h-24 overflow-hidden rounded-3xl sm:w-28 sm:h-28">
               {isVideo ? (
                 <video className="h-full w-full object-cover" src={ad.mediaUrl} autoPlay controls muted playsInline loop preload="metadata" />
               ) : (
@@ -164,11 +164,11 @@ export default function AdBanner() {
 
           <div className="min-w-0 flex-1">
             <div className="flex items-center justify-between gap-3">
-                <span className="text-xs uppercase tracking-[0.28em] text-primary">{t("admin.ads.sponsored", "Sponsored")}</span>
-                <button className="text-slatebody hover:text-white" onClick={handleClose} aria-label={t("admin.ads.closeAd", "Close ad")}>×</button>
+                <span className="ad-sponsored text-xs uppercase tracking-[0.28em]">{t("admin.ads.sponsored", "Sponsored")}</span>
+                <button className="ad-close" onClick={handleClose} aria-label={t("admin.ads.closeAd", "Close ad")}>×</button>
             </div>
-            <div className="mt-2 text-lg font-black text-white sm:text-xl">{ad.title}</div>
-            {ad.description ? <p className="mt-2 text-sm text-slatebody sm:text-base">{ad.description}</p> : null}
+            <div className="ad-title mt-2 text-lg font-black sm:text-xl">{ad.title}</div>
+            {ad.description ? <p className="ad-copy mt-2 text-sm sm:text-base">{ad.description}</p> : null}
             {ad.linkUrl ? (
               <button className="btn-primary mt-4" type="button" onClick={handleClick}>{t("admin.ads.openAd", "Open ad")}</button>
             ) : null}

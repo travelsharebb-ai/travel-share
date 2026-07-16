@@ -13,6 +13,7 @@ import { cleanUpload, cleanUser } from "../utils/exportImport.js";
 import { createNotification } from "../services/notifications.js";
 import { ensureBasicSkinUnlocks } from "../utils/skins.js";
 import { isStrongPassword, PASSWORD_REQUIREMENTS, writeSecurityAudit } from "../services/accountSecurityService.js";
+import { createResetRequest } from "../services/resetRequestService.js";
 import {
   oauthTempStore,
   OAUTH_HANDOFF_TTL_MS,
@@ -508,6 +509,25 @@ router.patch("/me/password", requireAuth, async (req, res, next) => {
       }, tx);
     });
     return res.json({ message: "Password changed successfully." });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.post("/me/password-reset-request", requireAuth, authLimiter, async (req, res, next) => {
+  try {
+    if (req.user.role === "guest") return res.status(403).json({ error: "Guest accounts use PIN reset requests." });
+    const data = z.object({ message: z.string().trim().min(5).max(1000) }).parse(req.body || {});
+    const request = await createResetRequest(req, {
+      requesterType: "user",
+      requestType: "password_reset",
+      userId: req.user.id,
+      message: data.message
+    });
+    return res.status(201).json({
+      request: { id: request.id, status: request.status, createdAt: request.createdAt },
+      message: "Your password reset request was sent to support for review."
+    });
   } catch (error) {
     return next(error);
   }

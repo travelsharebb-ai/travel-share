@@ -68,11 +68,11 @@ export default function AdSlot({ placement = "global", variant = "inline", onClo
   if (variant === "modal") {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-        <div className="relative w-full max-w-3xl rounded-3xl border border-white/10 bg-slate-950 p-4 shadow-xl">
-          <button className="absolute right-4 top-4 text-slatebody hover:text-white" onClick={handleClose} aria-label={t("admin.ads.closeAd", "Close ad")}>×</button>
-          <div className="text-sm uppercase tracking-[0.32em] text-primary">{t("admin.ads.sponsored", "Sponsored")}</div>
-          <div className="mt-3 text-2xl font-black text-white">{ad.title}</div>
-          {ad.description ? <p className="mt-2 text-sm text-slatebody">{ad.description}</p> : null}
+        <div className="ad-surface relative w-full max-w-3xl rounded-3xl border p-4 shadow-xl">
+          <button className="ad-close absolute right-4 top-4" onClick={handleClose} aria-label={t("admin.ads.closeAd", "Close ad")}>×</button>
+          <div className="ad-sponsored text-sm uppercase tracking-[0.32em]">{t("admin.ads.sponsored", "Sponsored")}</div>
+          <div className="ad-title mt-3 text-2xl font-black">{ad.title}</div>
+          {ad.description ? <p className="ad-copy mt-2 text-sm">{ad.description}</p> : null}
           {media ? <div className="mt-4 cursor-pointer" onClick={handleClick}>{media}</div> : null}
           {ad.linkUrl ? <button className="btn-primary mt-4 w-full" onClick={handleClick}>{t("admin.ads.openAd", "Open ad")}</button> : null}
         </div>
@@ -81,16 +81,16 @@ export default function AdSlot({ placement = "global", variant = "inline", onClo
   }
 
   return (
-    <div className={variant === "banner" ? "fixed bottom-4 left-4 right-4 z-40 rounded-3xl border border-white/10 bg-slate-950/95 p-4 shadow-2xl" : "rounded-3xl border border-white/10 bg-slate-950 p-4"}>
-      {media ? <div className="mb-4 overflow-hidden rounded-3xl bg-slate-900">{media}</div> : null}
+    <div className={variant === "banner" ? "ad-surface fixed bottom-4 left-4 right-4 z-40 rounded-3xl border p-4 shadow-2xl" : "ad-surface rounded-3xl border p-4"}>
+      {media ? <div className="ad-media-surface mb-4 overflow-hidden rounded-3xl">{media}</div> : null}
       <div className="flex items-start gap-4">
         <div className="min-w-0 flex-1">
-          <div className="text-sm uppercase tracking-[0.32em] text-primary">{t("admin.ads.sponsored", "Sponsored")}</div>
-          <div className="mt-2 text-lg font-black text-white">{ad.title}</div>
-          {ad.description ? <p className="mt-2 text-sm text-slatebody">{ad.description}</p> : null}
+          <div className="ad-sponsored text-sm uppercase tracking-[0.32em]">{t("admin.ads.sponsored", "Sponsored")}</div>
+          <div className="ad-title mt-2 text-lg font-black">{ad.title}</div>
+          {ad.description ? <p className="ad-copy mt-2 text-sm">{ad.description}</p> : null}
           {ad.linkUrl ? <button className="btn-primary mt-3" onClick={handleClick}>{t("admin.ads.openAd", "Open ad")}</button> : null}
         </div>
-        <button className="text-slatebody hover:text-white" onClick={handleClose} aria-label={t("admin.ads.closeAd", "Close ad")}>×</button>
+        <button className="ad-close" onClick={handleClose} aria-label={t("admin.ads.closeAd", "Close ad")}>×</button>
       </div>
     </div>
   );

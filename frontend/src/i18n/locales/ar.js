@@ -1096,7 +1096,14 @@ const translations = {
     "revokeGuestLinks": "إلغاء روابط الضيف",
     "forceGuestPin": "فرض رمز PIN جديد",
     "revokeGuestAccess": "إلغاء وصول الضيف",
-    "deleteGuestSession": "حذف جلسة الضيف"
+    "deleteGuestSession": "حذف جلسة الضيف",
+    "resetRequests": {
+      "guestName": "اسم الضيف", "contactEmail": "بريد التواصل", "contactNote": "ملاحظة تواصل (هاتف أو وسيلة مفضلة)", "contextNote": "ملاحظة رحلة أو فعالية أو سياق (اختياري)", "message": "السبب أو الرسالة للدعم", "contactRequired": "أدخل بريدًا أو ملاحظة تواصل.", "failed": "تعذر إرسال طلب إعادة التعيين.",
+      "guestHelp": "سيتحقق الدعم من بياناتك قبل إنشاء رابط آمن للاستخدام مرة واحدة. لا يمكن للاسم وحده إعادة تعيين الرقم السري.", "guestSent": "أُرسل طلبك إلى الدعم. سيتحقق المسؤول من بياناتك قبل إرسال الرابط.", "submitGuest": "طلب رابط إعادة تعيين الرقم السري", "requestGuest": "طلب رابط إعادة تعيين الرقم السري", "hideGuestRequest": "إخفاء الطلب", "guestTitle": "نسيت الرقم السري أو أريد تغييره", "guestSettingsEyebrow": "مساعدة الرقم السري للضيف", "guestSettingsHelp": "إذا لم تعرف الرقم الحالي فأرسل طلبًا موثقًا. لا يرى المسؤول رقمك السري أبدًا.",
+      "accountHelpEyebrow": "استرداد الحساب", "passwordTitle": "طلب مساعدة لإعادة كلمة المرور", "passwordHelp": "أرسل طلبًا للدعم. يمكن للمسؤول إرسال رابط، لكنه لا يستطيع رؤية كلمة المرور أو تعيينها.", "submitPassword": "طلب رابط إعادة كلمة المرور", "passwordSent": "أُرسل طلب كلمة المرور إلى الدعم للمراجعة.",
+      "supportQueueEyebrow": "قائمة الدعم", "pendingTitle": "طلبات إعادة التعيين المعلقة", "nonePending": "لا توجد طلبات معلقة.", "passwordRequest": "طلب إعادة كلمة المرور", "guestRequest": "طلب رقم سري للضيف", "contactNoteLabel": "ملاحظة التواصل", "contextNoteLabel": "السياق", "selectVerifiedGuest": "اختر جلسة الضيف الموثقة", "selectGuestRequired": "اختر الجلسة الموثقة قبل إنشاء الرابط.", "oneTimeGuestLink": "رابط استرداد لمرة واحدة:", "resolve": "وضع علامة محلول", "dismiss": "رفض",
+      "guestAccountsEyebrow": "دعم الضيوف", "guestAccountsTitle": "حسابات وجلسات الضيوف", "guestAccountsHelp": "راجع الحالة والنشاط دون كشف الأرقام السرية أو الرموز أو الأسرار.", "noGuests": "لم تُعثر على جلسات ضيوف.", "status": "الحالة", "lastActive": "آخر نشاط", "linkedActivity": "الرحلات + الرفعات", "guestStatuses": { "active": "نشطة", "grace": "فترة سماح", "expired": "منتهية", "revoked": "ملغاة", "deleted": "محذوفة", "pin_reset_required": "إعادة تعيين الرقم مطلوبة" }
+    }
   },
   "settingsPage": {
     "accountSettings": "إعدادات الحساب",

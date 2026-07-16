@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { api, currentUser, updateStoredUser } from "../lib/api";
 import { setTheme, getTheme, getStoredThemeMode, setStoredThemeMode, applyThemeMode, getResolvedThemeMode } from "../lib/theme.js";
 import { useLanguage } from "../lib/i18n";
+import GuestPinResetRequestForm from "../components/GuestPinResetRequestForm.jsx";
 
 function daysUntil(value, now = new Date()) {
   if (!value) return 0;
@@ -37,6 +38,8 @@ export default function Settings() {
   const [passwordStatus, setPasswordStatus] = useState({ loading: false, error: "", success: "" });
   const [pinForm, setPinForm] = useState({ currentPin: "", newPin: "", confirmPin: "" });
   const [pinStatus, setPinStatus] = useState({ loading: false, error: "", success: "" });
+  const [passwordResetMessage, setPasswordResetMessage] = useState("");
+  const [passwordResetStatus, setPasswordResetStatus] = useState({ loading: false, error: "", success: "" });
   const [now, setNow] = useState(() => new Date());
   const storedGuestAccessLink = typeof window !== 'undefined'
     ? localStorage.getItem('travelShareGuestAccessLink')
@@ -233,6 +236,21 @@ export default function Settings() {
     }
   }
 
+  async function requestPasswordReset(event) {
+    event.preventDefault();
+    setPasswordResetStatus({ loading: true, error: "", success: "" });
+    try {
+      await api("/api/auth/me/password-reset-request", {
+        method: "POST",
+        body: JSON.stringify({ message: passwordResetMessage })
+      });
+      setPasswordResetMessage("");
+      setPasswordResetStatus({ loading: false, error: "", success: t("security.resetRequests.passwordSent") });
+    } catch (requestError) {
+      setPasswordResetStatus({ loading: false, error: requestError.message || t("security.resetRequests.failed"), success: "" });
+    }
+  }
+
   return (
     <main className="page-shell space-y-6">
       <section className="hero-copy-panel">
@@ -324,6 +342,25 @@ export default function Settings() {
           {passwordStatus.error ? <p className="mt-3 text-sm text-red-400" role="alert">{passwordStatus.error}</p> : null}
           {passwordStatus.success ? <p className="mt-3 text-sm text-green-400" role="status">{passwordStatus.success}</p> : null}
           <button className="btn-primary mt-4" disabled={passwordStatus.loading}>{passwordStatus.loading ? t("common.loading") : t("security.changePassword")}</button>
+        </form>
+      )}
+
+      {user?.role === "guest" ? (
+        <section className="card p-5 bg-slate-950/90 border border-white/10">
+          <p className="text-sm uppercase tracking-[0.32em] text-primary">{t("security.resetRequests.guestSettingsEyebrow")}</p>
+          <h2 className="mt-2 text-3xl font-black font-serif">{t("security.resetRequests.guestTitle")}</h2>
+          <p className="mt-2 text-slatebody">{t("security.resetRequests.guestSettingsHelp")}</p>
+          <GuestPinResetRequestForm initialGuestName={user?.name || user?.guestSession?.displayName || ""} />
+        </section>
+      ) : (
+        <form className="card p-5 bg-slate-950/90 border border-white/10" onSubmit={requestPasswordReset}>
+          <p className="text-sm uppercase tracking-[0.32em] text-primary">{t("security.resetRequests.accountHelpEyebrow")}</p>
+          <h2 className="mt-2 text-3xl font-black font-serif">{t("security.resetRequests.passwordTitle")}</h2>
+          <p className="mt-2 text-slatebody">{t("security.resetRequests.passwordHelp")}</p>
+          <textarea className="field mt-4 min-h-28 w-full" name="passwordResetMessage" minLength={5} maxLength={1000} required placeholder={t("security.resetRequests.message")} value={passwordResetMessage} onChange={(event) => setPasswordResetMessage(event.target.value)} />
+          {passwordResetStatus.error ? <p className="mt-3 text-sm text-red-400" role="alert">{passwordResetStatus.error}</p> : null}
+          {passwordResetStatus.success ? <p className="mt-3 text-sm text-green-400" role="status">{passwordResetStatus.success}</p> : null}
+          <button className="btn-primary mt-4" disabled={passwordResetStatus.loading}>{passwordResetStatus.loading ? t("common.loading") : t("security.resetRequests.submitPassword")}</button>
         </form>
       )}
 

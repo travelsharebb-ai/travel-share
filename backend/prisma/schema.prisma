@@ -43,6 +43,8 @@ model User {
   purchases                 UserPurchase[]
   skinUnlocks               UserSkinUnlock[]       @relation("UserSkinUnlockUser")
   notifications             Notification[]
+  resetRequests             AccountResetRequest[]  @relation("ResetRequestUser")
+  resolvedResetRequests     AccountResetRequest[]  @relation("ResetRequestAdmin")
   following                 UserFollow[]           @relation("UserFollowing")
   followers                 UserFollow[]           @relation("UserFollowers")
 
@@ -77,31 +79,32 @@ model UserPreference {
 }
 
 model GuestSession {
-  id                String               @id @default(cuid())
-  token             String               @unique
+  id                String                @id @default(cuid())
+  token             String                @unique
   deviceFingerprint String?
   scopeType         String?
   scopeId           String?
   displayName       String?
-  resumeTokenHash   String?              @unique
-  resumeCode        String?              @unique
+  resumeTokenHash   String?               @unique
+  resumeCode        String?               @unique
   passcodeHash      String?
   passcodeSetAt     DateTime?
   lastGuestAccessAt DateTime?
   accessRevokedAt   DateTime?
-  pinResetRequired  Boolean              @default(false)
+  pinResetRequired  Boolean               @default(false)
   deletedAt         DateTime?
   expiresAt         DateTime
   claimedById       String?
-  createdAt         DateTime             @default(now())
-  updatedAt         DateTime             @updatedAt
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
   events            Event[]
-  claimedBy         User?                @relation("ClaimedGuestSessions", fields: [claimedById], references: [id])
+  claimedBy         User?                 @relation("ClaimedGuestSessions", fields: [claimedById], references: [id])
   trips             Trip[]
   uploads           Upload[]
   qrUploadSpaces    QRUploadSpace[]
-  adInteractions    AdInteraction[]      @relation("AdInteractionGuest")
+  adInteractions    AdInteraction[]       @relation("AdInteractionGuest")
   pinResetTokens    GuestPinResetToken[]
+  resetRequests     AccountResetRequest[]
 
   @@index([scopeType, scopeId])
   @@index([expiresAt])
@@ -604,6 +607,35 @@ model AdminSecurityAuditLog {
   @@index([action, createdAt])
 }
 
+model AccountResetRequest {
+  id                String             @id @default(cuid())
+  requesterType     ResetRequesterType
+  requestType       ResetRequestType
+  status            ResetRequestStatus @default(pending)
+  userId            String?
+  guestSessionId    String?
+  guestName         String?
+  contactEmail      String?
+  contactNote       String?
+  contextNote       String?
+  message           String
+  requestIpAddress  String?
+  requestUserAgent  String?
+  resolvedAt        DateTime?
+  resolvedByAdminId String?
+  adminNote         String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  user              User?              @relation("ResetRequestUser", fields: [userId], references: [id], onDelete: SetNull)
+  guestSession      GuestSession?      @relation(fields: [guestSessionId], references: [id], onDelete: SetNull)
+  resolvedByAdmin   User?              @relation("ResetRequestAdmin", fields: [resolvedByAdminId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([userId, createdAt])
+  @@index([guestSessionId, createdAt])
+  @@index([resolvedByAdminId])
+}
+
 model UserSkinUnlock {
   id        String       @id @default(cuid())
   userId    String
@@ -743,6 +775,22 @@ enum PaymentStatus {
   paid
   canceled
   failed
+}
+
+enum ResetRequesterType {
+  user
+  guest
+}
+
+enum ResetRequestType {
+  password_reset
+  guest_pin_reset
+}
+
+enum ResetRequestStatus {
+  pending
+  resolved
+  dismissed
 }
 
 model Notification {

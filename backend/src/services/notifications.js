@@ -10,6 +10,23 @@ export async function createNotification(userId, title, message, type = "info", 
   }
 }
 
+export async function notifyActiveAdmins(title, message, type = "warning", targetUrl = "/admin/users?support=reset-requests") {
+  try {
+    const admins = await prisma.user.findMany({
+      where: { role: { in: ["admin", "platform_admin"] }, accountStatus: "active" },
+      select: { id: true }
+    });
+    if (!admins.length) return 0;
+    const result = await prisma.notification.createMany({
+      data: admins.map(({ id }) => ({ userId: id, title, message, type, targetUrl }))
+    });
+    return result.count;
+  } catch (err) {
+    console.error("notifyActiveAdmins failed", err?.message || err);
+    return 0;
+  }
+}
+
 export async function listNotifications(userId, limit = 30) {
   return prisma.notification.findMany({
     where: { userId },

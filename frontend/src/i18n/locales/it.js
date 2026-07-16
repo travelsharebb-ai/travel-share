@@ -319,7 +319,14 @@ const translations = {
     "revokeGuestLinks": "Revoca link ospite",
     "forceGuestPin": "Forza nuovo PIN",
     "revokeGuestAccess": "Revoca accesso ospite",
-    "deleteGuestSession": "Elimina sessione ospite"
+    "deleteGuestSession": "Elimina sessione ospite",
+    "resetRequests": {
+      "guestName": "Nome ospite", "contactEmail": "E-mail di contatto", "contactNote": "Nota di contatto (telefono o metodo preferito)", "contextNote": "Viaggio, evento o contesto (facoltativo)", "message": "Motivo o messaggio per l’assistenza", "contactRequired": "Inserisci un’e-mail o una nota di contatto.", "failed": "Impossibile inviare la richiesta.",
+      "guestHelp": "L’assistenza verificherà i dati prima di creare un link sicuro monouso. Il solo nome non può reimpostare il PIN.", "guestSent": "La richiesta è stata inviata. Un amministratore verificherà i dati prima di inviare un link.", "submitGuest": "Richiedi link di ripristino PIN", "requestGuest": "Richiedi link di ripristino PIN", "hideGuestRequest": "Nascondi richiesta", "guestTitle": "PIN dimenticato o da modificare", "guestSettingsEyebrow": "Aiuto PIN ospite", "guestSettingsHelp": "Se non conosci il PIN attuale, invia una richiesta verificata. L’amministratore non vede mai il PIN.",
+      "accountHelpEyebrow": "Recupero account", "passwordTitle": "Richiedi assistenza per la password", "passwordHelp": "Invia una richiesta. Un amministratore può inviare un link, ma non vedere o impostare la password.", "submitPassword": "Richiedi link password", "passwordSent": "La richiesta password è stata inviata all’assistenza.",
+      "supportQueueEyebrow": "Coda assistenza", "pendingTitle": "Richieste in attesa", "nonePending": "Nessuna richiesta in attesa.", "passwordRequest": "Richiesta password", "guestRequest": "Richiesta PIN ospite", "contactNoteLabel": "Nota di contatto", "contextNoteLabel": "Contesto", "selectVerifiedGuest": "Seleziona la sessione verificata", "selectGuestRequired": "Seleziona la sessione verificata prima di creare un link.", "oneTimeGuestLink": "Link di recupero monouso:", "resolve": "Segna risolta", "dismiss": "Ignora",
+      "guestAccountsEyebrow": "Assistenza ospiti", "guestAccountsTitle": "Account e sessioni ospite", "guestAccountsHelp": "Controlla stato e attività senza esporre PIN, token o segreti.", "noGuests": "Nessuna sessione trovata.", "status": "Stato", "lastActive": "Ultima attività", "linkedActivity": "Viaggi + caricamenti", "guestStatuses": { "active": "Attiva", "grace": "Periodo di tolleranza", "expired": "Scaduta", "revoked": "Revocata", "deleted": "Eliminata", "pin_reset_required": "Ripristino PIN richiesto" }
+    }
   },
   "settingsPage": {
     "accountSettings": "Impostazioni account",

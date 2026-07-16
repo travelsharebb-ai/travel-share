@@ -13,6 +13,8 @@ import { getAdminAnalytics, getAdminReportingDepth } from "../services/analytics
 import { getPaymentReadiness } from "../utils/payments.js";
 import { sendPasswordResetEmail } from "../utils/email.js";
 import { allowDevelopmentRecoveryUrl, writeSecurityAudit } from "../services/accountSecurityService.js";
+import { getGuestLifecycle } from "../services/sessionService.js";
+import { resetRequestSafeInclude } from "../services/resetRequestService.js";
 
 const router = Router();
 const supportReasonSchema = z.object({
@@ -553,28 +555,178 @@ router.get("/events", async (_req, res) => {
   res.json({ events });
 });
 
-router.get("/guests", async (_req, res) => {
-  const guests = await prisma.guestSession.findMany({
-    select: {
-      id: true,
-      displayName: true,
-      scopeType: true,
-      scopeId: true,
-      expiresAt: true,
-      claimedById: true,
-      createdAt: true,
-      updatedAt: true,
-      lastGuestAccessAt: true,
-      accessRevokedAt: true,
-      pinResetRequired: true,
-      deletedAt: true,
-      claimedBy: { select: { id: true, name: true, email: true } },
-      _count: { select: { uploads: true, trips: true, events: true, qrUploadSpaces: true } }
-    },
-    orderBy: { createdAt: "desc" },
-    take: 100
-  });
-  res.json({ guests });
+router.get("/guests", async (req, res, next) => {
+  try {
+    const guests = await prisma.guestSession.findMany({
+      select: {
+        id: true,
+        displayName: true,
+        scopeType: true,
+        scopeId: true,
+        expiresAt: true,
+        claimedById: true,
+        createdAt: true,
+        updatedAt: true,
+        lastGuestAccessAt: true,
+        accessRevokedAt: true,
+        pinResetRequired: true,
+        deletedAt: true,
+        claimedBy: { select: { id: true, name: true, email: true } },
+        _count: { select: { uploads: true, trips: true, events: true, qrUploadSpaces: true } }
+      },
+      orderBy: { createdAt: "desc" },
+      take: 100
+    });
+    const safeGuests = await Promise.all(guests.map(async (guest) => {
+      const lifecycle = await getGuestLifecycle(guest, { platformCache: req.platformCache });
+      const status = guest.deletedAt ? "deleted"
+        : guest.accessRevokedAt ? "revoked"
+          : guest.pinResetRequired ? "pin_reset_required"
+            : lifecycle.state;
+      return { ...guest, status, activeUntil: lifecycle.activeUntil, daysRemaining: lifecycle.daysRemaining };
+    }));
+    res.json({ guests: safeGuests });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get("/reset-requests", async (req, res, next) => {
+  try {
+    const query = z.object({
+      status: z.enum(["pending", "resolved", "dismissed", "all"]).optional().default("pending")
+    }).parse(req.query || {});
+    const requests = await prisma.accountResetRequest.findMany({
+      where: query.status === "all" ? {} : { status: query.status },
+      include: resetRequestSafeInclude,
+      orderBy: { createdAt: "desc" },
+      take: 200
+    });
+    return res.json({ requests });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.post("/reset-requests/:requestId/action", async (req, res, next) => {
+  try {
+    const data = supportReasonSchema.extend({
+      action: z.enum(["resolve", "dismiss", "send_password_reset", "generate_guest_pin_reset"]),
+      guestSessionId: z.string().trim().min(1).optional()
+    }).parse(req.body || {});
+    const resetRequest = await prisma.accountResetRequest.findUnique({
+      where: { id: req.params.requestId },
+      include: resetRequestSafeInclude
+    });
+    if (!resetRequest) return res.status(404).json({ error: "Reset request not found." });
+    if (resetRequest.status !== "pending") return res.status(409).json({ error: "This reset request has already been handled." });
+
+    let recoveryUrl;
+    let oldLinksRevoked = false;
+    let emailSent = false;
+    let deliveryError = null;
+    let targetType = resetRequest.requesterType;
+    let targetId = resetRequest.userId || resetRequest.guestSessionId || resetRequest.id;
+    const nextStatus = data.action === "dismiss" ? "dismissed" : "resolved";
+
+    if (data.action === "send_password_reset") {
+      if (resetRequest.requestType !== "password_reset" || !resetRequest.user) {
+        return res.status(400).json({ error: "This request is not linked to a registered user." });
+      }
+      const token = secureToken(32);
+      recoveryUrl = `${process.env.FRONTEND_URL || "http://localhost:5173"}/reset-password/${token}`;
+      await prisma.$transaction([
+        prisma.passwordResetToken.updateMany({
+          where: { userId: resetRequest.user.id, usedAt: null, revokedAt: null }, data: { revokedAt: new Date() }
+        }),
+        prisma.passwordResetToken.create({
+          data: { userId: resetRequest.user.id, tokenHash: hashToken(token), expiresAt: new Date(Date.now() + 30 * 60 * 1000) }
+        })
+      ]);
+      oldLinksRevoked = true;
+      const delivery = await sendPasswordResetEmail({ user: resetRequest.user, resetUrl: recoveryUrl });
+      emailSent = delivery.sent === true;
+      if (!emailSent) deliveryError = delivery.error || "unknown error";
+      targetType = "user";
+      targetId = resetRequest.user.id;
+    } else if (data.action === "generate_guest_pin_reset") {
+      if (resetRequest.requestType !== "guest_pin_reset") {
+        return res.status(400).json({ error: "This request is not a guest PIN reset request." });
+      }
+      const guestId = data.guestSessionId || resetRequest.guestSessionId;
+      if (!guestId) return res.status(400).json({ error: "Select the verified guest session before generating a link." });
+      const guest = await prisma.guestSession.findUnique({
+        where: { id: guestId },
+        select: { id: true, claimedById: true, deletedAt: true }
+      });
+      if (!guest || guest.claimedById || guest.deletedAt) {
+        return res.status(400).json({ error: "The selected guest session is not eligible for recovery." });
+      }
+      const token = secureToken(32);
+      recoveryUrl = `${process.env.FRONTEND_URL || "http://localhost:5173"}/guest/reset-pin/${token}`;
+      await prisma.$transaction([
+        prisma.guestPinResetToken.updateMany({ where: { guestSessionId: guest.id, usedAt: null, revokedAt: null }, data: { revokedAt: new Date() } }),
+        prisma.guestPinResetToken.create({ data: { guestSessionId: guest.id, tokenHash: hashToken(token), expiresAt: new Date(Date.now() + 30 * 60 * 1000) } }),
+        prisma.guestSession.update({ where: { id: guest.id }, data: { resumeCode: null, resumeTokenHash: null, pinResetRequired: true } })
+      ]);
+      oldLinksRevoked = true;
+      targetType = "guest";
+      targetId = guest.id;
+    }
+
+    if (deliveryError) {
+      await writeSecurityAudit(req, {
+        targetType,
+        targetId,
+        action: "reset_request_send_password_reset_failed",
+        reason: data.reason,
+        beforeStatus: "pending",
+        afterStatus: "pending",
+        resetLinkGenerated: true,
+        oldLinksRevoked,
+        metadata: { resetRequestId: resetRequest.id, emailSent: false, deliveryError }
+      });
+      return res.status(502).json({
+        error: `Password reset link created, but email delivery failed: ${deliveryError}`,
+        ...(allowDevelopmentRecoveryUrl(recoveryUrl) ? { devResetUrl: recoveryUrl } : {})
+      });
+    }
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const request = await tx.accountResetRequest.update({
+        where: { id: resetRequest.id },
+        data: {
+          status: nextStatus,
+          resolvedAt: new Date(),
+          resolvedByAdminId: req.user.id,
+          adminNote: data.reason,
+          ...(data.guestSessionId ? { guestSessionId: data.guestSessionId } : {})
+        },
+        include: resetRequestSafeInclude
+      });
+      await writeSecurityAudit(req, {
+        targetType,
+        targetId,
+        action: `reset_request_${data.action}`,
+        reason: data.reason,
+        beforeStatus: "pending",
+        afterStatus: nextStatus,
+        resetLinkGenerated: ["send_password_reset", "generate_guest_pin_reset"].includes(data.action),
+        resetLinkSentTo: emailSent ? resetRequest.user?.email : null,
+        oldLinksRevoked,
+        metadata: { resetRequestId: resetRequest.id, emailSent, deliveryError }
+      }, tx);
+      return request;
+    });
+
+    return res.json({
+      ok: true,
+      request: updated,
+      ...(recoveryUrl && (data.action === "generate_guest_pin_reset" || allowDevelopmentRecoveryUrl(recoveryUrl)) ? { recoveryUrl } : {})
+    });
+  } catch (error) {
+    return next(error);
+  }
 });
 
 router.get("/audit/security", async (_req, res, next) => {

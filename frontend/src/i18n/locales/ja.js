@@ -1110,7 +1110,14 @@ const translations = {
     "revokeGuestLinks": "ゲストリンクを失効",
     "forceGuestPin": "新しいPINを強制",
     "revokeGuestAccess": "ゲストアクセスを失効",
-    "deleteGuestSession": "ゲストセッションを削除"
+    "deleteGuestSession": "ゲストセッションを削除",
+    "resetRequests": {
+      "guestName": "ゲスト名", "contactEmail": "連絡先メール", "contactNote": "連絡メモ（電話または希望する方法）", "contextNote": "旅行・イベント・状況のメモ（任意）", "message": "サポートへの理由またはメッセージ", "contactRequired": "連絡先メールまたは連絡メモを入力してください。", "failed": "リセット依頼を送信できませんでした。",
+      "guestHelp": "安全な一回限りのリンクを作成する前に、サポートが情報を確認します。名前だけでは暗証番号をリセットできません。", "guestSent": "依頼をサポートへ送信しました。管理者が情報を確認してからリンクを送ります。", "submitGuest": "暗証番号リセットリンクを依頼", "requestGuest": "暗証番号リセットリンクを依頼", "hideGuestRequest": "依頼を隠す", "guestTitle": "暗証番号を忘れた・変更したい", "guestSettingsEyebrow": "ゲスト暗証番号のヘルプ", "guestSettingsHelp": "現在の暗証番号が不明な場合は確認依頼を送ってください。管理者に暗証番号は表示されません。",
+      "accountHelpEyebrow": "アカウント復旧", "passwordTitle": "パスワード再設定の支援を依頼", "passwordHelp": "サポート依頼を送信します。管理者はリンクを送れますが、パスワードの閲覧や設定はできません。", "submitPassword": "再設定リンクを依頼", "passwordSent": "パスワード再設定依頼をサポートへ送信しました。",
+      "supportQueueEyebrow": "サポート待ち一覧", "pendingTitle": "保留中の再設定依頼", "nonePending": "保留中の依頼はありません。", "passwordRequest": "パスワード再設定依頼", "guestRequest": "ゲスト暗証番号の依頼", "contactNoteLabel": "連絡メモ", "contextNoteLabel": "状況", "selectVerifiedGuest": "確認済みゲストセッションを選択", "selectGuestRequired": "リンク作成前に確認済みセッションを選択してください。", "oneTimeGuestLink": "一回限りのゲスト復旧リンク：", "resolve": "解決済みにする", "dismiss": "却下",
+      "guestAccountsEyebrow": "ゲストサポート", "guestAccountsTitle": "ゲストアカウントとセッション", "guestAccountsHelp": "暗証番号、トークン、機密情報を表示せず状態と活動を確認します。", "noGuests": "ゲストセッションはありません。", "status": "状態", "lastActive": "最終利用", "linkedActivity": "旅行 + アップロード", "guestStatuses": { "active": "有効", "grace": "猶予期間", "expired": "期限切れ", "revoked": "取消済み", "deleted": "削除済み", "pin_reset_required": "暗証番号の再設定が必要" }
+    }
   },
   "settingsPage": {
     "accountSettings": "アカウント設定",
