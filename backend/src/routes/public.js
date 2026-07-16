@@ -1,6 +1,6 @@
 import { Router } from "express";
 import multer from "multer";
-import { uploadLimiter } from "../middleware/rateLimits.js";
+import { authLimiter, uploadLimiter } from "../middleware/rateLimits.js";
 import * as publicController from "../controllers/publicController.js";
 
 const router = Router();
@@ -22,13 +22,14 @@ router.get("/appearance", publicController.appearance);
 
 // public map/events feed
 router.get("/events", publicController.publicEvents);
+router.get("/events/:eventId", publicController.publicEventDetails);
 router.get("/events/:eventId/souvenir", publicController.publicEventSouvenir);
 router.get("/store-preview", publicController.storePreview);
 router.post("/share/:token/unlock", publicController.shareUnlock);
 
 router.get("/guest/session", publicController.guestSessionStatus);
-router.post("/guest/session", publicController.guestSessionCreate);
-router.post("/guest/resume", publicController.guestSessionResume);
+router.post("/guest/session", authLimiter, publicController.guestSessionCreate);
+router.post("/guest/resume", authLimiter, publicController.guestSessionResume);
 
 // =======================
 // 🔥 SINGLE QR ENTRY POINT

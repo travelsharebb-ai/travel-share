@@ -24,28 +24,26 @@ export default function GuestMode() {
   const [errorKey, setErrorKey] = useState(null);
   const [displayName, setDisplayName] = useState("");
   const [passcodeInput, setPasscodeInput] = useState("");
-  const [resumeTokenInput, setResumeTokenInput] = useState("");
+  const [resumeName, setResumeName] = useState("");
   const [resumePasscode, setResumePasscode] = useState("");
   const [resumeLink, setResumeLink] = useState(null);
   const [savedSessionProblem, setSavedSessionProblem] = useState(null);
   const [copiedResumeLink, setCopiedResumeLink] = useState(false);
 
-  function extractResumeToken(raw) {
-    const token = raw?.trim() || "";
-    const match = token.match(/guest\/access\/(.+)$/i);
-    return match ? match[1] : token;
-  }
-
   async function createProfileAndAccess(e) {
     e?.preventDefault();
     setErrorKey(null);
+    if (displayName.trim().length < 2) {
+      setErrorKey("name");
+      return;
+    }
     if (!/^[0-9]{4}$/.test(passcodeInput.trim())) {
-      setErrorKey("guestMode.error.passcode");
+      setErrorKey("passcode");
       return;
     }
     setLoading(true);
     try {
-      const data = await createGuestSessionProfile({ displayName: displayName.trim() || undefined, passcode: passcodeInput.trim() });
+      const data = await createGuestSessionProfile({ displayName: displayName.trim(), passcode: passcodeInput.trim() });
       const createdGuestToken = data?.guestSession?.token;
       const resumeToken = data.resumeToken || data.guestSession?.resumeToken || data.guestSession?.resume?.token;
       const accessLink = data.accessLink || data.guestSession?.accessLink || data.guestAccessLink || (resumeToken ? `${window.location.origin}/guest/access/${resumeToken}` : "");
@@ -79,22 +77,19 @@ export default function GuestMode() {
   async function continueViaResume(e) {
     e?.preventDefault();
     setErrorKey(null);
-    if (!resumeTokenInput.trim()) {
-      setErrorKey("guestMode.error.accessLinkRequired");
+    if (resumeName.trim().length < 2) {
+      setErrorKey("name");
       return;
     }
     if (!/^[0-9]{4}$/.test(resumePasscode.trim())) {
-      setErrorKey("guestMode.error.passcode");
+      setErrorKey("passcode");
       return;
     }
-    const resumeToken = extractResumeToken(resumeTokenInput);
     setLoading(true);
     try {
-      const data = await resumeGuestSession({ resumeToken, passcode: resumePasscode.trim() });
+      const data = await resumeGuestSession({ displayName: resumeName.trim(), passcode: resumePasscode.trim() });
       if (data?.guestToken) {
-        const accessLink = data.accessLink || data.guestSession?.accessLink || (resumeTokenInput.trim().startsWith("http")
-          ? resumeTokenInput.trim()
-          : `${window.location.origin}/guest/access/${resumeToken}`);
+        const accessLink = data.accessLink || data.guestSession?.accessLink;
         if (accessLink) {
           localStorage.setItem("travelShareGuestAccessLink", accessLink);
         }
@@ -145,10 +140,10 @@ export default function GuestMode() {
   const showCreatedSummary = guestMode === "created";
   const showSavedProblem = guestMode === "invalid" || guestMode === "expired";
   const errorMessage = {
-    "guestMode.error.passcode": t("guestMode.error.passcode", "Enter a 4-digit passcode."),
+    name: t("hardcoded.enterAGuestNameAndA4Digit"),
+    passcode: t("guestMode.error.passcode", "Enter a 4-digit passcode."),
     "guestMode.error.notCreated": t("guestMode.error.notCreated", "Guest session was not created. Please try again."),
     "guestMode.error.createFailed": t("guestMode.error.createFailed", "Unable to create guest access."),
-    "guestMode.error.accessLinkRequired": t("guestMode.error.accessLinkRequired", "Enter your guest access link or token."),
     "guestMode.error.resumeFailed": t("guestMode.error.resumeFailed", "Unable to resume guest session."),
     "guestMode.error.restoreFailed": t("guestMode.error.restoreFailed", "Saved guest session could not be restored.")
   }[errorKey];
@@ -238,16 +233,25 @@ export default function GuestMode() {
             <input
               name="guestDisplayName"
               className="field"
-              placeholder={t("hardcoded.yourNameOptional")}
+              placeholder={t("settingsPage.name")}
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
+              autoComplete="name"
+              minLength={2}
+              required
             />
             <input
               name="guestPasscode"
+              type="password"
               className="field"
               placeholder={t("hardcoded.4DigitPasscodeEG1234")}
               value={passcodeInput}
               onChange={(e) => setPasscodeInput(e.target.value)}
+              inputMode="numeric"
+              autoComplete="new-password"
+              pattern="[0-9]{4}"
+              maxLength={4}
+              required
             />
             <div className="flex flex-wrap gap-3">
               <button className="btn-primary" type="submit" disabled={loading}>{t("hardcoded.createGuestAccess")}</button>
@@ -301,24 +305,33 @@ export default function GuestMode() {
           <div className="flex items-center justify-between gap-3">
             <div>
               <h3 className="font-serif text-2xl font-black">{t("hardcoded.resumeExistingGuestSession")}</h3>
-              <p className="mt-2 text-slatebody">{t("hardcoded.pasteYourGuestAccessLinkOrTokenAnd")}</p>
+              <p className="mt-2 text-slatebody">{t("hardcoded.enterThe4DigitPasscodeYouSetWhen")}</p>
             </div>
-            <button type="button" className="btn-ghost" onClick={() => { setGuestMode("choices"); setErrorKey(null); setResumeTokenInput(""); setResumePasscode(""); }}>{t("common.back")}</button>
+            <button type="button" className="btn-ghost" onClick={() => { setGuestMode("choices"); setErrorKey(null); setResumeName(""); setResumePasscode(""); }}>{t("common.back")}</button>
           </div>
           <form className="mt-4 grid gap-3 max-w-xl" onSubmit={continueViaResume}>
             <input
-              name="guestResumeToken"
+              name="guestResumeName"
               className="field"
-              placeholder={t("hardcoded.pasteGuestAccessLinkOrToken")}
-              value={resumeTokenInput}
-              onChange={(e) => setResumeTokenInput(e.target.value)}
+              placeholder={t("settingsPage.name")}
+              value={resumeName}
+              onChange={(e) => setResumeName(e.target.value)}
+              autoComplete="username"
+              minLength={2}
+              required
             />
             <input
               name="guestResumePasscode"
+              type="password"
               className="field"
               placeholder={t("hardcoded.4DigitPasscode")}
               value={resumePasscode}
               onChange={(e) => setResumePasscode(e.target.value)}
+              inputMode="numeric"
+              autoComplete="current-password"
+              pattern="[0-9]{4}"
+              maxLength={4}
+              required
             />
             <div className="flex gap-3">
               <button className="btn-primary" type="submit" disabled={loading}>{t("hardcoded.continue")}</button>

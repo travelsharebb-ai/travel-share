@@ -2,11 +2,13 @@ import { useLanguage } from "../lib/i18n";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
-import { api } from "../lib/api.js";
+import { api, currentUser } from "../lib/api.js";
 
 export default function EventDetails() {
   const { t, language } = useLanguage();
   const { eventId } = useParams();
+  const viewer = currentUser();
+  const canManage = ["organizer", "admin", "platform_admin"].includes(viewer?.role);
   const [event, setEvent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -14,7 +16,10 @@ export default function EventDetails() {
   useEffect(() => {
     let active = true;
     setLoading(true);
-    api(`/api/events/${eventId}`)
+    const endpoint = canManage
+      ? `/api/events/${encodeURIComponent(eventId)}`
+      : `/api/public/events/${encodeURIComponent(eventId)}`;
+    api(endpoint)
       .then((data) => {
         if (!active) return;
         setEvent(data.event || null);
@@ -32,19 +37,20 @@ export default function EventDetails() {
     return () => {
       active = false;
     };
-  }, [eventId]);
+  }, [canManage, eventId]);
 
   const stats = useMemo(() => {
     if (!event) return { guests: 0, uploads: 0, scans: 0, zones: 0 };
-    const guests = new Set(event.uploads.map((upload) => upload.guestSessionId || upload.uploaderAnonId || upload.uploaderFingerprint)).size;
-    const uploads = event._count?.uploads || event.uploads.length || 0;
+    const eventUploads = event.uploads || [];
+    const guests = new Set(eventUploads.map((upload) => upload.guestSessionId || upload.uploaderAnonId || upload.uploaderFingerprint)).size;
+    const uploads = event._count?.uploads || eventUploads.length || 0;
     const zones = event._count?.zones || event.zones?.length || 0;
     const scans = uploads;
     return { guests, uploads, scans, zones };
   }, [event]);
 
-  const heroSubtitle = event?.description || t("eventDetails.defaultDescription", "Manage checklist, QR access and gallery previews for your event.");
-  const publicUploadPath = event?.qrToken ? `/qr/${event.qrToken}/upload` : null;
+  const heroSubtitle = event?.description || (canManage ? t("eventDetails.defaultDescription", "Manage checklist, QR access and gallery previews for your event.") : "");
+  const publicUploadPath = canManage && event?.qrToken ? `/qr/${event.qrToken}/upload` : null;
   const formatDateTime = (value) => value ? new Intl.DateTimeFormat(language, { dateStyle: "medium", timeStyle: "short" }).format(new Date(value)) : null;
   const statusLabel = (value) => value === "live" ? t("eventDetails.statusLive", "Live") : value === "ended" ? t("eventDetails.statusEnded", "Ended") : value === "archived" ? t("eventDetails.statusArchived", "Archived") : t("eventDetails.statusDraft", "Draft");
   const visibilityLabel = (value) => value === "public" ? t("eventDetails.visibilityPublic", "Public") : value === "unlisted" ? t("eventDetails.visibilityUnlisted", "Unlisted") : t("eventDetails.visibilityPrivate", "Private");
@@ -58,21 +64,20 @@ export default function EventDetails() {
         </Link>
         {loading ? (
           <div>
-            <p className="text-sm uppercase tracking-[0.32em] text-primary">{t("hardcoded.eventManagement")}</p>
+            <p className="text-sm uppercase tracking-[0.32em] text-primary">{canManage ? t("hardcoded.eventManagement") : t("hardcoded.eventDetails")}</p>
             <h1 className="mt-3 text-4xl font-black">{t("hardcoded.loadingEvent")}</h1>
           </div>
         ) : error ? (
           <div>
-            <p className="text-sm uppercase tracking-[0.32em] text-primary">{t("hardcoded.eventManagement")}</p>
+            <p className="text-sm uppercase tracking-[0.32em] text-primary">{t("hardcoded.eventDetails")}</p>
             <h1 className="mt-3 text-4xl font-black">{t("hardcoded.eventUnavailable")}</h1>
-            <p className="mt-4 text-slatebody">{t("eventDetails.loadError", "Unable to load event details.")}</p>
           </div>
         ) : (
           <div className="grid gap-6 lg:grid-cols-[1.4fr_0.9fr]">
             <div>
-              <p className="text-sm uppercase tracking-[0.32em] text-primary">{t("hardcoded.eventManagement")}</p>
+              <p className="text-sm uppercase tracking-[0.32em] text-primary">{canManage ? t("hardcoded.eventManagement") : t("hardcoded.publicEvent")}</p>
               <h1 className="mt-3 text-4xl font-black font-serif">{event.title}</h1>
-              <p className="mt-4 max-w-2xl text-slatebody leading-7">{heroSubtitle}</p>
+              {heroSubtitle ? <p className="mt-4 max-w-2xl text-slatebody leading-7">{heroSubtitle}</p> : null}
               <div className="mt-5 flex flex-wrap gap-3">
                 <span className="rounded-full border border-primary/40 bg-primary/10 px-4 py-2 text-sm uppercase tracking-[0.32em] text-primary">
                   {statusLabel(event.status)}
@@ -95,19 +100,23 @@ export default function EventDetails() {
               <div className="card p-5">
                 <p className="text-sm uppercase tracking-[0.32em] text-primary">{t("guestDashboard.quickActionsBadge")}</p>
                 <div className="mt-4 grid gap-3">
-                  <Link className="btn-indigo" to="/scan">{t("events.dashboard.scanAttendeeQr")}</Link>
-                  {publicUploadPath ? (
-                    <Link className="btn-ghost" to={publicUploadPath}>{t("hardcoded.openPublicQrPage")}</Link>
-                  ) : (
-                    <button type="button" className="btn-ghost" disabled>{t("hardcoded.openPublicQrPage")}</button>
-                  )}
-                  <Link className="btn-primary" to={`/qr-spaces/new?targetType=event&targetId=${encodeURIComponent(event.id)}`}>
-                    {t("qrSpaces.createForEvent")}
-                  </Link>
+                  <Link className="btn-indigo" to="/scan">{canManage ? t("events.dashboard.scanAttendeeQr") : t("nav.scan")}</Link>
+                  {canManage ? (
+                    <>
+                      {publicUploadPath ? (
+                        <Link className="btn-ghost" to={publicUploadPath}>{t("hardcoded.openPublicQrPage")}</Link>
+                      ) : (
+                        <button type="button" className="btn-ghost" disabled>{t("hardcoded.openPublicQrPage")}</button>
+                      )}
+                      <Link className="btn-primary" to={`/qr-spaces/new?targetType=event&targetId=${encodeURIComponent(event.id)}`}>
+                        {t("qrSpaces.createForEvent")}
+                      </Link>
+                    </>
+                  ) : null}
                   {["ended", "archived"].includes(event.status) ? (
                     <Link className="btn-ghost" to={`/events/${event.id}/souvenir`}>{t("souvenir.open")}</Link>
                   ) : null}
-                  <p className="text-sm text-slatebody">{t("qrSpaces.createForEventHelp")}</p>
+                  {canManage ? <p className="text-sm text-slatebody">{t("qrSpaces.createForEventHelp")}</p> : null}
                 </div>
               </div>
             </div>
@@ -115,7 +124,7 @@ export default function EventDetails() {
         )}
       </section>
 
-      {!loading && event && (
+      {!loading && event && canManage && (
         <section className="grid gap-4 lg:grid-cols-4">
           {[
             { label: t("eventDetails.guests", "Guests"), value: stats.guests, detail: t("eventDetails.uniqueGuestSessions", "Unique guest sessions") },
@@ -135,11 +144,11 @@ export default function EventDetails() {
       {!loading && event && (
         <section className="grid gap-4 lg:grid-cols-2">
           <div className="card p-5">
-            <p className="text-sm uppercase tracking-[0.32em] text-primary">{t("hardcoded.eventManagement")}</p>
-            <h2 className="mt-3 text-2xl font-black">{t("hardcoded.galleryUploadSummary")}</h2>
-            <p className="mt-3 text-slatebody">{t("hardcoded.aQuickPreviewOfTheLatestUploadActivity")}</p>
+            <p className="text-sm uppercase tracking-[0.32em] text-primary">{canManage ? t("hardcoded.eventManagement") : t("hardcoded.publicEvent")}</p>
+            <h2 className="mt-3 text-2xl font-black">{canManage ? t("hardcoded.galleryUploadSummary") : t("hardcoded.galleryPreview")}</h2>
+            {canManage ? <p className="mt-3 text-slatebody">{t("hardcoded.aQuickPreviewOfTheLatestUploadActivity")}</p> : null}
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
-              {event.uploads.length ? (
+              {(event.uploads || []).length ? (
                 event.uploads.slice(0, 4).map((upload) => (
                   <div key={upload.id} className="rounded-3xl border border-borderline bg-slate-950/70 overflow-hidden">
                     {upload.fileType?.startsWith("image") ? (
@@ -159,7 +168,7 @@ export default function EventDetails() {
             </div>
           </div>
 
-          <div className="card p-5">
+          {canManage ? <div className="card p-5">
             <p className="text-sm uppercase tracking-[0.32em] text-primary">{t("hardcoded.managementCards")}</p>
             <div className="mt-5 space-y-4">
               <div className="rounded-3xl border border-borderline bg-slate-950/70 p-5">
@@ -179,7 +188,7 @@ export default function EventDetails() {
                 <p className="mt-3 text-slatebody">{t("hardcoded.monitorRecentGuestSubmissionsAndZoneEngagementIn")}</p>
               </div>
             </div>
-          </div>
+          </div> : null}
         </section>
       )}
     </main>
