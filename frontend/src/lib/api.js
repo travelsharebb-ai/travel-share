@@ -73,9 +73,9 @@ export async function createGuestSessionProfile({ displayName, passcode } = {}) 
   }
 }
 
-export async function resumeGuestSession({ resumeToken, passcode } = {}) {
+export async function resumeGuestSession({ resumeToken, displayName, passcode } = {}) {
   try {
-    const data = await api("/api/public/guest/resume", { method: "POST", body: JSON.stringify({ resumeToken, passcode }) });
+    const data = await api("/api/public/guest/resume", { method: "POST", body: JSON.stringify({ resumeToken, displayName, passcode }) });
     return data;
   } catch (err) {
     throw err;

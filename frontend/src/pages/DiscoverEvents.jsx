@@ -50,19 +50,11 @@ export default function DiscoverEvents() {
           ) : (
             events.map((ev) => (
               <div key={ev.id} className="card p-5">
-                {ev.qrToken ? (
-                  <Link to={`/qr/${ev.qrToken}`} className="block">
-                    <p className="font-serif text-2xl font-black">{ev.title}</p>
-                    <p className="text-slatebody">{ev.location || t("hardcoded.publicEvent")} • {t("hardcoded.memoriesCount", undefined, { count: ev._count?.uploads || 0 })}</p>
-                    <p className="mt-2 text-primary">{t("hardcoded.openEventQrPage")}</p>
-                  </Link>
-                ) : (
-                  <div className="opacity-60">
-                    <p className="font-serif text-2xl font-black">{ev.title}</p>
-                    <p className="text-slatebody">{ev.location || t("hardcoded.publicEvent")} • {t("hardcoded.memoriesCount", undefined, { count: ev._count?.uploads || 0 })}</p>
-                    <p className="mt-2 text-slatebody">{t("hardcoded.eventQrNotAvailable")}</p>
-                  </div>
-                )}
+                <Link to={`/events/${ev.id}`} className="block">
+                  <p className="font-serif text-2xl font-black">{ev.title}</p>
+                  <p className="text-slatebody">{ev.location || t("hardcoded.publicEvent")} • {t("hardcoded.memoriesCount", undefined, { count: ev._count?.uploads || 0 })}</p>
+                  <p className="mt-2 text-primary">{t("events.openEvent", "Open event")}</p>
+                </Link>
               </div>
             ))
           )}

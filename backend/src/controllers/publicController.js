@@ -143,6 +143,21 @@ export async function publicEvents(req, res, next) {
         visibility: "public",
         status: "live"
       },
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        category: true,
+        location: true,
+        latitude: true,
+        longitude: true,
+        startDate: true,
+        endDate: true,
+        coverImageUrl: true,
+        visibility: true,
+        status: true,
+        _count: { select: { uploads: { where: { status: "approved" } } } }
+      },
       orderBy: { startDate: "desc" }
     });
 
@@ -155,6 +170,52 @@ export async function publicEvents(req, res, next) {
     });
   } catch (err) {
     next(err);
+  }
+}
+
+export async function publicEventDetails(req, res, next) {
+  try {
+    const event = await prisma.event.findFirst({
+      where: {
+        id: req.params.eventId,
+        visibility: "public",
+        status: "live"
+      },
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        category: true,
+        location: true,
+        latitude: true,
+        longitude: true,
+        startDate: true,
+        endDate: true,
+        coverImageUrl: true,
+        visibility: true,
+        status: true,
+        uploads: {
+          where: { status: "approved" },
+          orderBy: { createdAt: "desc" },
+          select: { id: true, caption: true, fileUrl: true, fileType: true, createdAt: true, zoneId: true }
+        },
+        zones: {
+          orderBy: { displayOrder: "asc" },
+          select: { id: true, name: true, type: true, description: true, latitude: true, longitude: true }
+        },
+        _count: {
+          select: {
+            uploads: { where: { status: "approved" } },
+            zones: true
+          }
+        }
+      }
+    });
+
+    if (!event) return res.status(404).json({ error: "Event is private or unavailable." });
+    return res.json({ event });
+  } catch (err) {
+    return next(err);
   }
 }
 
@@ -235,7 +296,10 @@ export async function guestSessionStatus(req, res, next) {
 
 export async function guestSessionCreate(req, res, next) {
   try {
-    const { displayName, passcode } = req.body || {};
+    const { displayName, passcode } = z.object({
+      displayName: z.string().trim().min(2).max(80),
+      passcode: z.string().regex(/^\d{4}$/)
+    }).parse(req.body || {});
 
     const guest = await getOrCreateGuestSession({
       token: readCookie(req, "ts_guest") || req.get("x-guest-token"),
@@ -244,39 +308,23 @@ export async function guestSessionCreate(req, res, next) {
     });
     if (guest) setGuestSessionCookie(res, guest.token);
 
-    // If client provided a displayName and passcode, persist them securely and return a resume token
-    let resumeToken = null;
-    if (passcode && typeof passcode === 'string' && /^\d{4}$/.test(passcode)) {
-      try {
-        // generate resume code and keep a hashed copy for later resume validation
-        const resumeCode = secureToken(18);
-        resumeToken = resumeCode;
-        const resumeTokenHash = hashToken(resumeCode);
-        const passcodeHash = await bcrypt.hash(passcode, 10);
-        await prisma.guestSession.update({
-          where: { id: guest.id },
-          data: {
-            displayName: displayName || null,
-            resumeCode,
-            resumeTokenHash,
-            passcodeHash,
-            passcodeSetAt: new Date(),
-            lastGuestAccessAt: new Date()
-          }
-        });
-      } catch (err) {
-        console.error('Error saving guest profile', err?.message || err);
+    const resumeToken = secureToken(18);
+    const resumeTokenHash = hashToken(resumeToken);
+    const passcodeHash = await bcrypt.hash(passcode, 10);
+    await prisma.guestSession.update({
+      where: { id: guest.id },
+      data: {
+        displayName,
+        resumeCode: resumeToken,
+        resumeTokenHash,
+        passcodeHash,
+        passcodeSetAt: new Date(),
+        lastGuestAccessAt: new Date()
       }
-    } else if (displayName) {
-      try {
-        await prisma.guestSession.update({ where: { id: guest.id }, data: { displayName: displayName || null, lastGuestAccessAt: new Date() } });
-      } catch (err) {
-        console.error('Error saving guest displayName', err?.message || err);
-      }
-    }
+    });
 
     const guestRecord = await prisma.guestSession.findUnique({ where: { id: guest.id } });
-    const payload = await guestPayload(guestRecord, { platformCache: req.platformCache });
+    const payload = await guestPayload(guestRecord, req.platformCache);
     const response = {
       valid: !payload.expired,
       guestSession: payload,
@@ -296,37 +344,45 @@ export async function guestSessionCreate(req, res, next) {
 
 export async function guestSessionResume(req, res, next) {
   try {
-    const { resumeToken, passcode } = req.body || {};
-    if (!resumeToken || !passcode) {
-      return res.status(400).json({ error: 'resumeToken and passcode required' });
-    }
+    const { resumeToken, displayName, passcode } = z.object({
+      resumeToken: z.string().trim().min(1).optional(),
+      displayName: z.string().trim().min(2).max(80).optional(),
+      passcode: z.string().regex(/^\d{4}$/)
+    }).refine((value) => Boolean(value.resumeToken || value.displayName), {
+      message: "Guest name or resume token is required."
+    }).parse(req.body || {});
 
-    const resumeTokenHash = hashToken(resumeToken);
-    const guest = await prisma.guestSession.findUnique({ where: { resumeTokenHash } });
-    if (!guest || guest.claimedById) {
-      return res.status(401).json({ error: 'Guest session not found' });
+    let guest = null;
+    if (resumeToken) {
+      guest = await prisma.guestSession.findUnique({ where: { resumeTokenHash: hashToken(resumeToken) } });
+      const valid = Boolean(guest?.passcodeHash) && await bcrypt.compare(passcode, guest.passcodeHash);
+      if (!guest || guest.claimedById || !valid) {
+        return res.status(401).json({ error: "Invalid guest name or PIN." });
+      }
+    } else {
+      const candidates = await prisma.guestSession.findMany({
+        where: {
+          displayName: { equals: displayName, mode: "insensitive" },
+          claimedById: null,
+          passcodeHash: { not: null }
+        },
+        orderBy: { createdAt: "desc" },
+        take: 20
+      });
+      for (const candidate of candidates) {
+        if (await bcrypt.compare(passcode, candidate.passcodeHash)) {
+          guest = candidate;
+          break;
+        }
+      }
+      if (!guest) return res.status(401).json({ error: "Invalid guest name or PIN." });
     }
 
     const lifecycle = await getGuestLifecycle(guest, { platformCache: req.platformCache });
-    if (lifecycle.expired) {
-      return res.status(403).json({ error: 'Guest session expired' });
-    }
-
-    // verify passcode
-    if (!guest.passcodeHash) {
-      return res.status(401).json({ error: 'No passcode set for this session' });
-    }
-    const ok = await bcrypt.compare(passcode, guest.passcodeHash);
-    if (!ok) {
-      return res.status(401).json({ error: 'Invalid passcode' });
-    }
+    if (lifecycle.expired) return res.status(403).json({ error: "Guest session expired." });
 
     // update last access
-    try {
-      await prisma.guestSession.update({ where: { id: guest.id }, data: { lastGuestAccessAt: new Date() } });
-    } catch (err) {
-      console.warn('guestSessionResume - unable to update lastGuestAccessAt', err?.message || err);
-    }
+    await prisma.guestSession.update({ where: { id: guest.id }, data: { lastGuestAccessAt: new Date() } });
 
     // set cookie and return session payload
     setGuestSessionCookie(res, guest.token);

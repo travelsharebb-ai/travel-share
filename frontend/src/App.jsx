@@ -55,6 +55,7 @@ const GuestDashboard = lazy(() => import("./pages/GuestDashboard.jsx"));
 const QRSpaces = lazy(() => import("./pages/QRSpaces.jsx"));
 const QRSpaceCreate = lazy(() => import("./pages/QRSpaceCreate.jsx"));
 const QRSpaceDetails = lazy(() => import("./pages/QRSpaceDetails.jsx"));
+const GuestRestricted = lazy(() => import("./pages/GuestRestricted.jsx"));
 
 export default function App() {
   const [user, setUser] = useState(() => currentUser());
@@ -139,6 +140,9 @@ export default function App() {
     const content = <EventSouvenir />;
     return user ? <Shell>{content}</Shell> : <PublicPage>{content}</PublicPage>;
   }
+  function RegisteredFeatureRoute({ feature, children }) {
+    return user?.role === "guest" ? <GuestRestricted feature={feature} /> : children;
+  }
   return (
     <>
       <SessionSync />
@@ -159,13 +163,13 @@ export default function App() {
       <Route path="/terms" element={<PublicPage><Legal type="terms" /></PublicPage>} />
       <Route path="/verify-email-change" element={<PublicPage><VerifyEmailChange /></PublicPage>} />
       <Route path="/map" element={<PrivateRoute><MapView /></PrivateRoute>} />
-      <Route path="/trips" element={<PrivateRoute><Trips /></PrivateRoute>} />
-      <Route path="/trips/new" element={<PrivateRoute><TripCreate /></PrivateRoute>} />
-      <Route path="/trips/:tripId/upload" element={<PrivateRoute><TripUpload /></PrivateRoute>} />
-      <Route path="/trips/:tripId" element={<PrivateRoute><TripDetails /></PrivateRoute>} />
-      <Route path="/my-uploads" element={<PrivateRoute><MyUploads /></PrivateRoute>} />
-      <Route path="/approvals" element={<PrivateRoute><Approvals /></PrivateRoute>} />
-      <Route path="/shared-albums" element={<PrivateRoute><SharedAlbums /></PrivateRoute>} />
+      <Route path="/trips" element={<PrivateRoute><RegisteredFeatureRoute feature="trips"><Trips /></RegisteredFeatureRoute></PrivateRoute>} />
+      <Route path="/trips/new" element={<PrivateRoute><RegisteredFeatureRoute feature="trips"><TripCreate /></RegisteredFeatureRoute></PrivateRoute>} />
+      <Route path="/trips/:tripId/upload" element={<PrivateRoute><RegisteredFeatureRoute feature="trips"><TripUpload /></RegisteredFeatureRoute></PrivateRoute>} />
+      <Route path="/trips/:tripId" element={<PrivateRoute><RegisteredFeatureRoute feature="trips"><TripDetails /></RegisteredFeatureRoute></PrivateRoute>} />
+      <Route path="/my-uploads" element={<PrivateRoute><RegisteredFeatureRoute feature="myUploads"><MyUploads /></RegisteredFeatureRoute></PrivateRoute>} />
+      <Route path="/approvals" element={<PrivateRoute><RegisteredFeatureRoute feature="approvals"><Approvals /></RegisteredFeatureRoute></PrivateRoute>} />
+      <Route path="/shared-albums" element={<PrivateRoute><RegisteredFeatureRoute feature="sharedAlbums"><SharedAlbums /></RegisteredFeatureRoute></PrivateRoute>} />
       <Route path="/events/new" element={<PrivateRoute><EventCreate /></PrivateRoute>} />
       <Route path="/events/:eventId" element={<PrivateRoute><EventDetails /></PrivateRoute>} />
       <Route path="/events/:eventId/souvenir" element={<SouvenirRoute />} />
@@ -175,8 +179,8 @@ export default function App() {
       <Route path="/store" element={<PrivateRoute><Store /></PrivateRoute>} />
       <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
       <Route path="/qr-spaces" element={<PrivateRoute><QRSpaces /></PrivateRoute>} />
-      <Route path="/qr-spaces/new" element={<PrivateRoute><QRSpaceCreate /></PrivateRoute>} />
-      <Route path="/qr-spaces/:id" element={<PrivateRoute><QRSpaceDetails /></PrivateRoute>} />
+      <Route path="/qr-spaces/new" element={<PrivateRoute><RegisteredFeatureRoute feature="qrSpaces"><QRSpaceCreate /></RegisteredFeatureRoute></PrivateRoute>} />
+      <Route path="/qr-spaces/:id" element={<PrivateRoute><RegisteredFeatureRoute feature="qrSpaces"><QRSpaceDetails /></RegisteredFeatureRoute></PrivateRoute>} />
       <Route path="/admin" element={<PrivateRoute roles={["admin", "platform_admin"]}><Admin /></PrivateRoute>} />
       <Route path="/admin/users" element={<PrivateRoute roles={["admin", "platform_admin"]}><AdminUsers /></PrivateRoute>} />
       <Route path="/admin/moderation" element={<PrivateRoute roles={["admin", "platform_admin"]}><AdminModeration /></PrivateRoute>} />

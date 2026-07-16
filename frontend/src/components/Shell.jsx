@@ -6,6 +6,7 @@ import { getTheme, setTheme } from "../lib/theme.js";
 import ThemeToggleButton from "./ThemeToggleButton";
 import { useState, useRef, useEffect } from "react";
 import { APP_NAME } from "../lib/appConfig.js";
+import { navigationItemsForRole } from "../lib/navigation.js";
 const SIDEBAR_KEY = "travelShareSidebarCollapsed";
 
 function translatedRole(role, t) {
@@ -35,25 +36,23 @@ export default function Shell({ children }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { language, setLanguage, t } = useLanguage();
-  const isAdmin = ["admin", "platform_admin"].includes(user?.role);
-  const isOrganizer = ["organizer", "admin", "platform_admin"].includes(user?.role);
-  const isGuest = user?.role === "guest";
+  const iconByNavId = {
+    dashboard: LayoutDashboard,
+    tourist: Compass,
+    trips: Map,
+    map: Map,
+    events: CalendarDays,
+    qrSpaces: QrCode,
+    scan: QrCode,
+    myUploads: Images,
+    approvals: CheckSquare,
+    sharedAlbums: Share2,
+    store: ShoppingBag,
+    settings: ShieldCheck,
+    admin: ShieldCheck
+  };
   const links = user
-    ? [
-        [t("nav.dashboard", "Dashboard"), "/dashboard", LayoutDashboard],
-        [t("nav.tourist", "Tourist"), "/tourist", Compass],
-        ...(!isGuest ? [[t("nav.trips", "Trips"), "/trips", Map]] : []),
-        [t("nav.map", "Map"), "/map", Map],
-        [t("nav.events", "Events"), "/events", CalendarDays],
-        ...(!isGuest ? [[t("nav.qrSpaces", "QR Spaces"), "/qr-spaces", QrCode]] : []),
-        [t("nav.scan", "Scan QR"), "/scan", QrCode],
-        ...(!isGuest ? [[t("nav.myUploads", "My Memories"), "/my-uploads", Images]] : []),
-        ...(!isGuest ? [[t("nav.approvals", "Approvals"), "/approvals", CheckSquare]] : []),
-        ...(!isGuest ? [[t("nav.sharedAlbums", "Shared Albums"), "/shared-albums", Share2]] : []),
-        [t("nav.store", "Store"), "/store", ShoppingBag],
-        [t("nav.settings", "Settings"), "/settings", ShieldCheck],
-        ...(isAdmin ? [[t("nav.admin", "Admin"), "/admin", ShieldCheck]] : [])
-      ]
+    ? navigationItemsForRole(user.role).map((item) => [t(`nav.${item.id}`), item.path, iconByNavId[item.id]])
     : [];
 
   const [drawerOpen, setDrawerOpen] = useState(false);
