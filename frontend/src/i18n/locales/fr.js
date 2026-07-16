@@ -751,7 +751,15 @@ const translations = {
     "revokeGuestLinks": "Révoquer les liens de l’invité",
     "forceGuestPin": "Forcer un nouveau code PIN",
     "revokeGuestAccess": "Révoquer l’accès invité",
-    "deleteGuestSession": "Supprimer la session invité"
+    "deleteGuestSession": "Supprimer la session invité",
+    "resetRequests": {
+      "guestName": "Nom de l’invité", "contactEmail": "E-mail de contact", "contactNote": "Note de contact (téléphone ou moyen préféré)", "contextNote": "Voyage, événement ou contexte (facultatif)", "message": "Motif ou message pour l’assistance", "contactRequired": "Indiquez un e-mail ou une note de contact.", "failed": "Impossible d’envoyer la demande de réinitialisation.",
+      "guestHelp": "L’assistance vérifiera vos informations avant la création d’un lien sécurisé à usage unique. Le nom seul ne permet pas de réinitialiser le PIN.", "guestSent": "Votre demande a été envoyée. Un administrateur vérifiera vos informations avant d’envoyer un lien.", "submitGuest": "Demander un lien de réinitialisation du PIN", "requestGuest": "Demander un lien de réinitialisation du PIN", "hideGuestRequest": "Masquer la demande", "guestTitle": "PIN oublié ou à modifier", "guestSettingsEyebrow": "Aide PIN invité", "guestSettingsHelp": "Si vous ignorez votre PIN actuel, envoyez une demande vérifiée. Votre PIN n’est jamais visible par un administrateur.",
+      "accountHelpEyebrow": "Récupération du compte", "passwordTitle": "Demander une aide de réinitialisation", "passwordHelp": "Envoyez une demande à l’assistance. Un administrateur peut envoyer un lien sans voir ni définir votre mot de passe.", "submitPassword": "Demander un lien de réinitialisation", "passwordSent": "Votre demande de réinitialisation a été envoyée à l’assistance.",
+      "supportQueueEyebrow": "File d’assistance", "pendingTitle": "Demandes en attente", "nonePending": "Aucune demande en attente.", "passwordRequest": "Demande de mot de passe", "guestRequest": "Demande de PIN invité", "contactNoteLabel": "Note de contact", "contextNoteLabel": "Contexte", "selectVerifiedGuest": "Sélectionner la session invitée vérifiée", "selectGuestRequired": "Sélectionnez la session vérifiée avant de créer un lien.", "oneTimeGuestLink": "Lien de récupération à usage unique :", "resolve": "Marquer résolue", "dismiss": "Rejeter",
+      "guestAccountsEyebrow": "Assistance invités", "guestAccountsTitle": "Comptes et sessions invités", "guestAccountsHelp": "Consultez l’état et l’activité sans exposer PIN, jetons ou secrets.", "noGuests": "Aucune session invitée.", "status": "État", "lastActive": "Dernière activité", "linkedActivity": "Voyages + envois",
+      "guestStatuses": { "active": "En cours", "grace": "Délai de grâce", "expired": "Expirée", "revoked": "Révoquée", "deleted": "Supprimée", "pin_reset_required": "Réinitialisation du PIN requise" }
+    }
   },
   "settingsPage": {
     "accountSettings": "Paramètres du compte",

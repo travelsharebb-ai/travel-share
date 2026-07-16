@@ -1096,7 +1096,14 @@ const translations = {
     "revokeGuestLinks": "撤销访客链接",
     "forceGuestPin": "强制设置新 PIN",
     "revokeGuestAccess": "撤销访客访问权限",
-    "deleteGuestSession": "删除访客会话"
+    "deleteGuestSession": "删除访客会话",
+    "resetRequests": {
+      "guestName": "访客姓名", "contactEmail": "联系邮箱", "contactNote": "联系方式备注（电话或首选方式）", "contextNote": "行程、活动或背景备注（可选）", "message": "给支持人员的原因或留言", "contactRequired": "请提供联系邮箱或联系方式备注。", "failed": "无法发送重置请求。",
+      "guestHelp": "管理员创建安全的一次性链接前，支持人员会核实您的信息。仅凭姓名不能重置密码。","guestSent": "您的请求已发送给支持人员。管理员核实信息后才会发送链接。", "submitGuest": "请求访客密码重置链接", "requestGuest": "请求访客密码重置链接", "hideGuestRequest": "隐藏请求", "guestTitle": "忘记或更改访客密码", "guestSettingsEyebrow": "访客密码帮助", "guestSettingsHelp": "如果不知道当前密码，请提交核实请求。管理员永远看不到您的访客密码。",
+      "accountHelpEyebrow": "账户恢复", "passwordTitle": "请求密码重置帮助", "passwordHelp": "向支持人员提交请求。管理员可以发送链接，但无法查看或设置您的密码。", "submitPassword": "请求密码重置链接", "passwordSent": "您的密码重置请求已提交审核。",
+      "supportQueueEyebrow": "支持队列", "pendingTitle": "待处理的重置请求", "nonePending": "没有待处理请求。", "passwordRequest": "密码重置请求", "guestRequest": "访客密码重置请求", "contactNoteLabel": "联系方式备注", "contextNoteLabel": "背景", "selectVerifiedGuest": "选择已核实的访客会话", "selectGuestRequired": "生成链接前请选择已核实的访客会话。", "oneTimeGuestLink": "一次性访客恢复链接：", "resolve": "标记已解决", "dismiss": "忽略",
+      "guestAccountsEyebrow": "访客支持", "guestAccountsTitle": "访客账户和会话", "guestAccountsHelp": "查看访客状态和活动，不暴露密码、令牌或会话机密。", "noGuests": "未找到访客会话。", "status": "状态", "lastActive": "最近活动", "linkedActivity": "行程 + 上传", "guestStatuses": { "active": "活跃", "grace": "宽限期", "expired": "已过期", "revoked": "已撤销", "deleted": "已删除", "pin_reset_required": "需要重置访客密码" }
+    }
   },
   "settingsPage": {
     "accountSettings": "账户设置",

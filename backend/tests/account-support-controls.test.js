@@ -25,7 +25,7 @@ vi.mock("../src/utils/prisma.js", () => ({
 }));
 vi.mock("../src/utils/email.js", () => ({ sendPasswordResetEmail: mocks.sendPasswordResetEmail }));
 vi.mock("../src/utils/storage.js", () => ({ uploadMedia: vi.fn() }));
-vi.mock("../src/services/notifications.js", () => ({ createNotification: vi.fn() }));
+vi.mock("../src/services/notifications.js", () => ({ createNotification: vi.fn(), notifyActiveAdmins: vi.fn() }));
 vi.mock("../src/services/analyticsService.js", () => ({ getAdminAnalytics: vi.fn(), getAdminReportingDepth: vi.fn() }));
 vi.mock("../src/utils/payments.js", () => ({ getPaymentReadiness: vi.fn(() => ({})) }));
 

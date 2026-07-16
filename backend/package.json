@@ -15,7 +15,7 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
     "prisma:status": "prisma migrate status",
-    "test:backend:ci": "vitest run --maxWorkers=2 tests/admin-controls.test.js tests/account-password-settings.test.js tests/account-support-controls.test.js tests/analytics-service.test.js tests/reporting-depth.test.js tests/event-souvenir.test.js tests/guest-public-access.test.js tests/unit/env.test.js tests/unit/payments-readiness.test.js tests/ad-analytics.test.js tests/oauth-security.test.js tests/oauth-temp-store.test.js tests/e2e/private-upload-flow.test.js",
+    "test:backend:ci": "vitest run --maxWorkers=2 tests/admin-controls.test.js tests/account-password-settings.test.js tests/account-support-controls.test.js tests/reset-requests.test.js tests/analytics-service.test.js tests/reporting-depth.test.js tests/event-souvenir.test.js tests/guest-public-access.test.js tests/unit/env.test.js tests/unit/payments-readiness.test.js tests/ad-analytics.test.js tests/oauth-security.test.js tests/oauth-temp-store.test.js tests/e2e/private-upload-flow.test.js",
     "env:validate:production": "node scripts/validate-production-env.mjs",
     "worker:uploads": "RUN_WORKER=true node scripts/upload-retry-worker.mjs",
     "seed:platform-settings": "node scripts/seed-platform-settings.mjs",

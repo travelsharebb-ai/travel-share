@@ -585,7 +585,14 @@ const translations = {
     "revokeGuestLinks": "Revogar links do convidado",
     "forceGuestPin": "Forçar novo PIN",
     "revokeGuestAccess": "Revogar acesso do convidado",
-    "deleteGuestSession": "Excluir sessão do convidado"
+    "deleteGuestSession": "Excluir sessão do convidado",
+    "resetRequests": {
+      "guestName": "Nome do convidado", "contactEmail": "E-mail de contato", "contactNote": "Nota de contato (telefone ou melhor forma)", "contextNote": "Viagem, evento ou contexto (opcional)", "message": "Motivo ou mensagem para o suporte", "contactRequired": "Informe um e-mail ou uma nota de contato.", "failed": "Não foi possível enviar a solicitação.",
+      "guestHelp": "O suporte verificará seus dados antes de um administrador criar um link seguro de uso único. O nome sozinho não redefine o PIN.", "guestSent": "Sua solicitação foi enviada ao suporte. Um administrador verificará seus dados antes de enviar um link.", "submitGuest": "Solicitar link para redefinir PIN", "requestGuest": "Solicitar link para redefinir PIN", "hideGuestRequest": "Ocultar solicitação", "guestTitle": "Esqueci ou quero alterar o PIN", "guestSettingsEyebrow": "Ajuda com PIN de convidado", "guestSettingsHelp": "Se não souber o PIN atual, envie uma solicitação verificada. O administrador nunca vê seu PIN.",
+      "accountHelpEyebrow": "Recuperação de conta", "passwordTitle": "Solicitar ajuda para redefinir senha", "passwordHelp": "Envie uma solicitação ao suporte. Um administrador pode enviar um link, mas não pode ver ou definir sua senha.", "submitPassword": "Solicitar link de redefinição", "passwordSent": "Sua solicitação de senha foi enviada ao suporte.",
+      "supportQueueEyebrow": "Fila de suporte", "pendingTitle": "Solicitações pendentes", "nonePending": "Nenhuma solicitação pendente.", "passwordRequest": "Solicitação de senha", "guestRequest": "Solicitação de PIN de convidado", "contactNoteLabel": "Nota de contato", "contextNoteLabel": "Contexto", "selectVerifiedGuest": "Selecione a sessão verificada", "selectGuestRequired": "Selecione a sessão verificada antes de gerar um link.", "oneTimeGuestLink": "Link de recuperação de uso único:", "resolve": "Marcar resolvida", "dismiss": "Descartar",
+      "guestAccountsEyebrow": "Suporte a convidados", "guestAccountsTitle": "Contas e sessões de convidados", "guestAccountsHelp": "Revise estado e atividade sem expor PINs, tokens ou segredos.", "noGuests": "Nenhuma sessão encontrada.", "status": "Estado", "lastActive": "Última atividade", "linkedActivity": "Viagens + envios", "guestStatuses": { "active": "Ativa", "grace": "Período de carência", "expired": "Expirada", "revoked": "Revogada", "deleted": "Excluída", "pin_reset_required": "Redefinição de PIN obrigatória" }
+    }
   },
   "settingsPage": {
     "accountSettings": "Configurações de Conta",

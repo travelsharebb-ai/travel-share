@@ -13,6 +13,7 @@ import { z } from "zod";
 import { readCookie, setGuestSessionCookie, fingerprintFromRequest, getOrSetUploaderSession, secureToken, hashToken } from "../utils/tokens.js";
 import { get as getPlatformSetting } from "../services/platformService.js";
 import { publicQRSpacePayload, resolveQRUploadSpaceByToken } from "../services/qrSpaceService.js";
+import { createResetRequest } from "../services/resetRequestService.js";
 
 /**
  * =========================
@@ -472,6 +473,45 @@ export async function guestPinChange(req, res, next) {
       })
     ]);
     return res.json({ message: "Guest PIN changed successfully." });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function guestPinResetRequest(req, res, next) {
+  try {
+    const schema = z.object({
+      guestName: z.string().trim().min(2).max(120),
+      contactEmail: z.string().trim().email().max(254).optional().or(z.literal("")),
+      contactNote: z.string().trim().max(500).optional().or(z.literal("")),
+      contextNote: z.string().trim().max(500).optional().or(z.literal("")),
+      message: z.string().trim().min(5).max(1000)
+    }).refine((value) => Boolean(value.contactEmail || value.contactNote), {
+      message: "Provide a contact email or contact note.",
+      path: ["contactEmail"]
+    });
+    const data = schema.parse(req.body || {});
+    const guestToken = readCookie(req, "ts_guest") || req.get("x-guest-token");
+    const guest = guestToken ? await prisma.guestSession.findUnique({
+      where: { token: guestToken },
+      select: { id: true, displayName: true, claimedById: true, deletedAt: true }
+    }) : null;
+    const eligibleGuest = guest && !guest.claimedById && !guest.deletedAt ? guest : null;
+
+    const request = await createResetRequest(req, {
+      requesterType: "guest",
+      requestType: "guest_pin_reset",
+      guestSessionId: eligibleGuest?.id || null,
+      guestName: data.guestName,
+      contactEmail: data.contactEmail || null,
+      contactNote: data.contactNote || null,
+      contextNote: data.contextNote || null,
+      message: data.message
+    });
+    return res.status(201).json({
+      request: { id: request.id, status: request.status, createdAt: request.createdAt },
+      message: "Your request was sent to support. An admin will verify your details before sending a reset link."
+    });
   } catch (error) {
     return next(error);
   }

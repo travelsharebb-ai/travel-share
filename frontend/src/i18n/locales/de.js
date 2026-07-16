@@ -558,7 +558,14 @@ const translations = {
     "revokeGuestLinks": "Gastlinks widerrufen",
     "forceGuestPin": "Neue PIN erzwingen",
     "revokeGuestAccess": "Gastzugriff widerrufen",
-    "deleteGuestSession": "Gastsitzung löschen"
+    "deleteGuestSession": "Gastsitzung löschen",
+    "resetRequests": {
+      "guestName": "Gastname", "contactEmail": "Kontakt-E-Mail", "contactNote": "Kontakthinweis (Telefon oder bester Weg)", "contextNote": "Reise, Veranstaltung oder Kontext (optional)", "message": "Grund oder Nachricht an den Support", "contactRequired": "Geben Sie eine E-Mail oder einen Kontakthinweis an.", "failed": "Die Rücksetzanfrage konnte nicht gesendet werden.",
+      "guestHelp": "Der Support prüft Ihre Angaben, bevor ein sicherer Einmal-Link erstellt wird. Der Name allein kann die PIN nicht zurücksetzen.", "guestSent": "Ihre Anfrage wurde gesendet. Ein Administrator prüft die Angaben vor dem Versand eines Links.", "submitGuest": "PIN-Rücksetzlink anfordern", "requestGuest": "PIN-Rücksetzlink anfordern", "hideGuestRequest": "Anfrage ausblenden", "guestTitle": "PIN vergessen oder ändern", "guestSettingsEyebrow": "Hilfe zur Gast-PIN", "guestSettingsHelp": "Wenn Sie die aktuelle PIN nicht kennen, senden Sie eine geprüfte Anfrage. Administratoren sehen Ihre PIN nie.",
+      "accountHelpEyebrow": "Kontowiederherstellung", "passwordTitle": "Hilfe zum Zurücksetzen anfordern", "passwordHelp": "Senden Sie eine Supportanfrage. Administratoren können einen Link senden, aber Ihr Passwort weder sehen noch festlegen.", "submitPassword": "Passwort-Rücksetzlink anfordern", "passwordSent": "Ihre Passwortanfrage wurde an den Support gesendet.",
+      "supportQueueEyebrow": "Support-Warteschlange", "pendingTitle": "Offene Rücksetzanfragen", "nonePending": "Keine offenen Anfragen.", "passwordRequest": "Passwortanfrage", "guestRequest": "Gast-PIN-Anfrage", "contactNoteLabel": "Kontakthinweis", "contextNoteLabel": "Kontext", "selectVerifiedGuest": "Geprüfte Gastsitzung auswählen", "selectGuestRequired": "Wählen Sie vor der Linkerstellung eine geprüfte Sitzung.", "oneTimeGuestLink": "Einmaliger Wiederherstellungslink:", "resolve": "Als erledigt markieren", "dismiss": "Verwerfen",
+      "guestAccountsEyebrow": "Gast-Support", "guestAccountsTitle": "Gastkonten und Sitzungen", "guestAccountsHelp": "Status und Aktivität prüfen, ohne PINs, Token oder Geheimnisse offenzulegen.", "noGuests": "Keine Gastsitzungen gefunden.", "status": "Zustand", "lastActive": "Zuletzt aktiv", "linkedActivity": "Reisen + Uploads", "guestStatuses": { "active": "Aktiv", "grace": "Karenzzeit", "expired": "Abgelaufen", "revoked": "Widerrufen", "deleted": "Gelöscht", "pin_reset_required": "PIN-Rücksetzung erforderlich" }
+    }
   },
   "settingsPage": {
     "accountSettings": "Kontoeinstellungen",

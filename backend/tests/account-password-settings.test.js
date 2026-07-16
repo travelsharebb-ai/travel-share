@@ -29,7 +29,7 @@ vi.mock("../src/utils/prisma.js", () => ({
   }
 }));
 vi.mock("../src/utils/skins.js", () => ({ ensureBasicSkinUnlocks: vi.fn() }));
-vi.mock("../src/services/notifications.js", () => ({ createNotification: vi.fn() }));
+vi.mock("../src/services/notifications.js", () => ({ createNotification: vi.fn(), notifyActiveAdmins: vi.fn() }));
 vi.mock("../src/utils/email.js", () => ({ sendPasswordResetEmail: vi.fn(), sendEmailChangeRequest: vi.fn() }));
 vi.mock("../src/services/oauthTempStore.js", () => ({ oauthTempStore: {}, OAUTH_HANDOFF_TTL_MS: 1, OAUTH_STATE_TTL_MS: 1 }));
 

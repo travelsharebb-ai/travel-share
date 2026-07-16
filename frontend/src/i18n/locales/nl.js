@@ -319,7 +319,14 @@ const translations = {
     "revokeGuestLinks": "Gastlinks intrekken",
     "forceGuestPin": "Nieuwe PIN afdwingen",
     "revokeGuestAccess": "Gasttoegang intrekken",
-    "deleteGuestSession": "Gastsessie verwijderen"
+    "deleteGuestSession": "Gastsessie verwijderen",
+    "resetRequests": {
+      "guestName": "Gastnaam", "contactEmail": "Contact-e-mail", "contactNote": "Contactnotitie (telefoon of beste manier)", "contextNote": "Reis, evenement of context (optioneel)", "message": "Reden of bericht voor ondersteuning", "contactRequired": "Geef een e-mail of contactnotitie op.", "failed": "De resetaanvraag kon niet worden verzonden.",
+      "guestHelp": "Ondersteuning verifieert uw gegevens voordat een veilige eenmalige link wordt gemaakt. Alleen een naam kan de PIN niet resetten.", "guestSent": "Uw aanvraag is verzonden. Een beheerder verifieert uw gegevens voordat een link wordt verstuurd.", "submitGuest": "PIN-resetlink aanvragen", "requestGuest": "PIN-resetlink aanvragen", "hideGuestRequest": "Aanvraag verbergen", "guestTitle": "PIN vergeten of wijzigen", "guestSettingsEyebrow": "Hulp met gast-PIN", "guestSettingsHelp": "Als u de huidige PIN niet kent, stuur dan een geverifieerde aanvraag. Een beheerder ziet uw PIN nooit.",
+      "accountHelpEyebrow": "Accountherstel", "passwordTitle": "Hulp bij wachtwoordreset aanvragen", "passwordHelp": "Stuur een supportaanvraag. Een beheerder kan een link sturen, maar uw wachtwoord niet zien of instellen.", "submitPassword": "Wachtwoordresetlink aanvragen", "passwordSent": "Uw wachtwoordaanvraag is naar ondersteuning verzonden.",
+      "supportQueueEyebrow": "Supportwachtrij", "pendingTitle": "Openstaande resetaanvragen", "nonePending": "Geen openstaande aanvragen.", "passwordRequest": "Wachtwoordaanvraag", "guestRequest": "Gast-PIN-aanvraag", "contactNoteLabel": "Contactnotitie", "contextNoteLabel": "Toelichting", "selectVerifiedGuest": "Selecteer de geverifieerde gastsessie", "selectGuestRequired": "Selecteer een geverifieerde sessie vóór het maken van een link.", "oneTimeGuestLink": "Eenmalige herstellink:", "resolve": "Als opgelost markeren", "dismiss": "Afwijzen",
+      "guestAccountsEyebrow": "Gastondersteuning", "guestAccountsTitle": "Gastaccounts en sessies", "guestAccountsHelp": "Bekijk status en activiteit zonder PINs, tokens of geheimen te tonen.", "noGuests": "Geen gastsessies gevonden.", "status": "Toestand", "lastActive": "Laatst actief", "linkedActivity": "Reizen + uploads", "guestStatuses": { "active": "Actief", "grace": "Respijtperiode", "expired": "Verlopen", "revoked": "Ingetrokken", "deleted": "Verwijderd", "pin_reset_required": "PIN-reset vereist" }
+    }
   },
   "settingsPage": {
     "accountSettings": "Accountinstellingen",

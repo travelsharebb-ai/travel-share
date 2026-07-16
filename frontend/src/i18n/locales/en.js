@@ -390,7 +390,15 @@ const translations = {
     "revokeGuestLinks": "Revoke guest links",
     "forceGuestPin": "Force new PIN",
     "revokeGuestAccess": "Revoke guest access",
-    "deleteGuestSession": "Delete guest session"
+    "deleteGuestSession": "Delete guest session",
+    "resetRequests": {
+      "guestName": "Guest name", "contactEmail": "Contact email", "contactNote": "Contact note (phone or best way to reach you)", "contextNote": "Trip, event, or context note (optional)", "message": "Reason or message for support", "contactRequired": "Provide a contact email or contact note.", "failed": "Unable to send the reset request.",
+      "guestHelp": "Support will verify your details before an administrator creates a secure one-time link. A name alone cannot reset a PIN.", "guestSent": "Your request was sent to support. An admin will verify your details before sending a reset link.", "submitGuest": "Request PIN reset link", "requestGuest": "Request PIN reset link", "hideGuestRequest": "Hide reset request", "guestTitle": "Forgot or change PIN", "guestSettingsEyebrow": "Guest PIN help", "guestSettingsHelp": "If you do not know your current PIN, send a verified support request. Your PIN is never shown to an administrator.",
+      "accountHelpEyebrow": "Account recovery", "passwordTitle": "Request password reset help", "passwordHelp": "Send a request for support to review. An administrator can send a reset link, but cannot view or set your password.", "submitPassword": "Request password reset link", "passwordSent": "Your password reset request was sent to support for review.",
+      "supportQueueEyebrow": "Support queue", "pendingTitle": "Pending reset requests", "nonePending": "No pending reset requests.", "passwordRequest": "Password reset request", "guestRequest": "Guest PIN reset request", "contactNoteLabel": "Contact note", "contextNoteLabel": "Context", "selectVerifiedGuest": "Select the verified guest session", "selectGuestRequired": "Select the verified guest session before generating a link.", "oneTimeGuestLink": "One-time guest recovery link:", "resolve": "Mark resolved", "dismiss": "Dismiss",
+      "guestAccountsEyebrow": "Guest support", "guestAccountsTitle": "Guest accounts and sessions", "guestAccountsHelp": "Review guest status and linked activity without exposing PINs, tokens, or session secrets.", "noGuests": "No guest sessions found.", "status": "Status", "lastActive": "Last active", "linkedActivity": "Trips + uploads",
+      "guestStatuses": { "active": "Active", "grace": "Grace period", "expired": "Expired", "revoked": "Revoked", "deleted": "Deleted", "pin_reset_required": "PIN reset required" }
+    }
   },
   "settingsPage": {
     "accountSettings": "Account settings",
