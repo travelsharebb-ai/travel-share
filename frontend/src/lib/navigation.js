@@ -21,3 +21,6 @@ export function navigationItemsForRole(role) {
   return items;
 }
 
+export function isGuestRole(user) {
+  return user?.role === "guest";
+}

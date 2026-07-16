@@ -1750,6 +1750,8 @@ const translations = {
       "resumeFailed": "Impossibile riprendere la sessione ospite.",
       "restoreFailed": "Impossibile ripristinare la sessione ospite salvata."
     },
+    "resumeWithName": "Riprendi con il nome",
+    "resumeWithLinkToken": "Riprendi con link o token",
     "savedSessionExpired": "La tua sessione ospite salvata è scaduta. Puoi riprendere con un link di accesso o avviare un nuovo accesso ospite.",
     "savedSessionInvalid": "Impossibile ripristinare la sessione ospite salvata. Avvia un nuovo accesso ospite o riprendi con un collegamento di accesso ospite."
   },

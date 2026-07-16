@@ -24,7 +24,9 @@ export default function GuestMode() {
   const [errorKey, setErrorKey] = useState(null);
   const [displayName, setDisplayName] = useState("");
   const [passcodeInput, setPasscodeInput] = useState("");
+  const [resumeMethod, setResumeMethod] = useState("name");
   const [resumeName, setResumeName] = useState("");
+  const [resumeTokenInput, setResumeTokenInput] = useState("");
   const [resumePasscode, setResumePasscode] = useState("");
   const [resumeLink, setResumeLink] = useState(null);
   const [savedSessionProblem, setSavedSessionProblem] = useState(null);
@@ -77,8 +79,12 @@ export default function GuestMode() {
   async function continueViaResume(e) {
     e?.preventDefault();
     setErrorKey(null);
-    if (resumeName.trim().length < 2) {
+    if (resumeMethod === "name" && resumeName.trim().length < 2) {
       setErrorKey("name");
+      return;
+    }
+    if (resumeMethod === "token" && !resumeTokenInput.trim()) {
+      setErrorKey("guestMode.error.accessLinkRequired");
       return;
     }
     if (!/^[0-9]{4}$/.test(resumePasscode.trim())) {
@@ -87,7 +93,11 @@ export default function GuestMode() {
     }
     setLoading(true);
     try {
-      const data = await resumeGuestSession({ displayName: resumeName.trim(), passcode: resumePasscode.trim() });
+      const data = await resumeGuestSession({
+        displayName: resumeMethod === "name" ? resumeName.trim() : undefined,
+        resumeToken: resumeMethod === "token" ? resumeTokenInput.trim() : undefined,
+        passcode: resumePasscode.trim()
+      });
       if (data?.guestToken) {
         const accessLink = data.accessLink || data.guestSession?.accessLink;
         if (accessLink) {
@@ -144,6 +154,7 @@ export default function GuestMode() {
     passcode: t("guestMode.error.passcode", "Enter a 4-digit passcode."),
     "guestMode.error.notCreated": t("guestMode.error.notCreated", "Guest session was not created. Please try again."),
     "guestMode.error.createFailed": t("guestMode.error.createFailed", "Unable to create guest access."),
+    "guestMode.error.accessLinkRequired": t("guestMode.error.accessLinkRequired", "Enter your guest access link or token."),
     "guestMode.error.resumeFailed": t("guestMode.error.resumeFailed", "Unable to resume guest session."),
     "guestMode.error.restoreFailed": t("guestMode.error.restoreFailed", "Saved guest session could not be restored.")
   }[errorKey];
@@ -196,7 +207,7 @@ export default function GuestMode() {
             <button type="button" className="btn-ghost" onClick={continueGuestSession} disabled={loading}>
               <QrCode size={18} />{t("hardcoded.continueSavedGuestSessionOnThisDevice")}</button>
           )}
-          <button type="button" className="btn-ghost" onClick={() => { setGuestMode("resume"); setErrorKey(null); }}>
+          <button type="button" className="btn-ghost" onClick={() => { setGuestMode("resume"); setResumeMethod("name"); setErrorKey(null); }}>
             <Lock size={18} />{t("hardcoded.resumeExistingGuestSession")}</button>
           <Link className="btn-primary" to="/discover">
             <MapPin size={18} />{t("hardcoded.discoverPublicEvents")}</Link>
@@ -213,7 +224,7 @@ export default function GuestMode() {
               : t("guestMode.savedSessionInvalid", "Saved guest session could not be restored. Start a new guest access or resume with a guest access link.")}
           </p>
           <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-            <button type="button" className="btn-primary" onClick={() => { setGuestMode("resume"); setErrorKey(null); }}>{t("hardcoded.resumeWithGuestAccessLink")}</button>
+            <button type="button" className="btn-primary" onClick={() => { setGuestMode("resume"); setResumeMethod("token"); setErrorKey(null); }}>{t("hardcoded.resumeWithGuestAccessLink")}</button>
             <button type="button" className="btn-ghost" onClick={() => { setGuestMode("create"); setErrorKey(null); setSavedSessionProblem(null); }}>{t("hardcoded.startNewGuestAccess")}</button>
             <Link className="btn-ghost" to="/login">{t("hardcoded.signUpLogIn")}</Link>
           </div>
@@ -305,21 +316,55 @@ export default function GuestMode() {
           <div className="flex items-center justify-between gap-3">
             <div>
               <h3 className="font-serif text-2xl font-black">{t("hardcoded.resumeExistingGuestSession")}</h3>
-              <p className="mt-2 text-slatebody">{t("hardcoded.enterThe4DigitPasscodeYouSetWhen")}</p>
+              <p className="mt-2 text-slatebody">
+                {resumeMethod === "name"
+                  ? t("hardcoded.enterThe4DigitPasscodeYouSetWhen")
+                  : t("hardcoded.pasteYourGuestAccessLinkOrTokenAnd")}
+              </p>
             </div>
-            <button type="button" className="btn-ghost" onClick={() => { setGuestMode("choices"); setErrorKey(null); setResumeName(""); setResumePasscode(""); }}>{t("common.back")}</button>
+            <button type="button" className="btn-ghost" onClick={() => { setGuestMode("choices"); setErrorKey(null); setResumeName(""); setResumeTokenInput(""); setResumePasscode(""); }}>{t("common.back")}</button>
           </div>
           <form className="mt-4 grid gap-3 max-w-xl" onSubmit={continueViaResume}>
-            <input
-              name="guestResumeName"
-              className="field"
-              placeholder={t("settingsPage.name")}
-              value={resumeName}
-              onChange={(e) => setResumeName(e.target.value)}
-              autoComplete="username"
-              minLength={2}
-              required
-            />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                className={resumeMethod === "name" ? "btn-primary" : "btn-ghost"}
+                onClick={() => { setResumeMethod("name"); setErrorKey(null); }}
+              >
+                1. {t("guestMode.resumeWithName")}
+              </button>
+              <button
+                type="button"
+                className={resumeMethod === "token" ? "btn-primary" : "btn-ghost"}
+                onClick={() => { setResumeMethod("token"); setErrorKey(null); }}
+              >
+                2. {t("guestMode.resumeWithLinkToken")}
+              </button>
+            </div>
+            {resumeMethod === "name" ? (
+              <input
+                name="guestResumeName"
+                className="field"
+                aria-label={t("settingsPage.name")}
+                placeholder={t("settingsPage.name")}
+                value={resumeName}
+                onChange={(e) => setResumeName(e.target.value)}
+                autoComplete="username"
+                minLength={2}
+                required
+              />
+            ) : (
+              <input
+                name="guestResumeToken"
+                className="field"
+                aria-label={t("hardcoded.guestAccessLink")}
+                placeholder={t("hardcoded.pasteGuestAccessLinkOrToken")}
+                value={resumeTokenInput}
+                onChange={(e) => setResumeTokenInput(e.target.value)}
+                autoComplete="off"
+                required
+              />
+            )}
             <input
               name="guestResumePasscode"
               type="password"
@@ -350,7 +395,7 @@ export default function GuestMode() {
             {tokenExists && (
               <button type="button" className="btn-ghost" onClick={continueGuestSession} disabled={loading}>{t("hardcoded.continueSavedGuestSessionOnThisDevice")}</button>
             )}
-            <button type="button" className="btn-ghost" onClick={() => { setGuestMode("resume"); setErrorKey(null); }}>{t("hardcoded.resumeExistingGuestSession")}</button>
+            <button type="button" className="btn-ghost" onClick={() => { setGuestMode("resume"); setResumeMethod("name"); setErrorKey(null); }}>{t("hardcoded.resumeExistingGuestSession")}</button>
             <Link className="btn-ghost" to="/login">{t("hardcoded.signUpLogIn")}</Link>
           </div>
           {tokenExists && (

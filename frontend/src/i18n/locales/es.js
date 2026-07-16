@@ -1896,6 +1896,8 @@ const translations = {
       "resumeFailed": "No se puede reanudar la sesión de invitado.",
       "restoreFailed": "No se pudo restaurar la sesión de invitado guardada."
     },
+    "resumeWithName": "Reanudar con nombre",
+    "resumeWithLinkToken": "Reanudar con enlace o token",
     "savedSessionExpired": "Su sesión de invitado guardada ha caducado. Puede reanudar con un enlace de acceso o iniciar un nuevo acceso de invitado.",
     "savedSessionInvalid": "No se pudo restaurar la sesión de invitado guardada. Inicie un nuevo acceso de invitado o reanude con un enlace de acceso de invitado."
   },

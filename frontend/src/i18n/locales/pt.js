@@ -1813,6 +1813,8 @@ const translations = {
       "resumeFailed": "Não é possível retomar a sessão de convidado.",
       "restoreFailed": "A sessão de convidado salva não pôde ser restaurada."
     },
+    "resumeWithName": "Retomar com nome",
+    "resumeWithLinkToken": "Retomar com link ou token",
     "savedSessionExpired": "Sua sessão de convidado salva expirou. Você pode retomar com um link de acesso ou iniciar um novo acesso de convidado.",
     "savedSessionInvalid": "A sessão de convidado salva não pôde ser restaurada. Inicie um novo acesso de convidado ou retome com um link de acesso de convidado."
   },

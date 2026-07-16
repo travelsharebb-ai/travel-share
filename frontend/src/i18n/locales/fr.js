@@ -1881,6 +1881,8 @@ const translations = {
       "resumeFailed": "Impossible de reprendre la session invité.",
       "restoreFailed": "La session invité enregistrée n'a pas pu être restaurée."
     },
+    "resumeWithName": "Reprendre avec le nom",
+    "resumeWithLinkToken": "Reprendre avec un lien ou un jeton",
     "savedSessionExpired": "Votre session invité enregistrée a expiré. Vous pouvez reprendre avec un lien d'accès ou démarrer un nouvel accès invité.",
     "savedSessionInvalid": "La session invité enregistrée n'a pas pu être restaurée. Démarrez un nouvel accès invité ou reprenez avec un lien d’accès invité."
   },
