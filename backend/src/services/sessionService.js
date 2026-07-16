@@ -42,6 +42,16 @@ export async function getOrCreateGuestSession({ token, deviceFingerprint, platfo
     existing = null;
   }
   if (existing) {
+    if (existing.accessRevokedAt || existing.deletedAt) {
+      const error = new Error("Guest access has been revoked");
+      error.status = 403;
+      throw error;
+    }
+    if (existing.pinResetRequired) {
+      const error = new Error("Guest PIN reset required");
+      error.status = 403;
+      throw error;
+    }
     const lifecycle = await getGuestLifecycle(existing, { platformCache });
     if (!existing.claimedById && lifecycle.state !== "expired") {
       return existing;
@@ -80,6 +90,11 @@ export async function getOrCreateCreatorSession({ token, deviceFingerprint, plat
     existing = null;
   }
   if (existing) {
+    if (existing.accessRevokedAt || existing.deletedAt || existing.pinResetRequired) {
+      const error = new Error(existing.pinResetRequired ? "Guest PIN reset required" : "Guest access has been revoked");
+      error.status = 403;
+      throw error;
+    }
     const lifecycle = await getGuestLifecycle(existing, { platformCache });
     if (!existing.claimedById && lifecycle.state !== "expired") {
       return existing;
@@ -121,6 +136,11 @@ export async function findCreatorSession({ token }) {
     if (session.claimedById) {
       const e = new Error('Guest creator session already claimed');
       e.status = 401;
+      throw e;
+    }
+    if (session.accessRevokedAt || session.deletedAt || session.pinResetRequired) {
+      const e = new Error(session.pinResetRequired ? "Guest PIN reset required" : "Guest creator access revoked");
+      e.status = 403;
       throw e;
     }
     const lifecycle = await getGuestLifecycle(session);

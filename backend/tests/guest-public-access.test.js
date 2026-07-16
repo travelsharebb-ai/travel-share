@@ -7,6 +7,9 @@ const mocks = vi.hoisted(() => ({
   guestFindUnique: vi.fn(),
   guestFindMany: vi.fn(),
   guestUpdate: vi.fn(),
+  guestPinResetFindUnique: vi.fn(),
+  guestPinResetUpdate: vi.fn(),
+  guestPinResetUpdateMany: vi.fn(),
   getOrCreateGuestSession: vi.fn(),
   getGuestLifecycle: vi.fn()
 }));
@@ -21,7 +24,13 @@ vi.mock("../src/utils/prisma.js", () => ({
       findUnique: mocks.guestFindUnique,
       findMany: mocks.guestFindMany,
       update: mocks.guestUpdate
-    }
+    },
+    guestPinResetToken: {
+      findUnique: mocks.guestPinResetFindUnique,
+      update: mocks.guestPinResetUpdate,
+      updateMany: mocks.guestPinResetUpdateMany
+    },
+    $transaction: vi.fn(async (operations) => Promise.all(operations))
   }
 }));
 
@@ -35,6 +44,8 @@ vi.mock("../src/services/sessionService.js", () => ({
 const {
   guestSessionCreate,
   guestSessionResume,
+  guestPinChange,
+  guestPinReset,
   publicEventDetails
 } = await import("../src/controllers/publicController.js");
 const { requireOrganizerOrAdmin } = await import("../src/middleware/auth.js");
@@ -104,6 +115,83 @@ beforeEach(() => {
   mocks.guestUpdate.mockResolvedValue(guestRecord());
   mocks.guestFindUnique.mockResolvedValue(guestRecord());
   mocks.guestFindMany.mockResolvedValue([]);
+  mocks.guestPinResetUpdate.mockResolvedValue({});
+  mocks.guestPinResetUpdateMany.mockResolvedValue({ count: 0 });
+});
+
+describe("guest PIN settings and recovery", () => {
+  it("changes an authenticated guest PIN without returning secrets", async () => {
+    const passcodeHash = await bcrypt.hash("4826", 4);
+    mocks.guestFindUnique.mockResolvedValue(guestRecord({ passcodeHash }));
+    const response = await invoke(guestPinChange, testRequest({
+      headers: { "x-guest-token": "guest-session-secret" },
+      body: { currentPin: "4826", newPin: "7391", confirmPin: "7391" }
+    }));
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body).not.toHaveProperty("token");
+    expect(response.body).not.toHaveProperty("passcodeHash");
+    const saved = mocks.guestUpdate.mock.calls[0][0].data;
+    expect(await bcrypt.compare("7391", saved.passcodeHash)).toBe(true);
+    expect(await bcrypt.compare("4826", saved.passcodeHash)).toBe(false);
+  });
+
+  it("rejects wrong current PIN, invalid PIN, mismatched PIN, and unauthenticated changes", async () => {
+    const passcodeHash = await bcrypt.hash("4826", 4);
+    mocks.guestFindUnique.mockResolvedValue(guestRecord({ passcodeHash }));
+    const wrong = await invoke(guestPinChange, testRequest({ headers: { "x-guest-token": "guest-session-secret" }, body: { currentPin: "0000", newPin: "7391", confirmPin: "7391" } }));
+    const invalid = await invoke(guestPinChange, testRequest({ headers: { "x-guest-token": "guest-session-secret" }, body: { currentPin: "4826", newPin: "73910", confirmPin: "73910" } }));
+    const mismatch = await invoke(guestPinChange, testRequest({ headers: { "x-guest-token": "guest-session-secret" }, body: { currentPin: "4826", newPin: "7391", confirmPin: "7392" } }));
+    const unauthenticated = await invoke(guestPinChange, testRequest({ body: { currentPin: "4826", newPin: "7391", confirmPin: "7391" } }));
+
+    expect(wrong.statusCode).toBe(403);
+    expect(invalid.statusCode).toBe(400);
+    expect(mismatch.statusCode).toBe(400);
+    expect(unauthenticated.statusCode).toBe(401);
+  });
+
+  it("consumes an admin-generated recovery link once and saves only a new PIN hash", async () => {
+    const recovery = { id: "recovery-1", guestSessionId: "guest-1", usedAt: null, revokedAt: null, expiresAt: new Date(Date.now() + 60000) };
+    mocks.guestPinResetFindUnique.mockResolvedValue(recovery);
+    mocks.guestFindUnique.mockResolvedValue(guestRecord({ passcodeHash: await bcrypt.hash("4826", 4), pinResetRequired: true }));
+    const response = await invoke(guestPinReset, testRequest({ body: {
+      token: "https://travel-share.example/guest/reset-pin/recovery-secret",
+      newPin: "7391",
+      confirmPin: "7391"
+    } }));
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body).not.toHaveProperty("token");
+    expect(mocks.guestPinResetUpdate).toHaveBeenCalledWith({ where: { id: "recovery-1" }, data: { usedAt: expect.any(Date) } });
+    expect(await bcrypt.compare("7391", mocks.guestUpdate.mock.calls[0][0].data.passcodeHash)).toBe(true);
+    expect(await bcrypt.compare("4826", mocks.guestUpdate.mock.calls[0][0].data.passcodeHash)).toBe(false);
+  });
+
+  it.each([
+    ["unknown", null],
+    ["expired", { usedAt: null, revokedAt: null, expiresAt: new Date(Date.now() - 1000) }],
+    ["revoked", { usedAt: null, revokedAt: new Date(), expiresAt: new Date(Date.now() + 60000) }],
+    ["used", { usedAt: new Date(), revokedAt: null, expiresAt: new Date(Date.now() + 60000) }]
+  ])("rejects a %s recovery token", async (_label, state) => {
+    mocks.guestPinResetFindUnique.mockResolvedValue(state ? { id: "recovery-1", guestSessionId: "guest-1", ...state } : null);
+    const response = await invoke(guestPinReset, testRequest({ body: { token: "recovery-secret", newPin: "7391", confirmPin: "7391" } }));
+    expect(response.statusCode).toBe(400);
+    expect(mocks.guestUpdate).not.toHaveBeenCalled();
+  });
+
+  it("does not allow name-only PIN reset", async () => {
+    const response = await invoke(guestPinReset, testRequest({ body: { displayName: "Asha Guest", newPin: "7391", confirmPin: "7391" } }));
+    expect(response.statusCode).toBe(400);
+  });
+
+  it("blocks normal resume while an administrator requires a new PIN", async () => {
+    const passcodeHash = await bcrypt.hash("4826", 4);
+    mocks.guestFindMany.mockResolvedValue([]);
+    mocks.guestFindUnique.mockResolvedValue(guestRecord({ passcodeHash, pinResetRequired: true }));
+    const response = await invoke(guestSessionResume, testRequest({ body: { resumeToken: "raw-resume-token", passcode: "4826" } }));
+    expect(response.statusCode).toBe(401);
+    expect(mocks.guestUpdate).not.toHaveBeenCalled();
+  });
 });
 
 describe("guest session name and PIN access", () => {

@@ -3,14 +3,23 @@ import { z } from "zod";
 import multer from "multer";
 import { prisma } from "../utils/prisma.js";
 import { secureToken } from "../utils/tokens.js";
+import { hashToken } from "../utils/tokens.js";
+import bcrypt from "bcryptjs";
 import { uploadMedia } from "../utils/storage.js";
 import { cleanEvent, cleanGuestSession, cleanTrip, cleanUpload, cleanUser } from "../utils/exportImport.js";
 import { executeAdminImport, getImportPreview } from "../utils/adminImport.js";
 import { createNotification } from "../services/notifications.js";
 import { getAdminAnalytics, getAdminReportingDepth } from "../services/analyticsService.js";
 import { getPaymentReadiness } from "../utils/payments.js";
+import { sendPasswordResetEmail } from "../utils/email.js";
+import { allowDevelopmentRecoveryUrl, writeSecurityAudit } from "../services/accountSecurityService.js";
 
 const router = Router();
+const supportReasonSchema = z.object({
+  action: z.string().min(1),
+  reason: z.string().trim().min(5).max(1000),
+  confirmation: z.boolean().optional()
+});
 const maxMb = Number(process.env.MAX_UPLOAD_SIZE_MB || 50);
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -432,7 +441,7 @@ router.get("/users", async (req, res) => {
   const q = z.string().trim().max(100).catch("").parse(req.query.q?.toString() || "");
   const users = await prisma.user.findMany({
     where: q ? { OR: [{ name: { contains: q, mode: "insensitive" } }, { email: { contains: q, mode: "insensitive" } }] } : {},
-    select: { id: true, name: true, email: true, role: true, createdAt: true, _count: { select: { trips: true, organizedEvents: true, purchases: true } } },
+    select: { id: true, name: true, email: true, role: true, accountStatus: true, mustResetPassword: true, createdAt: true, _count: { select: { trips: true, organizedEvents: true, purchases: true } } },
     orderBy: { createdAt: "desc" },
     take: 100
   });
@@ -448,6 +457,8 @@ router.get("/users/:userId", async (req, res, next) => {
         name: true,
         email: true,
         role: true,
+        accountStatus: true,
+        mustResetPassword: true,
         emailVerifiedAt: true,
         createdAt: true,
         updatedAt: true,
@@ -554,6 +565,9 @@ router.get("/guests", async (_req, res) => {
       createdAt: true,
       updatedAt: true,
       lastGuestAccessAt: true,
+      accessRevokedAt: true,
+      pinResetRequired: true,
+      deletedAt: true,
       claimedBy: { select: { id: true, name: true, email: true } },
       _count: { select: { uploads: true, trips: true, events: true, qrUploadSpaces: true } }
     },
@@ -561,6 +575,188 @@ router.get("/guests", async (_req, res) => {
     take: 100
   });
   res.json({ guests });
+});
+
+router.get("/audit/security", async (_req, res, next) => {
+  try {
+    const logs = await prisma.adminSecurityAuditLog.findMany({ orderBy: { createdAt: "desc" }, take: 100 });
+    return res.json({ logs });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.post("/users/:userId/support", async (req, res, next) => {
+  try {
+    const data = supportReasonSchema.extend({
+      action: z.enum(["send_password_reset", "expire_password_resets", "force_password_reset", "suspend", "reactivate", "close", "anonymize"])
+    }).parse(req.body || {});
+    const user = await prisma.user.findUnique({
+      where: { id: req.params.userId },
+      select: { id: true, name: true, email: true, role: true, accountStatus: true, mustResetPassword: true }
+    });
+    if (!user) return res.status(404).json({ error: "User not found." });
+    if (["suspend", "close", "anonymize"].includes(data.action) && user.id === req.user.id) {
+      return res.status(400).json({ error: "You cannot disable your own account." });
+    }
+    if (data.action === "anonymize" && (req.user.role !== "platform_admin" || data.confirmation !== true)) {
+      return res.status(400).json({ error: "Platform admin access and explicit confirmation are required." });
+    }
+    if (["close", "anonymize"].includes(data.action) && user.role === "platform_admin") {
+      const others = await prisma.user.count({ where: { role: "platform_admin", id: { not: user.id }, accountStatus: "active" } });
+      if (others === 0) return res.status(400).json({ error: "Cannot disable the last active platform admin." });
+    }
+
+    let resetUrl;
+    let emailSent = false;
+    let deliveryError = null;
+    let oldLinksRevoked = false;
+    let afterStatus = user.accountStatus;
+    if (data.action === "send_password_reset") {
+      const token = secureToken(32);
+      resetUrl = `${process.env.FRONTEND_URL || "http://localhost:5173"}/reset-password/${token}`;
+      await prisma.$transaction([
+        prisma.passwordResetToken.updateMany({
+          where: { userId: user.id, usedAt: null, revokedAt: null }, data: { revokedAt: new Date() }
+        }),
+        prisma.passwordResetToken.create({
+          data: { userId: user.id, tokenHash: hashToken(token), expiresAt: new Date(Date.now() + 30 * 60 * 1000) }
+        })
+      ]);
+      oldLinksRevoked = true;
+      const delivery = await sendPasswordResetEmail({ user, resetUrl });
+      emailSent = delivery.sent === true;
+      if (!emailSent) deliveryError = delivery.error || "unknown error";
+    } else if (data.action === "expire_password_resets") {
+      await prisma.passwordResetToken.updateMany({
+        where: { userId: user.id, usedAt: null, revokedAt: null }, data: { revokedAt: new Date() }
+      });
+      oldLinksRevoked = true;
+    } else if (data.action === "force_password_reset") {
+      await prisma.user.update({ where: { id: user.id }, data: { mustResetPassword: true } });
+    } else if (data.action === "suspend") {
+      afterStatus = "suspended";
+      await prisma.user.update({ where: { id: user.id }, data: { accountStatus: afterStatus, statusReason: data.reason, statusChangedAt: new Date() } });
+    } else if (data.action === "reactivate") {
+      afterStatus = "active";
+      await prisma.user.update({ where: { id: user.id }, data: { accountStatus: afterStatus, statusReason: data.reason, statusChangedAt: new Date() } });
+    } else if (data.action === "close") {
+      afterStatus = "closed";
+      await prisma.user.update({ where: { id: user.id }, data: { accountStatus: afterStatus, statusReason: data.reason, statusChangedAt: new Date() } });
+    } else if (data.action === "anonymize") {
+      afterStatus = "anonymized";
+      const randomPasswordHash = await bcrypt.hash(secureToken(32), 12);
+      await prisma.$transaction([
+        prisma.passwordResetToken.updateMany({ where: { userId: user.id, usedAt: null, revokedAt: null }, data: { revokedAt: new Date() } }),
+        prisma.user.update({
+          where: { id: user.id },
+          data: {
+            name: "Deleted user",
+            email: `deleted+${user.id}@example.invalid`,
+            pendingEmail: null,
+            emailChangeTokenHash: null,
+            emailChangeTokenExpiresAt: null,
+            passwordHash: randomPasswordHash,
+            accountStatus: "anonymized",
+            mustResetPassword: false,
+            statusReason: data.reason,
+            statusChangedAt: new Date(),
+            anonymizedAt: new Date(),
+            activeStoreItemId: null
+          }
+        })
+      ]);
+      oldLinksRevoked = true;
+    }
+
+    await writeSecurityAudit(req, {
+      targetType: "user", targetId: user.id, action: data.action, reason: data.reason,
+      beforeStatus: user.accountStatus, afterStatus,
+      resetLinkGenerated: data.action === "send_password_reset",
+      resetLinkSentTo: emailSent ? user.email : null,
+      oldLinksRevoked,
+      metadata: { mustResetPasswordBefore: user.mustResetPassword, emailSent, deliveryError }
+    });
+    if (deliveryError) {
+      return res.status(502).json({ error: `Password reset link created, but email delivery failed: ${deliveryError}` });
+    }
+    return res.json({
+      ok: true,
+      action: data.action,
+      accountStatus: afterStatus,
+      mustResetPassword: data.action === "force_password_reset" ? true : user.mustResetPassword,
+      ...(allowDevelopmentRecoveryUrl(resetUrl) ? { devResetUrl: resetUrl } : {})
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.post("/guests/:guestId/support", async (req, res, next) => {
+  try {
+    const data = supportReasonSchema.extend({
+      action: z.enum(["generate_pin_reset", "revoke_links", "force_pin_reset", "revoke_access", "delete_session"])
+    }).parse(req.body || {});
+    if (data.action === "delete_session" && data.confirmation !== true) {
+      return res.status(400).json({ error: "Explicit confirmation is required." });
+    }
+    const guest = await prisma.guestSession.findUnique({
+      where: { id: req.params.guestId },
+      select: { id: true, displayName: true, claimedById: true, accessRevokedAt: true, pinResetRequired: true, deletedAt: true }
+    });
+    if (!guest) return res.status(404).json({ error: "Guest session not found." });
+    if (guest.claimedById || guest.deletedAt) return res.status(400).json({ error: "Guest session is not eligible for support recovery." });
+
+    let recoveryUrl;
+    let oldLinksRevoked = false;
+    let afterStatus = guest.deletedAt ? "deleted" : guest.accessRevokedAt ? "revoked" : guest.pinResetRequired ? "pin_reset_required" : "active";
+    if (data.action === "generate_pin_reset") {
+      const token = secureToken(32);
+      recoveryUrl = `${process.env.FRONTEND_URL || "http://localhost:5173"}/guest/reset-pin/${token}`;
+      await prisma.$transaction([
+        prisma.guestPinResetToken.updateMany({ where: { guestSessionId: guest.id, usedAt: null, revokedAt: null }, data: { revokedAt: new Date() } }),
+        prisma.guestPinResetToken.create({ data: { guestSessionId: guest.id, tokenHash: hashToken(token), expiresAt: new Date(Date.now() + 30 * 60 * 1000) } }),
+        prisma.guestSession.update({ where: { id: guest.id }, data: { resumeCode: null, resumeTokenHash: null, pinResetRequired: true } })
+      ]);
+      oldLinksRevoked = true;
+      afterStatus = "pin_reset_required";
+    } else if (data.action === "revoke_links") {
+      await prisma.$transaction([
+        prisma.guestPinResetToken.updateMany({ where: { guestSessionId: guest.id, usedAt: null, revokedAt: null }, data: { revokedAt: new Date() } }),
+        prisma.guestSession.update({ where: { id: guest.id }, data: { resumeCode: null, resumeTokenHash: null } })
+      ]);
+      oldLinksRevoked = true;
+    } else if (data.action === "force_pin_reset") {
+      await prisma.guestSession.update({ where: { id: guest.id }, data: { pinResetRequired: true } });
+      afterStatus = "pin_reset_required";
+    } else if (data.action === "revoke_access") {
+      await prisma.guestSession.update({ where: { id: guest.id }, data: { accessRevokedAt: new Date() } });
+      afterStatus = "revoked";
+    } else if (data.action === "delete_session") {
+      await prisma.$transaction([
+        prisma.guestPinResetToken.updateMany({ where: { guestSessionId: guest.id, usedAt: null, revokedAt: null }, data: { revokedAt: new Date() } }),
+        prisma.guestSession.update({
+          where: { id: guest.id },
+          data: {
+            token: secureToken(32), displayName: "Deleted guest", deviceFingerprint: null,
+            resumeCode: null, resumeTokenHash: null, passcodeHash: null,
+            accessRevokedAt: new Date(), deletedAt: new Date(), pinResetRequired: true
+          }
+        })
+      ]);
+      oldLinksRevoked = true;
+      afterStatus = "deleted";
+    }
+
+    await writeSecurityAudit(req, {
+      targetType: "guest", targetId: guest.id, action: data.action, reason: data.reason,
+      beforeStatus: guest.deletedAt ? "deleted" : guest.accessRevokedAt ? "revoked" : guest.pinResetRequired ? "pin_reset_required" : "active",
+      afterStatus, resetLinkGenerated: data.action === "generate_pin_reset", oldLinksRevoked
+    });
+    return res.json({ ok: true, action: data.action, status: afterStatus, ...(recoveryUrl ? { recoveryUrl } : {}) });
+  } catch (error) {
+    return next(error);
+  }
 });
 
 router.get("/analytics", async (req, res, next) => {
@@ -674,102 +870,9 @@ router.patch("/settings", async (req, res, next) => {
   }
 });
 
-// Safely deactivate / anonymize a user while preserving public/approved map data.
-// This avoids cascading deletions of trips/uploads by keeping a record while
-// dissociating or removing non-approved content. This endpoint is intended
-// for platform admins only and will not actually delete the user row to avoid
-// Prisma cascade-on-delete removing related trips. Instead we anonymize and
-// dissociate where appropriate.
 router.post("/users/:userId/safe-delete", async (req, res, next) => {
   try {
-    const userId = req.params.userId;
-    if (req.user.role !== "platform_admin") {
-      return res.status(403).json({ error: "Platform admin access is required to remove users." });
-    }
-    if (userId === req.user.id) {
-      return res.status(400).json({ error: "You cannot remove your own account." });
-    }
-    const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, role: true } });
-    if (!user) return res.status(404).json({ error: "User not found." });
-    if (user.role === "platform_admin") {
-      const otherAdmins = await prisma.user.count({ where: { role: "platform_admin", id: { not: user.id } } });
-      if (otherAdmins === 0) {
-        return res.status(400).json({ error: "Cannot remove the last platform_admin." });
-      }
-    }
-
-    // Trips: if a trip has no approved uploads, delete it (and its uploads).
-    // If it has approved uploads, dissociate the trip from the user so map pins remain.
-    const trips = await prisma.trip.findMany({ where: { userId } });
-    for (const trip of trips) {
-      const approvedCount = await prisma.upload.count({ where: { tripId: trip.id, status: "approved" } });
-      if (approvedCount === 0) {
-        try {
-          await prisma.trip.delete({ where: { id: trip.id } });
-        } catch (err) {
-          console.warn('trip.delete failed', err?.message || err);
-        }
-      } else {
-        try {
-          await prisma.trip.update({ where: { id: trip.id }, data: { userId: null } });
-        } catch (err) {
-          console.warn('trip.update failed', err?.message || err);
-        }
-      }
-    }
-
-    // Events: same policy as trips for organizer-owned events
-    const events = await prisma.event.findMany({ where: { organizerId: userId } });
-    for (const ev of events) {
-      const approvedCount = await prisma.upload.count({ where: { eventId: ev.id, status: "approved" } });
-      if (approvedCount === 0) {
-        try {
-          await prisma.event.delete({ where: { id: ev.id } });
-        } catch (err) {
-          console.warn('event.delete failed', err?.message || err);
-        }
-      } else {
-        try {
-          await prisma.event.update({ where: { id: ev.id }, data: { organizerId: null } });
-        } catch (err) {
-          console.warn('event.update failed', err?.message || err);
-        }
-      }
-    }
-
-    // Remove non-approved standalone uploads (not associated with an approved trip/event)
-    try {
-      await prisma.upload.deleteMany({ where: { AND: [{ OR: [{ trip: { userId } }, { event: { organizerId: userId } }] }, { status: { not: "approved" } }] } });
-    } catch (err) {
-      console.warn('upload.deleteMany failed', err?.message || err);
-    }
-
-    // Remove personal purchases and session records to reduce personal data footprint
-    try {
-      await prisma.userPurchase.deleteMany({ where: { userId } });
-    } catch (err) {
-      console.warn('userPurchase.deleteMany failed', err?.message || err);
-    }
-    try {
-      await prisma.guestSession.updateMany({ where: { claimedById: userId }, data: { claimedById: null } });
-    } catch (err) {
-      console.warn('guestSession.updateMany failed', err?.message || err);
-    }
-
-    // Anonymize the user record (do not delete to avoid cascading deletes in Prisma schema)
-    try {
-      await prisma.user.update({ where: { id: userId }, data: {
-        name: "Deleted user",
-        email: `deleted+${userId}@example.invalid`,
-        passwordHash: secureToken(32),
-        role: "guest",
-        activeStoreItemId: null
-      }});
-    } catch (err) {
-      console.warn('user.update failed', err?.message || err);
-    }
-
-    res.json({ ok: true });
+    return res.status(410).json({ error: "Use the audited account support anonymize action." });
   } catch (error) {
     next(error);
   }

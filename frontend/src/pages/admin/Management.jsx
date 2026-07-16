@@ -45,6 +45,31 @@ export default function AdminManagement() {
     load();
   }, [load]);
 
+  async function runGuestSupport(guest, action, destructive = false) {
+    const reason = window.prompt(t("security.reasonPrompt"));
+    if (!reason || reason.trim().length < 5) return;
+    if (destructive && !window.confirm(t("security.destructiveConfirmation"))) return;
+    try {
+      const response = await api(`/api/admin/guests/${guest.id}/support`, {
+        method: "POST",
+        body: JSON.stringify({ action, reason: reason.trim(), confirmation: destructive })
+      });
+      if (response.recoveryUrl) window.alert(`${t("security.guestRecoveryUrl")} ${response.recoveryUrl}`);
+      setData((current) => ({
+        ...current,
+        guests: current.guests.map((entry) => entry.id === guest.id ? {
+          ...entry,
+          accessRevokedAt: response.status === "revoked" ? new Date().toISOString() : entry.accessRevokedAt,
+          pinResetRequired: response.status === "pin_reset_required",
+          deletedAt: response.status === "deleted" ? new Date().toISOString() : entry.deletedAt
+        } : entry)
+      }));
+      setSuccess(t("security.supportActionComplete"));
+    } catch (requestError) {
+      setError(requestError.message || t("security.supportActionFailed"));
+    }
+  }
+
   async function toggleStoreItem(item) {
     const action = item.active ? t("admin.management.deactivate", "deactivate") : t("admin.management.activate", "activate");
     if (!window.confirm(t("admin.management.confirmStoreStatus", "Confirm {action} for this store item?", { action }))) return;
@@ -195,11 +220,12 @@ export default function AdminManagement() {
         <>
           <section className="card overflow-x-auto p-5 bg-slate-950/90 border border-white/10">
             <h2 className="text-2xl font-black font-serif">{t("admin.management.guests", "Guest sessions")}</h2>
+            <h3 className="mt-2 text-xl font-black">{t("security.adminSupportTitle")}</h3>
             <p className="mt-2 text-sm text-slatebody">{t("admin.management.guestsHelp", "Credential fields are intentionally excluded from this admin view.")}</p>
             {data.guests.length === 0 ? <p className="mt-4 text-slatebody">{t("admin.management.noGuests", "No guest sessions found.")}</p> : (
               <table className="mt-4 w-full min-w-[720px] text-left text-sm">
-                <thead><tr className="border-b border-borderline text-slatebody"><th className="py-3">{t("admin.management.guest", "Guest")}</th><th>{t("admin.management.scope", "Scope")}</th><th>{t("admin.management.uploads", "Uploads")}</th><th>{t("admin.management.expires", "Expires")}</th><th>{t("admin.management.claimedBy", "Claimed by")}</th></tr></thead>
-                <tbody>{data.guests.map((guest) => <tr className="border-b border-borderline" key={guest.id}><td className="py-3 text-white">{guest.displayName || t("admin.management.unnamedGuest", "Unnamed guest")}</td><td>{guest.scopeType || t("admin.management.general", "General")}</td><td>{guest._count?.uploads || 0}</td><td>{new Date(guest.expiresAt).toLocaleString()}</td><td>{guest.claimedBy?.email || t("admin.management.unclaimed", "Unclaimed")}</td></tr>)}</tbody>
+                <thead><tr className="border-b border-borderline text-slatebody"><th className="py-3">{t("admin.management.guest", "Guest")}</th><th>{t("admin.management.scope", "Scope")}</th><th>{t("admin.management.uploads", "Uploads")}</th><th>{t("admin.management.expires", "Expires")}</th><th>{t("admin.management.claimedBy", "Claimed by")}</th><th>{t("security.accountControls")}</th></tr></thead>
+                <tbody>{data.guests.map((guest) => <tr className="border-b border-borderline align-top" key={guest.id}><td className="py-3 text-white">{guest.displayName || t("admin.management.unnamedGuest", "Unnamed guest")}</td><td>{guest.scopeType || t("admin.management.general", "General")}</td><td>{guest._count?.uploads || 0}</td><td>{new Date(guest.expiresAt).toLocaleString()}</td><td>{guest.claimedBy?.email || t("admin.management.unclaimed", "Unclaimed")}</td><td><div className="flex max-w-xl flex-wrap gap-2"><button className="btn-ghost" onClick={() => runGuestSupport(guest, "generate_pin_reset")}>{t("security.generateGuestPinReset")}</button><button className="btn-ghost" onClick={() => runGuestSupport(guest, "revoke_links")}>{t("security.revokeGuestLinks")}</button><button className="btn-ghost" onClick={() => runGuestSupport(guest, "force_pin_reset")}>{t("security.forceGuestPin")}</button><button className="btn-ghost" onClick={() => runGuestSupport(guest, "revoke_access")}>{t("security.revokeGuestAccess")}</button><button className="btn-danger" onClick={() => runGuestSupport(guest, "delete_session", true)}>{t("security.deleteGuestSession")}</button></div></td></tr>)}</tbody>
               </table>
             )}
           </section>

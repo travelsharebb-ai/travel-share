@@ -16,6 +16,7 @@ const ForgotPassword = lazy(() => import("./pages/ForgotPassword.jsx"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword.jsx"));
 const GuestMode = lazy(() => import("./pages/GuestMode.jsx"));
 const GuestAccess = lazy(() => import("./pages/GuestAccess.jsx"));
+const GuestPinReset = lazy(() => import("./pages/GuestPinReset.jsx"));
 const Legal = lazy(() => import("./pages/Legal.jsx"));
 const MapView = lazy(() => import("./pages/MapView.jsx"));
 const Dashboard = lazy(() => import("./pages/Dashboard.jsx"));
@@ -158,6 +159,8 @@ export default function App() {
       <Route path="/reset-password/:token" element={<ResetPassword />} />
       <Route path="/guest" element={<GuestMode />} />
       <Route path="/guest/access/:resumeToken" element={<GuestAccess />} />
+      <Route path="/guest/reset-pin" element={<GuestPinReset />} />
+      <Route path="/guest/reset-pin/:token" element={<GuestPinReset />} />
       <Route path="/discover" element={<Shell><DiscoverEvents /></Shell>} />
       <Route path="/privacy" element={<PublicPage><Legal type="privacy" /></PublicPage>} />
       <Route path="/terms" element={<PublicPage><Legal type="terms" /></PublicPage>} />

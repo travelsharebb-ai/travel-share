@@ -73,7 +73,7 @@ function normalizeGuestResumeToken(value) {
 
   try {
     const url = new URL(input);
-    const pathMatch = url.pathname.match(/\/guest\/access\/([^/?#]+)/i);
+    const pathMatch = url.pathname.match(/\/guest\/(?:access|reset-pin)\/([^/?#]+)/i);
     if (pathMatch?.[1]) return decodeURIComponent(pathMatch[1]);
     const queryToken = url.searchParams.get("resumeToken")
       || url.searchParams.get("accessToken")
@@ -84,7 +84,7 @@ function normalizeGuestResumeToken(value) {
     // Raw tokens and relative guest access paths are handled below.
   }
 
-  const pathMatch = input.match(/(?:^|\/)guest\/access\/([^/?#]+)/i);
+  const pathMatch = input.match(/(?:^|\/)guest\/(?:access|reset-pin)\/([^/?#]+)/i);
   if (pathMatch?.[1]) {
     try {
       return decodeURIComponent(pathMatch[1]);
@@ -293,7 +293,7 @@ export async function guestSessionStatus(req, res, next) {
     }
 
     const guest = await prisma.guestSession.findUnique({ where: { token } });
-    if (!guest || guest.claimedById) {
+    if (!guest || guest.claimedById || guest.accessRevokedAt || guest.deletedAt) {
       return res.json({
         valid: false,
         guestSession: null,
@@ -306,6 +306,7 @@ export async function guestSessionStatus(req, res, next) {
     }
 
     const guestSession = await guestPayload(guest, req.platformCache);
+    guestSession.pinResetRequired = Boolean(guest.pinResetRequired);
     const status = guestSession.status;
     return res.json({
       valid: !guestSession.expired,
@@ -400,7 +401,7 @@ export async function guestSessionResume(req, res, next) {
       guest = await prisma.guestSession.findUnique({ where: { resumeTokenHash: hashToken(resumeToken) } });
       if (!guest) guest = await prisma.guestSession.findUnique({ where: { resumeCode: resumeToken } });
       const valid = Boolean(guest?.passcodeHash) && await bcrypt.compare(passcode, guest.passcodeHash);
-      if (!guest || guest.claimedById || !valid) {
+      if (!guest || guest.claimedById || guest.accessRevokedAt || guest.deletedAt || guest.pinResetRequired || !valid) {
         return res.status(401).json({ error: "Invalid guest name or PIN." });
       }
     } else {
@@ -408,7 +409,10 @@ export async function guestSessionResume(req, res, next) {
         where: {
           displayName: { equals: displayName, mode: "insensitive" },
           claimedById: null,
-          passcodeHash: { not: null }
+          passcodeHash: { not: null },
+          accessRevokedAt: null,
+          deletedAt: null,
+          pinResetRequired: false
         },
         orderBy: { createdAt: "desc" },
         take: 20
@@ -434,6 +438,90 @@ export async function guestSessionResume(req, res, next) {
     return res.json({ guestToken: guest.token, guestSession: payload, accessLink: payload.accessLink });
   } catch (err) {
     next(err);
+  }
+}
+
+export async function guestPinChange(req, res, next) {
+  try {
+    const token = readCookie(req, "ts_guest") || req.get("x-guest-token");
+    if (!token) return res.status(401).json({ error: "Guest authentication required." });
+    const data = z.object({
+      currentPin: z.string().regex(/^\d{4}$/),
+      newPin: z.string().regex(/^\d{4}$/),
+      confirmPin: z.string().regex(/^\d{4}$/)
+    }).refine((value) => value.newPin === value.confirmPin, {
+      message: "PINs do not match.", path: ["confirmPin"]
+    }).parse(req.body || {});
+
+    const guest = await prisma.guestSession.findUnique({ where: { token } });
+    if (!guest || guest.claimedById || guest.accessRevokedAt || guest.deletedAt) {
+      return res.status(401).json({ error: "Guest session is unavailable." });
+    }
+    const valid = Boolean(guest.passcodeHash) && await bcrypt.compare(data.currentPin, guest.passcodeHash);
+    if (!valid) return res.status(403).json({ error: "Current PIN is incorrect." });
+
+    const passcodeHash = await bcrypt.hash(data.newPin, 10);
+    await prisma.$transaction([
+      prisma.guestSession.update({
+        where: { id: guest.id },
+        data: { passcodeHash, passcodeSetAt: new Date(), pinResetRequired: false }
+      }),
+      prisma.guestPinResetToken.updateMany({
+        where: { guestSessionId: guest.id, usedAt: null, revokedAt: null },
+        data: { revokedAt: new Date() }
+      })
+    ]);
+    return res.json({ message: "Guest PIN changed successfully." });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function guestPinResetStatus(req, res, next) {
+  try {
+    const tokenHash = hashToken(normalizeGuestResumeToken(req.params.token));
+    const recovery = await prisma.guestPinResetToken.findUnique({ where: { tokenHash } });
+    const valid = Boolean(recovery && !recovery.usedAt && !recovery.revokedAt && recovery.expiresAt > new Date());
+    return res.json({ valid });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function guestPinReset(req, res, next) {
+  try {
+    const data = z.object({
+      token: z.string().trim().min(1).max(2048),
+      newPin: z.string().regex(/^\d{4}$/),
+      confirmPin: z.string().regex(/^\d{4}$/)
+    }).refine((value) => value.newPin === value.confirmPin, {
+      message: "PINs do not match.", path: ["confirmPin"]
+    }).parse(req.body || {});
+    const tokenHash = hashToken(normalizeGuestResumeToken(data.token));
+    const recovery = await prisma.guestPinResetToken.findUnique({ where: { tokenHash } });
+    if (!recovery || recovery.usedAt || recovery.revokedAt || recovery.expiresAt <= new Date()) {
+      return res.status(400).json({ error: "This guest PIN recovery link is invalid or expired." });
+    }
+    const guest = await prisma.guestSession.findUnique({ where: { id: recovery.guestSessionId } });
+    if (!guest || guest.claimedById || guest.deletedAt) {
+      return res.status(400).json({ error: "Guest session is unavailable." });
+    }
+
+    const passcodeHash = await bcrypt.hash(data.newPin, 10);
+    await prisma.$transaction([
+      prisma.guestSession.update({
+        where: { id: guest.id },
+        data: { passcodeHash, passcodeSetAt: new Date(), pinResetRequired: false }
+      }),
+      prisma.guestPinResetToken.update({ where: { id: recovery.id }, data: { usedAt: new Date() } }),
+      prisma.guestPinResetToken.updateMany({
+        where: { guestSessionId: guest.id, id: { not: recovery.id }, usedAt: null, revokedAt: null },
+        data: { revokedAt: new Date() }
+      })
+    ]);
+    return res.json({ message: "Guest PIN reset successfully." });
+  } catch (error) {
+    return next(error);
   }
 }
 

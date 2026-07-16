@@ -11,10 +11,18 @@ export async function requireAuth(req, res, next) {
     const payload = jwt.verify(token, process.env.JWT_SECRET);
     const user = await prisma.user.findUnique({
       where: { id: payload.sub },
-      select: { id: true, name: true, email: true, role: true }
+      select: { id: true, name: true, email: true, role: true, accountStatus: true, mustResetPassword: true }
     });
 
     if (!user) return res.status(401).json({ error: "Invalid session." });
+    if (user.accountStatus !== "active") {
+      return res.status(403).json({ error: "This account is not active.", code: "ACCOUNT_INACTIVE" });
+    }
+    const requestPath = req.originalUrl?.split("?")[0];
+    const forcedResetAllowed = requestPath === "/api/auth/me/password" || (requestPath === "/api/auth/me" && req.method === "GET");
+    if (user.mustResetPassword && !forcedResetAllowed) {
+      return res.status(403).json({ error: "Password reset required.", code: "PASSWORD_RESET_REQUIRED" });
+    }
     req.user = user;
     next();
   } catch {

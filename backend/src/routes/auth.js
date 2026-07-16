@@ -12,6 +12,7 @@ import { sendPasswordResetEmail, sendEmailChangeRequest } from "../utils/email.j
 import { cleanUpload, cleanUser } from "../utils/exportImport.js";
 import { createNotification } from "../services/notifications.js";
 import { ensureBasicSkinUnlocks } from "../utils/skins.js";
+import { isStrongPassword, PASSWORD_REQUIREMENTS, writeSecurityAudit } from "../services/accountSecurityService.js";
 import {
   oauthTempStore,
   OAUTH_HANDOFF_TTL_MS,
@@ -36,7 +37,22 @@ const resetRequestSchema = z.object({
 
 const resetPasswordSchema = z.object({
   token: z.string().min(24),
-  password: z.string().min(8)
+  password: z.string(),
+  confirmPassword: z.string().optional()
+}).refine((value) => !value.confirmPassword || value.password === value.confirmPassword, {
+  message: "Passwords do not match.", path: ["confirmPassword"]
+}).refine((value) => isStrongPassword(value.password), {
+  message: PASSWORD_REQUIREMENTS, path: ["password"]
+});
+
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1),
+  newPassword: z.string(),
+  confirmPassword: z.string()
+}).refine((value) => value.newPassword === value.confirmPassword, {
+  message: "Passwords do not match.", path: ["confirmPassword"]
+}).refine((value) => isStrongPassword(value.newPassword), {
+  message: PASSWORD_REQUIREMENTS, path: ["newPassword"]
 });
 
 const profileSettingsSchema = z.object({
@@ -373,10 +389,14 @@ router.post("/login", authLimiter, async (req, res, next) => {
     const user = await prisma.user.findUnique({ where: { email: data.email.toLowerCase() } });
     if (!user) return res.status(401).json({ error: "Invalid email or password." });
 
+    if (user.accountStatus !== "active") {
+      return res.status(403).json({ error: "This account is not active.", code: "ACCOUNT_INACTIVE" });
+    }
+
     const valid = await bcrypt.compare(data.password, user.passwordHash);
     if (!valid) return res.status(401).json({ error: "Invalid email or password." });
 
-    const safeUser = { id: user.id, name: user.name, email: user.email, role: user.role };
+    const safeUser = { id: user.id, name: user.name, email: user.email, role: user.role, mustResetPassword: user.mustResetPassword };
     await ensureBasicSkinUnlocks(user.id).catch((error) => {
       console.error("Failed to grant basic skins on login", error);
     });
@@ -399,13 +419,13 @@ router.post("/forgot-password", authLimiter, async (req, res, next) => {
       const tokenHash = hashToken(token);
       const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
 
-      await prisma.passwordResetToken.create({
-        data: {
-          userId: user.id,
-          tokenHash,
-          expiresAt
-        }
-      });
+      await prisma.$transaction([
+        prisma.passwordResetToken.updateMany({
+          where: { userId: user.id, usedAt: null, revokedAt: null },
+          data: { revokedAt: new Date() }
+        }),
+        prisma.passwordResetToken.create({ data: { userId: user.id, tokenHash, expiresAt } })
+      ]);
 
       const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${token}`;
       await sendPasswordResetEmail({ user, resetUrl });
@@ -422,7 +442,7 @@ router.get("/reset-password/:token", authLimiter, async (req, res) => {
   const resetToken = await prisma.passwordResetToken.findUnique({ where: { tokenHash } });
 
   res.json({
-    valid: Boolean(resetToken && !resetToken.usedAt && resetToken.expiresAt > new Date())
+    valid: Boolean(resetToken && !resetToken.usedAt && !resetToken.revokedAt && resetToken.expiresAt > new Date())
   });
 });
 
@@ -432,7 +452,7 @@ router.post("/reset-password", authLimiter, async (req, res, next) => {
     const tokenHash = hashToken(data.token);
     const resetToken = await prisma.passwordResetToken.findUnique({ where: { tokenHash } });
 
-    if (!resetToken || resetToken.usedAt || resetToken.expiresAt <= new Date()) {
+    if (!resetToken || resetToken.usedAt || resetToken.revokedAt || resetToken.expiresAt <= new Date()) {
       return res.status(400).json({ error: "This reset link is invalid or expired." });
     }
 
@@ -440,21 +460,56 @@ router.post("/reset-password", authLimiter, async (req, res, next) => {
     await prisma.$transaction([
       prisma.user.update({
         where: { id: resetToken.userId },
-        data: { passwordHash }
+        data: { passwordHash, mustResetPassword: false, passwordChangedAt: new Date() }
       }),
       prisma.passwordResetToken.update({
         where: { id: resetToken.id },
         data: { usedAt: new Date() }
       }),
       prisma.passwordResetToken.updateMany({
-        where: { userId: resetToken.userId, usedAt: null, id: { not: resetToken.id } },
-        data: { usedAt: new Date() }
+        where: { userId: resetToken.userId, usedAt: null, revokedAt: null, id: { not: resetToken.id } },
+        data: { revokedAt: new Date() }
       })
     ]);
 
     res.json({ message: "Password updated. You can now log in." });
   } catch (error) {
     next(error);
+  }
+});
+
+router.patch("/me/password", requireAuth, async (req, res, next) => {
+  try {
+    if (req.user.role === "guest") return res.status(403).json({ error: "Guest accounts use a PIN." });
+    const data = changePasswordSchema.parse(req.body || {});
+    const current = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: { passwordHash: true }
+    });
+    const valid = Boolean(current) && await bcrypt.compare(data.currentPassword, current.passwordHash);
+    if (!valid) return res.status(403).json({ error: "Current password is incorrect." });
+
+    const passwordHash = await bcrypt.hash(data.newPassword, 12);
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: req.user.id },
+        data: { passwordHash, mustResetPassword: false, passwordChangedAt: new Date() }
+      });
+      await tx.passwordResetToken.updateMany({
+        where: { userId: req.user.id, usedAt: null, revokedAt: null },
+        data: { revokedAt: new Date() }
+      });
+      await writeSecurityAudit(req, {
+        targetType: "user",
+        targetId: req.user.id,
+        action: "password_changed",
+        reason: "Self-service password change",
+        oldLinksRevoked: true
+      }, tx);
+    });
+    return res.json({ message: "Password changed successfully." });
+  } catch (error) {
+    return next(error);
   }
 });
 
@@ -470,6 +525,8 @@ router.get("/me", requireAuth, async (req, res, next) => {
         emailVerifiedAt: true,
         email: true,
         role: true,
+        accountStatus: true,
+        mustResetPassword: true,
         preferences: true,
         purchases: { include: { item: true }, orderBy: { createdAt: "desc" } },
         activeStoreItem: true
@@ -557,6 +614,8 @@ router.patch("/me", requireAuth, async (req, res, next) => {
         emailVerifiedAt: true,
         email: true,
         role: true,
+        accountStatus: true,
+        mustResetPassword: true,
         preferences: true,
         purchases: { include: { item: true }, orderBy: { createdAt: "desc" } },
         activeStoreItem: true

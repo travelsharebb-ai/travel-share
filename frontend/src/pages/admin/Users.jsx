@@ -25,6 +25,26 @@ export default function AdminUsers() {
   const me = currentUser();
   const { t } = useLanguage();
 
+  async function runSupportAction(user, action, destructive = false) {
+    const reason = window.prompt(t("security.reasonPrompt"));
+    if (!reason || reason.trim().length < 5) return;
+    if (destructive && !window.confirm(t("security.destructiveConfirmation"))) return;
+    try {
+      const response = await api(`/api/admin/users/${user.id}/support`, {
+        method: "POST",
+        body: JSON.stringify({ action, reason: reason.trim(), confirmation: destructive })
+      });
+      if (response.devResetUrl) window.alert(`${t("security.devResetUrl")} ${response.devResetUrl}`);
+      setUsers((current) => current.map((entry) => entry.id === user.id ? {
+        ...entry,
+        accountStatus: response.accountStatus ?? entry.accountStatus,
+        mustResetPassword: response.mustResetPassword ?? entry.mustResetPassword
+      } : entry));
+    } catch (requestError) {
+      window.alert(requestError.message || t("security.supportActionFailed"));
+    }
+  }
+
   useEffect(() => {
     let mounted = true;
     async function load() {
@@ -48,6 +68,7 @@ export default function AdminUsers() {
         <section className="hero-copy-panel">
           <p className="text-sm uppercase tracking-[0.32em] text-primary">{t("admin.users.badge", "Admin users")}</p>
           <h1 className="mt-3 text-5xl font-black font-serif">{t("admin.users.title", "Manage accounts")}</h1>
+          <h2 className="mt-3 text-2xl font-black">{t("security.adminSupportTitle")}</h2>
           <p className="mt-4 max-w-3xl text-slatebody leading-7">
             {t("admin.users.description", "Review registered accounts, roles, and recent signups. Platform admins can verify access and audit active users.")}
           </p>
@@ -100,7 +121,7 @@ export default function AdminUsers() {
                       <td className="py-3 pr-4 text-slatebody">{user.createdAt ? new Date(user.createdAt).toLocaleString() : t("admin.users.noValue", "—")}</td>
                       <td className="py-3 pr-4">
                         {editingId === user.id ? (
-                          <div className="flex gap-2">
+                          <div className="flex flex-wrap gap-2">
                             <button className="btn-primary" onClick={async () => {
                               // save
                               try {
@@ -136,16 +157,12 @@ export default function AdminUsers() {
                                 setDetailsLoadingId(null);
                               }
                             }}>{detailsLoadingId === user.id ? t("common.loading", "Loading…") : details[user.id] ? t("admin.users.hideDetails", "Hide details") : t("admin.users.viewDetails", "View details")}</button>
-                            {me?.role === "platform_admin" ? <button className="btn-danger" onClick={async () => {
-                              if (me?.id === user.id) { alert(t('admin.users.cannotDeleteSelf', 'You cannot delete your own account here.')); return; }
-                              if (!window.confirm(t('admin.users.confirmDelete', 'Are you sure you want to safely delete (anonymize) this user? This cannot be undone.')) ) return;
-                              try {
-                                await api(`/api/admin/users/${user.id}/safe-delete`, { method: 'POST' });
-                                setUsers((prev) => prev.filter((u) => u.id !== user.id));
-                              } catch (err) {
-                                alert(err.message || t('admin.users.deleteFailed', 'Failed to delete user'));
-                              }
-                            }}>{t("admin.users.safeDelete", "Safe delete")}</button> : null}
+                            <button className="btn-ghost" onClick={() => runSupportAction(user, "send_password_reset")}>{t("security.sendPasswordReset")}</button>
+                            <button className="btn-ghost" onClick={() => runSupportAction(user, "expire_password_resets")}>{t("security.expireResetLinks")}</button>
+                            <button className="btn-ghost" onClick={() => runSupportAction(user, "force_password_reset")}>{t("security.forcePasswordReset")}</button>
+                            {user.accountStatus === "active" ? <button className="btn-ghost" onClick={() => runSupportAction(user, "suspend")}>{t("security.suspendAccount")}</button> : <button className="btn-ghost" onClick={() => runSupportAction(user, "reactivate")}>{t("security.reactivateAccount")}</button>}
+                            <button className="btn-ghost" onClick={() => runSupportAction(user, "close")}>{t("security.closeAccount")}</button>
+                            {me?.role === "platform_admin" ? <button className="btn-danger" onClick={() => runSupportAction(user, "anonymize", true)}>{t("security.anonymizeAccount")}</button> : null}
                           </div>
                         )}
                       </td>

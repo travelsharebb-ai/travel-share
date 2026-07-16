@@ -380,7 +380,9 @@ export default function GuestMode() {
             />
             <div className="flex gap-3">
               <button className="btn-primary" type="submit" disabled={loading}>{t("hardcoded.continue")}</button>
+              <Link className="btn-ghost" to="/guest/reset-pin">{t("security.forgotPin")}</Link>
             </div>
+            <p className="text-sm text-slatebody">{t("security.forgotPinExplanation")}</p>
             {errorMessage && <p className="text-reject mt-2">{errorMessage}</p>}
           </form>
         </section>
