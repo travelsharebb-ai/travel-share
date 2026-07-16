@@ -1750,6 +1750,8 @@ const translations = {
       "resumeFailed": "Kan de gastsessie niet hervatten.",
       "restoreFailed": "Opgeslagen gastsessie kan niet worden hersteld."
     },
+    "resumeWithName": "Hervatten met naam",
+    "resumeWithLinkToken": "Hervatten met link of token",
     "savedSessionExpired": "Uw opgeslagen gastsessie is verlopen. U kunt doorgaan met een toegangslink of een nieuwe gasttoegang starten.",
     "savedSessionInvalid": "Opgeslagen gastsessie kan niet worden hersteld. Start een nieuwe gasttoegang of hervat met een gasttoegangslink."
   },

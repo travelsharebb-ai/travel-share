@@ -1685,6 +1685,8 @@ const translations = {
       "resumeFailed": "Unable to resume guest session.",
       "restoreFailed": "Saved guest session could not be restored."
     },
+    "resumeWithName": "Resume with name",
+    "resumeWithLinkToken": "Resume with link or token",
     "savedSessionExpired": "Your saved guest session has expired. You can resume with an access link or start a new guest access.",
     "savedSessionInvalid": "Saved guest session could not be restored. Start a new guest access or resume with a guest access link."
   },

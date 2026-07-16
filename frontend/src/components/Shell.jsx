@@ -6,7 +6,7 @@ import { getTheme, setTheme } from "../lib/theme.js";
 import ThemeToggleButton from "./ThemeToggleButton";
 import { useState, useRef, useEffect } from "react";
 import { APP_NAME } from "../lib/appConfig.js";
-import { navigationItemsForRole } from "../lib/navigation.js";
+import { isGuestRole, navigationItemsForRole } from "../lib/navigation.js";
 const SIDEBAR_KEY = "travelShareSidebarCollapsed";
 
 function translatedRole(role, t) {
@@ -36,6 +36,7 @@ export default function Shell({ children }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { language, setLanguage, t } = useLanguage();
+  const isGuest = isGuestRole(user);
   const iconByNavId = {
     dashboard: LayoutDashboard,
     tourist: Compass,

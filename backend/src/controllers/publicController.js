@@ -67,6 +67,34 @@ function publicTripQrPayload(trip) {
   };
 }
 
+function normalizeGuestResumeToken(value) {
+  const input = typeof value === "string" ? value.trim() : "";
+  if (!input) return "";
+
+  try {
+    const url = new URL(input);
+    const pathMatch = url.pathname.match(/\/guest\/access\/([^/?#]+)/i);
+    if (pathMatch?.[1]) return decodeURIComponent(pathMatch[1]);
+    const queryToken = url.searchParams.get("resumeToken")
+      || url.searchParams.get("accessToken")
+      || url.searchParams.get("linkToken")
+      || url.searchParams.get("token");
+    if (queryToken) return queryToken.trim();
+  } catch {
+    // Raw tokens and relative guest access paths are handled below.
+  }
+
+  const pathMatch = input.match(/(?:^|\/)guest\/access\/([^/?#]+)/i);
+  if (pathMatch?.[1]) {
+    try {
+      return decodeURIComponent(pathMatch[1]);
+    } catch {
+      return pathMatch[1];
+    }
+  }
+  return input;
+}
+
 async function optionalAuthenticatedUser(req) {
   try {
     const header = req.get("authorization") || "";
@@ -344,17 +372,33 @@ export async function guestSessionCreate(req, res, next) {
 
 export async function guestSessionResume(req, res, next) {
   try {
-    const { resumeToken, displayName, passcode } = z.object({
-      resumeToken: z.string().trim().min(1).optional(),
+    const input = z.object({
+      resumeToken: z.string().trim().min(1).max(2048).optional(),
+      token: z.string().trim().min(1).max(2048).optional(),
+      accessToken: z.string().trim().min(1).max(2048).optional(),
+      linkToken: z.string().trim().min(1).max(2048).optional(),
       displayName: z.string().trim().min(2).max(80).optional(),
-      passcode: z.string().regex(/^\d{4}$/)
-    }).refine((value) => Boolean(value.resumeToken || value.displayName), {
+      name: z.string().trim().min(2).max(80).optional(),
+      passcode: z.string().regex(/^\d{4}$/).optional(),
+      pin: z.string().regex(/^\d{4}$/).optional()
+    }).refine((value) => Boolean(value.passcode || value.pin), {
+      message: "A 4-digit PIN is required."
+    }).refine((value) => Boolean(
+      value.resumeToken || value.token || value.accessToken || value.linkToken || value.displayName || value.name
+    ), {
       message: "Guest name or resume token is required."
     }).parse(req.body || {});
+
+    const passcode = input.passcode || input.pin;
+    const displayName = input.displayName || input.name;
+    const resumeToken = normalizeGuestResumeToken(
+      input.resumeToken || input.token || input.accessToken || input.linkToken
+    );
 
     let guest = null;
     if (resumeToken) {
       guest = await prisma.guestSession.findUnique({ where: { resumeTokenHash: hashToken(resumeToken) } });
+      if (!guest) guest = await prisma.guestSession.findUnique({ where: { resumeCode: resumeToken } });
       const valid = Boolean(guest?.passcodeHash) && await bcrypt.compare(passcode, guest.passcodeHash);
       if (!guest || guest.claimedById || !valid) {
         return res.status(401).json({ error: "Invalid guest name or PIN." });

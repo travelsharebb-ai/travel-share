@@ -38,7 +38,7 @@ const {
   publicEventDetails
 } = await import("../src/controllers/publicController.js");
 const { requireOrganizerOrAdmin } = await import("../src/middleware/auth.js");
-const { navigationItemsForRole } = await import("../../frontend/src/lib/navigation.js");
+const { isGuestRole, navigationItemsForRole } = await import("../../frontend/src/lib/navigation.js");
 
 function testRequest({ body = {}, params = {}, headers = {} } = {}) {
   const normalized = Object.fromEntries(Object.entries(headers).map(([key, value]) => [key.toLowerCase(), value]));
@@ -152,6 +152,38 @@ describe("guest session name and PIN access", () => {
     }));
   });
 
+  it("resumes an existing guest session by raw token and PIN", async () => {
+    const passcodeHash = await bcrypt.hash("4826", 4);
+    mocks.guestFindUnique.mockResolvedValue(guestRecord({ passcodeHash }));
+
+    const response = await invoke(guestSessionResume, testRequest({
+      body: { resumeToken: "raw-resume-token", passcode: "4826" }
+    }));
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body.guestToken).toBe("guest-session-secret");
+    expect(mocks.guestFindUnique).toHaveBeenCalledWith({
+      where: { resumeTokenHash: "7bec36934175128395b377ef19713d88932594be0dd79f02f0d01bc9abac8ee5" }
+    });
+  });
+
+  it("extracts a token from a full guest access link and still requires the PIN", async () => {
+    const passcodeHash = await bcrypt.hash("4826", 4);
+    mocks.guestFindUnique.mockResolvedValue(guestRecord({ passcodeHash }));
+
+    const response = await invoke(guestSessionResume, testRequest({
+      body: {
+        linkToken: "https://travel-share.example/guest/access/raw-resume-token?utm_source=saved",
+        pin: "4826"
+      }
+    }));
+
+    expect(response.statusCode).toBe(200);
+    expect(mocks.guestFindUnique).toHaveBeenCalledWith({
+      where: { resumeTokenHash: "7bec36934175128395b377ef19713d88932594be0dd79f02f0d01bc9abac8ee5" }
+    });
+  });
+
   it("rejects the wrong guest PIN", async () => {
     const passcodeHash = await bcrypt.hash("4826", 4);
     mocks.guestFindMany.mockResolvedValue([guestRecord({ passcodeHash })]);
@@ -162,6 +194,32 @@ describe("guest session name and PIN access", () => {
 
     expect(response.statusCode).toBe(401);
     expect(response.body.error).toBe("Invalid guest name or PIN.");
+    expect(mocks.guestUpdate).not.toHaveBeenCalled();
+  });
+
+  it("rejects the wrong PIN for token resume", async () => {
+    const passcodeHash = await bcrypt.hash("4826", 4);
+    mocks.guestFindUnique.mockResolvedValue(guestRecord({ passcodeHash }));
+
+    const response = await invoke(guestSessionResume, testRequest({
+      body: { accessToken: "raw-resume-token", pin: "0000" }
+    }));
+
+    expect(response.statusCode).toBe(401);
+    expect(response.body.error).toBe("Invalid guest name or PIN.");
+    expect(mocks.guestUpdate).not.toHaveBeenCalled();
+  });
+
+  it("rejects missing PIN and missing name/token", async () => {
+    const missingPin = await invoke(guestSessionResume, testRequest({
+      body: { resumeToken: "raw-resume-token" }
+    }));
+    const missingIdentifier = await invoke(guestSessionResume, testRequest({
+      body: { passcode: "4826" }
+    }));
+
+    expect(missingPin.statusCode).toBe(400);
+    expect(missingIdentifier.statusCode).toBe(400);
     expect(mocks.guestUpdate).not.toHaveBeenCalled();
   });
 });
@@ -227,6 +285,12 @@ describe("public event detail privacy", () => {
 });
 
 describe("guest navigation parity", () => {
+  it("derives guest state safely from the current session user", () => {
+    expect(isGuestRole({ role: "guest" })).toBe(true);
+    expect(isGuestRole({ role: "tourist" })).toBe(false);
+    expect(isGuestRole(null)).toBe(false);
+  });
+
   it("includes every registered-tourist destination without admin access", () => {
     const tourist = navigationItemsForRole("tourist");
     const guest = navigationItemsForRole("guest");

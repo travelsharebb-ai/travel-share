@@ -1684,6 +1684,8 @@ const translations = {
       "resumeFailed": "无法恢复来宾会话 .",
       "restoreFailed": "无法恢复已保存的嘉宾会话 ."
     },
+    "resumeWithName": "使用姓名恢复",
+    "resumeWithLinkToken": "使用链接或令牌恢复",
     "savedSessionExpired": "您保存的嘉宾会话已过期 。 您可以通过访问链接恢复或启动新的访客访问.",
     "savedSessionInvalid": "无法恢复已保存的嘉宾会话 。 启动新嘉宾访问或以嘉宾访问链接恢复."
   },

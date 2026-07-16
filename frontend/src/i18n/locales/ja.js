@@ -1684,6 +1684,8 @@ const translations = {
       "resumeFailed": "ゲストセッションを再開できません.",
       "restoreFailed": "保存されたゲストセッションは復元できませんでした."
     },
+    "resumeWithName": "名前で再開",
+    "resumeWithLinkToken": "リンクまたはトークンで再開",
     "savedSessionExpired": "保存したゲストセッションが期限切れになりました。 アクセスリンクで再開したり、新しいゲストアクセスを開始したりすることができます.",
     "savedSessionInvalid": "保存されたゲストセッションは復元できませんでした。 新規ゲストアクセスを開始するか、ゲストアクセスリンクで再開します."
   },

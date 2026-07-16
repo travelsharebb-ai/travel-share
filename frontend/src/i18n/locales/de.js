@@ -1787,6 +1787,8 @@ const translations = {
       "resumeFailed": "Gastsitzung kann nicht fortgesetzt werden.",
       "restoreFailed": "Die gespeicherte Gastsitzung konnte nicht wiederhergestellt werden."
     },
+    "resumeWithName": "Mit Namen fortsetzen",
+    "resumeWithLinkToken": "Mit Link oder Token fortsetzen",
     "savedSessionExpired": "Ihre gespeicherte Gastsitzung ist abgelaufen. Sie können mit einem Zugangslink fortfahren oder einen neuen Gastzugang starten.",
     "savedSessionInvalid": "Die gespeicherte Gastsitzung konnte nicht wiederhergestellt werden. Starten Sie einen neuen Gastzugang oder fahren Sie mit einem Gastzugangslink fort."
   },
