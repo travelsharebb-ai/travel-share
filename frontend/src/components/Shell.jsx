@@ -146,7 +146,44 @@ export default function Shell({ children }) {
   }, [notificationsOpen]);
 
   const unreadCount = notifications.filter((notification) => !notification.read).length;
-  const badgeCount = remoteUnreadCount || unreadCount || 0;
+  const badgeCount = Math.max(remoteUnreadCount || 0, unreadCount);
+
+  async function markNotificationRead(notification) {
+    if (!notification?.id || notification.read) return true;
+
+    setNotifications((current) => current.map((entry) => (
+      entry.id === notification.id ? { ...entry, read: true, readAt: entry.readAt || new Date().toISOString() } : entry
+    )));
+    setRemoteUnreadCount((count) => Math.max(0, (count || 0) - 1));
+
+    try {
+      const response = await api(`/api/notifications/${notification.id}/read`, { method: "PATCH" });
+      setNotifications((current) => current.map((entry) => (
+        entry.id === notification.id
+          ? { ...entry, read: true, readAt: response.notification?.readAt || entry.readAt }
+          : entry
+      )));
+      return true;
+    } catch (error) {
+      setNotifications((current) => current.map((entry) => (
+        entry.id === notification.id ? { ...entry, read: false, readAt: null } : entry
+      )));
+      setRemoteUnreadCount((count) => (count || 0) + 1);
+      console.error("mark read failed", error);
+      return false;
+    }
+  }
+
+  function openNotification(notification) {
+    void markNotificationRead(notification);
+    setNotificationsOpen(false);
+    if (notification.targetUrl) navigate(notification.targetUrl);
+  }
+
+  function activateNotification(notification) {
+    if (notification.targetUrl) openNotification(notification);
+    else void markNotificationRead(notification);
+  }
 
   useEffect(() => {
     if (!notificationsOpen) return;
@@ -271,7 +308,7 @@ export default function Shell({ children }) {
                       onClick={() => setNotificationsOpen((open) => !open)}
                     >
                       <Bell className="topbar-bell-icon" size={18} strokeWidth={2.25} fill="none" aria-hidden="true" />
-                      {unreadCount > 0 ? (
+                      {badgeCount > 0 ? (
                         <span className="notification-badge">{badgeCount > 9 ? "9+" : badgeCount}</span>
                       ) : null}
                     </button>
@@ -336,27 +373,28 @@ export default function Shell({ children }) {
                                 )}
                               </div>
                               {notifications.map((notification) => (
-                                <div key={notification.id || notification.title} className={`notification-item rounded-3xl border p-3 ${notification.read ? 'notification-read' : 'notification-unread'}`}>
+                                <div
+                                  key={notification.id || notification.title}
+                                  className={`notification-item rounded-3xl border p-3 ${notification.read ? 'notification-read' : 'notification-unread'}`}
+                                >
                                   <div className="flex items-start justify-between gap-3">
-                                    <div>
+                                    <button type="button" className="min-w-0 flex-1 cursor-pointer text-left" onClick={() => activateNotification(notification)}>
                                               <p className="text-sm font-semibold">{notification.title || translatedNotificationType(notification.type, t)}</p>
                                       <p className="mt-1 text-sm leading-6 text-slatebody">{notification.message || notification.body || t('shell.notificationFallback', 'A notification has arrived.')}</p>
                                       {notification.createdAt && <p className="mt-2 text-xs uppercase tracking-[0.24em] text-slate-500">{new Date(notification.createdAt).toLocaleString(language)}</p>}
-                                    </div>
+                                    </button>
                                     <div className="flex flex-col items-end gap-2">
                                       {notification.targetUrl ? (
-                                         <a className="btn-ghost" href={notification.targetUrl}>{t('shell.open', 'Open')}</a>
+                                         <button type="button" className="btn-ghost" onClick={(event) => {
+                                           event.stopPropagation();
+                                           openNotification(notification);
+                                         }}>{t('shell.open', 'Open')}</button>
                                       ) : null}
                                       {!notification.read ? (
-                                         <button className="btn-ghost" onClick={async () => {
-                                          try {
-                                            await api(`/api/notifications/${notification.id}/read`, { method: 'PATCH' });
-                                            setNotifications((prev) => prev.map((p) => p.id === notification.id ? { ...p, read: true } : p));
-                                            setRemoteUnreadCount((c) => Math.max(0, (c || 0) - 1));
-                                          } catch (err) {
-                                            console.error('mark read failed', err);
-                                          }
-                                        }}>{t('shell.markRead', 'Mark read')}</button>
+                                         <button type="button" className="btn-ghost" onClick={(event) => {
+                                           event.stopPropagation();
+                                           void markNotificationRead(notification);
+                                         }}>{t('shell.markRead', 'Mark read')}</button>
                                          ) : (
                                          <div className="text-xs text-slatebody">{t('shell.read', 'Read')}</div>
                                       )}
@@ -454,10 +492,25 @@ export default function Shell({ children }) {
                             <div className="notifications-body notifications-empty">{t('shell.noNotificationsYet', 'No notifications yet.')}</div>
                           ) : (
                             notifications.map((notification) => (
-                              <div key={notification.id || notification.title} className={`notification-item rounded-3xl border p-3 ${notification.read ? 'notification-read' : 'notification-unread'}`}>
-                                <p className="text-sm font-semibold">{notification.title || translatedNotificationType(notification.type, t)}</p>
-                                <p className="mt-1 text-sm leading-6 text-slatebody">{notification.message || notification.body || t('shell.notificationFallback', 'A notification has arrived.')}</p>
-                                {notification.targetUrl ? <a className="btn-ghost mt-2" href={notification.targetUrl}>{t('shell.open', 'Open')}</a> : null}
+                              <div
+                                key={notification.id || notification.title}
+                                className={`notification-item rounded-3xl border p-3 ${notification.read ? 'notification-read' : 'notification-unread'}`}
+                              >
+                                <button type="button" className="block w-full cursor-pointer text-left" onClick={() => activateNotification(notification)}>
+                                  <p className="text-sm font-semibold">{notification.title || translatedNotificationType(notification.type, t)}</p>
+                                  <p className="mt-1 text-sm leading-6 text-slatebody">{notification.message || notification.body || t('shell.notificationFallback', 'A notification has arrived.')}</p>
+                                  {notification.createdAt && <p className="mt-2 text-xs uppercase tracking-[0.24em] text-slate-500">{new Date(notification.createdAt).toLocaleString(language)}</p>}
+                                </button>
+                                <div className="mt-2 flex flex-wrap items-center gap-2">
+                                  {notification.targetUrl ? <button type="button" className="btn-ghost" onClick={(event) => {
+                                    event.stopPropagation();
+                                    openNotification(notification);
+                                  }}>{t('shell.open', 'Open')}</button> : null}
+                                  {!notification.read ? <button type="button" className="btn-ghost" onClick={(event) => {
+                                    event.stopPropagation();
+                                    void markNotificationRead(notification);
+                                  }}>{t('shell.markRead', 'Mark read')}</button> : <span className="text-xs text-slatebody">{t('shell.read', 'Read')}</span>}
+                                </div>
                               </div>
                             ))
                           )}
