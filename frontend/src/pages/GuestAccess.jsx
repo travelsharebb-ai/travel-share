@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import AppTopbar from "../components/AppTopbar";
 import { resumeGuestSession, setGuestSession, setGuestToken } from "../lib/api";
+import SecretInput from "../components/SecretInput.jsx";
 
 export default function GuestAccess() {
   const { t } = useLanguage();
@@ -44,7 +45,7 @@ export default function GuestAccess() {
           <h1 className="text-2xl font-black font-serif">{t("hardcoded.resumeGuestAccess")}</h1>
           <p className="mt-2 text-slatebody">{t("hardcoded.enterThe4DigitPasscodeYouSetWhen")}</p>
           <form className="mt-4 grid gap-3" onSubmit={submit}>
-            <input id="guest-access-passcode" name="passcode" type="password" inputMode="numeric" autoComplete="current-password" pattern="[0-9]{4}" maxLength={4} required aria-label={t("hardcoded.4DigitPasscode")} className="field" placeholder={t("hardcoded.4DigitPasscode")} value={passcode} onChange={(e) => setPasscode(e.target.value)} />
+            <SecretInput kind="pin" id="guest-access-passcode" name="passcode" inputMode="numeric" autoComplete="current-password" pattern="[0-9]{4}" maxLength={4} required aria-label={t("hardcoded.4DigitPasscode")} className="field" placeholder={t("hardcoded.4DigitPasscode")} value={passcode} onChange={(e) => setPasscode(e.target.value)} />
             <div className="flex gap-3">
               <button className="btn-primary" type="submit" disabled={loading}>{t("hardcoded.continue")}</button>
             </div>

@@ -512,6 +512,13 @@ const translations = {
   },
   "security": {
     "accountSecurity": "Kontosicherheit",
+    "setPasswordTitle": "Passwort für die E-Mail-Anmeldung festlegen",
+    "oauthPasswordHelp": "Dein Konto verwendet die Anmeldung mit Google oder Microsoft. Um ein Passwort zu erstellen, senden wir einen sicheren Einrichtungslink an deine E-Mail-Adresse.",
+    "sendPasswordSetupLink": "Link zur Passworteinrichtung senden",
+    "passwordSetupSent": "Ein sicherer Link zur Passworteinrichtung wurde an deine E-Mail-Adresse gesendet.",
+    "passwordSetupFailed": "Der Link zur Passworteinrichtung konnte nicht gesendet werden.",
+    "showPinValue": "PIN anzeigen",
+    "hidePinValue": "PIN ausblenden",
     "changePassword": "Passwort ändern",
     "changePasswordHelp": "Bestätigen Sie Ihr aktuelles Passwort, bevor Sie ein neues wählen.",
     "forcedPasswordReset": "Ein Administrator verlangt eine Passwortänderung, bevor Sie fortfahren.",

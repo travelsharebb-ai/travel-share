@@ -1050,6 +1050,13 @@ const translations = {
   },
   "security": {
     "accountSecurity": "账户安全",
+    "setPasswordTitle": "设置电子邮件登录密码",
+    "oauthPasswordHelp": "您的账户使用 Google 或 Microsoft 登录。要创建密码，我们会向您的电子邮箱发送安全设置链接。",
+    "sendPasswordSetupLink": "发送密码设置链接",
+    "passwordSetupSent": "安全的密码设置链接已发送到您的电子邮箱。",
+    "passwordSetupFailed": "无法发送密码设置链接。",
+    "showPinValue": "显示 PIN",
+    "hidePinValue": "隐藏 PIN",
     "changePassword": "更改密码",
     "changePasswordHelp": "选择新密码前，请确认当前密码。",
     "forcedPasswordReset": "管理员要求您先更改密码才能继续。",

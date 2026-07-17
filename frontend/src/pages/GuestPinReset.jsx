@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import AppTopbar from "../components/AppTopbar.jsx";
 import { api } from "../lib/api.js";
 import { useLanguage } from "../lib/i18n.js";
+import SecretInput from "../components/SecretInput.jsx";
 
 export default function GuestPinReset() {
   const { token: routeToken } = useParams();
@@ -44,8 +45,8 @@ export default function GuestPinReset() {
           ) : (
             <form className="mt-5 grid gap-3" onSubmit={submit}>
               {!routeToken ? <input className="field" name="recoveryToken" required placeholder={t("security.recoveryLinkOrToken")} value={token} onChange={(event) => setToken(event.target.value)} /> : null}
-              <input className="field" name="newPin" type="password" inputMode="numeric" pattern="[0-9]{4}" maxLength={4} required placeholder={t("security.newPin")} value={form.newPin} onChange={(event) => setForm((value) => ({ ...value, newPin: event.target.value }))} />
-              <input className="field" name="confirmPin" type="password" inputMode="numeric" pattern="[0-9]{4}" maxLength={4} required placeholder={t("security.confirmPin")} value={form.confirmPin} onChange={(event) => setForm((value) => ({ ...value, confirmPin: event.target.value }))} />
+              <SecretInput kind="pin" className="field" name="newPin" inputMode="numeric" pattern="[0-9]{4}" maxLength={4} required placeholder={t("security.newPin")} value={form.newPin} onChange={(event) => setForm((value) => ({ ...value, newPin: event.target.value }))} />
+              <SecretInput kind="pin" className="field" name="confirmPin" inputMode="numeric" pattern="[0-9]{4}" maxLength={4} required placeholder={t("security.confirmPin")} value={form.confirmPin} onChange={(event) => setForm((value) => ({ ...value, confirmPin: event.target.value }))} />
               {status.error ? <p className="text-red-400" role="alert">{status.error}</p> : null}
               <button className="btn-primary" disabled={status.loading}>{status.loading ? t("common.loading") : t("security.resetGuestPin")}</button>
             </form>

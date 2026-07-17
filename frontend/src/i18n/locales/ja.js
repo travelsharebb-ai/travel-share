@@ -1064,6 +1064,13 @@ const translations = {
   },
   "security": {
     "accountSecurity": "アカウントのセキュリティ",
+    "setPasswordTitle": "メールログイン用のパスワードを設定",
+    "oauthPasswordHelp": "このアカウントは Google または Microsoft サインインを使用しています。パスワードを作成するため、安全な設定リンクをメールで送信します。",
+    "sendPasswordSetupLink": "パスワード設定リンクを送信",
+    "passwordSetupSent": "安全なパスワード設定リンクをメールで送信しました。",
+    "passwordSetupFailed": "パスワード設定リンクを送信できませんでした。",
+    "showPinValue": "PINを表示",
+    "hidePinValue": "PINを非表示",
     "changePassword": "パスワードを変更",
     "changePasswordHelp": "新しいパスワードを選ぶ前に、現在のパスワードを確認してください。",
     "forcedPasswordReset": "続行する前に管理者からパスワード変更を求められています。",

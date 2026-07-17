@@ -12,7 +12,7 @@ import { sendPasswordResetEmail, sendEmailChangeRequest } from "../utils/email.j
 import { cleanUpload, cleanUser } from "../utils/exportImport.js";
 import { createNotification } from "../services/notifications.js";
 import { ensureBasicSkinUnlocks } from "../utils/skins.js";
-import { isStrongPassword, PASSWORD_REQUIREMENTS, writeSecurityAudit } from "../services/accountSecurityService.js";
+import { allowDevelopmentRecoveryUrl, isStrongPassword, PASSWORD_REQUIREMENTS, writeSecurityAudit } from "../services/accountSecurityService.js";
 import { createResetRequest } from "../services/resetRequestService.js";
 import {
   oauthTempStore,
@@ -174,6 +174,29 @@ async function ensureUserPreferences(userId) {
   });
 }
 
+function safeUserWithPasswordCapability(user) {
+  const { passwordHash, ...safeUser } = user;
+  return { ...safeUser, hasLocalPassword: Boolean(passwordHash) };
+}
+
+async function issuePasswordResetLink(user) {
+  const token = secureToken(32);
+  const tokenHash = hashToken(token);
+  const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
+
+  await prisma.$transaction([
+    prisma.passwordResetToken.updateMany({
+      where: { userId: user.id, usedAt: null, revokedAt: null },
+      data: { revokedAt: new Date() }
+    }),
+    prisma.passwordResetToken.create({ data: { userId: user.id, tokenHash, expiresAt } })
+  ]);
+
+  const resetUrl = `${process.env.FRONTEND_URL || "http://localhost:5173"}/reset-password/${token}`;
+  const delivery = await sendPasswordResetEmail({ user, resetUrl });
+  return { resetUrl, delivery };
+}
+
 router.post("/signup", authLimiter, async (req, res, next) => {
   try {
     const data = signupSchema.parse(req.body);
@@ -185,7 +208,7 @@ router.post("/signup", authLimiter, async (req, res, next) => {
         passwordHash,
         role: defaultRoleForEmail(data.email.toLowerCase())
       },
-      select: { id: true, name: true, email: true, role: true }
+      select: { id: true, name: true, email: true, role: true, passwordHash: true }
     });
 
     const guestToken = data.guestToken || readCookie(req, "ts_guest");
@@ -208,7 +231,7 @@ router.post("/signup", authLimiter, async (req, res, next) => {
       console.error("Failed to grant basic skins on signup", error);
     });
 
-    res.status(201).json({ user, token: sign(user) });
+    res.status(201).json({ user: safeUserWithPasswordCapability(user), token: sign(user) });
   } catch (error) {
     if (error.code === "P2002") return res.status(409).json({ error: "Email already exists." });
     next(error);
@@ -341,11 +364,12 @@ router.get("/oauth/:provider/callback", authLimiter, async (req, res, next) => {
       create: {
         name: profile.name || profile.given_name || email.split("@")[0],
         email,
-        passwordHash: await bcrypt.hash(secureToken(24), 12),
+        passwordHash: null,
         role: defaultRoleForEmail(email)
       },
-      select: { id: true, name: true, email: true, role: true }
+      select: { id: true, name: true, email: true, role: true, passwordHash: true }
     });
+    const safeUser = safeUserWithPasswordCapability(user);
     await ensureBasicSkinUnlocks(user.id).catch((error) => {
       console.error("Failed to grant basic skins on OAuth sign-in", error);
     });
@@ -354,7 +378,7 @@ router.get("/oauth/:provider/callback", authLimiter, async (req, res, next) => {
     await oauthTempStore.setHandoff(
       handoffCode,
       {
-        user,
+        user: safeUser,
         token: sign(user),
         redirect,
         expiresAt: Date.now() + OAUTH_HANDOFF_TTL_MS
@@ -394,10 +418,17 @@ router.post("/login", authLimiter, async (req, res, next) => {
       return res.status(403).json({ error: "This account is not active.", code: "ACCOUNT_INACTIVE" });
     }
 
-    const valid = await bcrypt.compare(data.password, user.passwordHash);
+    const valid = Boolean(user.passwordHash) && await bcrypt.compare(data.password, user.passwordHash);
     if (!valid) return res.status(401).json({ error: "Invalid email or password." });
 
-    const safeUser = { id: user.id, name: user.name, email: user.email, role: user.role, mustResetPassword: user.mustResetPassword };
+    const safeUser = {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      mustResetPassword: user.mustResetPassword,
+      hasLocalPassword: true
+    };
     await ensureBasicSkinUnlocks(user.id).catch((error) => {
       console.error("Failed to grant basic skins on login", error);
     });
@@ -416,20 +447,7 @@ router.post("/forgot-password", authLimiter, async (req, res, next) => {
     });
 
     if (user) {
-      const token = secureToken(32);
-      const tokenHash = hashToken(token);
-      const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
-
-      await prisma.$transaction([
-        prisma.passwordResetToken.updateMany({
-          where: { userId: user.id, usedAt: null, revokedAt: null },
-          data: { revokedAt: new Date() }
-        }),
-        prisma.passwordResetToken.create({ data: { userId: user.id, tokenHash, expiresAt } })
-      ]);
-
-      const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${token}`;
-      await sendPasswordResetEmail({ user, resetUrl });
+      await issuePasswordResetLink(user);
     }
 
     res.json({ message: "If that email exists, a password reset link has been sent." });
@@ -487,7 +505,13 @@ router.patch("/me/password", requireAuth, async (req, res, next) => {
       where: { id: req.user.id },
       select: { passwordHash: true }
     });
-    const valid = Boolean(current) && await bcrypt.compare(data.currentPassword, current.passwordHash);
+    if (!current?.passwordHash) {
+      return res.status(409).json({
+        error: "This account does not have a local password. Request a secure password setup link instead.",
+        code: "LOCAL_PASSWORD_NOT_SET"
+      });
+    }
+    const valid = await bcrypt.compare(data.currentPassword, current.passwordHash);
     if (!valid) return res.status(403).json({ error: "Current password is incorrect." });
 
     const passwordHash = await bcrypt.hash(data.newPassword, 12);
@@ -509,6 +533,46 @@ router.patch("/me/password", requireAuth, async (req, res, next) => {
       }, tx);
     });
     return res.json({ message: "Password changed successfully." });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.post("/me/password-setup", requireAuth, authLimiter, async (req, res, next) => {
+  try {
+    if (req.user.role === "guest") return res.status(403).json({ error: "Guest accounts use a PIN." });
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: { id: true, name: true, email: true, passwordHash: true }
+    });
+    if (!user) return res.status(404).json({ error: "Account not found." });
+    if (user.passwordHash) {
+      return res.status(409).json({
+        error: "This account already has a local password. Change it using your current password.",
+        code: "LOCAL_PASSWORD_ALREADY_SET"
+      });
+    }
+
+    const { resetUrl, delivery } = await issuePasswordResetLink(user);
+    await writeSecurityAudit(req, {
+      targetType: "user",
+      targetId: user.id,
+      action: "password_setup_requested",
+      reason: "Self-service password setup for OAuth account",
+      resetLinkGenerated: true,
+      resetLinkSentTo: delivery.sent ? user.email : null,
+      oldLinksRevoked: true,
+      metadata: { emailSent: delivery.sent === true, deliveryError: delivery.error || null }
+    });
+
+    if (!delivery.sent) {
+      return res.status(502).json({ error: "The secure setup link was created, but the email could not be sent. Please try again." });
+    }
+
+    return res.status(201).json({
+      message: "A secure password setup link was sent to your email.",
+      ...(allowDevelopmentRecoveryUrl(resetUrl) ? { devResetUrl: resetUrl } : {})
+    });
   } catch (error) {
     return next(error);
   }
@@ -547,6 +611,7 @@ router.get("/me", requireAuth, async (req, res, next) => {
         role: true,
         accountStatus: true,
         mustResetPassword: true,
+        passwordHash: true,
         preferences: true,
         purchases: { include: { item: true }, orderBy: { createdAt: "desc" } },
         activeStoreItem: true
@@ -555,7 +620,7 @@ router.get("/me", requireAuth, async (req, res, next) => {
     await ensureBasicSkinUnlocks(req.user.id).catch((error) => {
       console.error("Failed to grant basic skins while loading profile", error);
     });
-    res.json({ user });
+    res.json({ user: safeUserWithPasswordCapability(user) });
   } catch (error) {
     next(error);
   }
@@ -601,7 +666,13 @@ router.patch("/me", requireAuth, async (req, res, next) => {
     if (data.newPassword) {
       if (!data.currentPassword) return res.status(400).json({ error: "Current password is required to change password." });
       const current = await prisma.user.findUnique({ where: { id: req.user.id }, select: { passwordHash: true } });
-      const valid = current ? await bcrypt.compare(data.currentPassword, current.passwordHash) : false;
+      if (!current?.passwordHash) {
+        return res.status(409).json({
+          error: "This account does not have a local password. Request a secure password setup link instead.",
+          code: "LOCAL_PASSWORD_NOT_SET"
+        });
+      }
+      const valid = await bcrypt.compare(data.currentPassword, current.passwordHash);
       if (!valid) return res.status(403).json({ error: "Current password is incorrect." });
       update.passwordHash = await bcrypt.hash(data.newPassword, 12);
     }
@@ -636,12 +707,13 @@ router.patch("/me", requireAuth, async (req, res, next) => {
         role: true,
         accountStatus: true,
         mustResetPassword: true,
+        passwordHash: true,
         preferences: true,
         purchases: { include: { item: true }, orderBy: { createdAt: "desc" } },
         activeStoreItem: true
       }
     });
-    const payload = { user };
+    const payload = { user: safeUserWithPasswordCapability(user) };
     if (devVerificationUrl) payload.devVerificationUrl = devVerificationUrl;
     res.json(payload);
   } catch (error) {

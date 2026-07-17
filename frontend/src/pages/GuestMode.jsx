@@ -6,6 +6,7 @@ import AppTopbar from "../components/AppTopbar";
 import { clearGuestToken, createGuestSessionProfile, resumeGuestSession, getGuestToken, setGuestSession, setGuestToken, validateGuestSession } from "../lib/api";
 import { copyToClipboard } from "../lib/clipboard";
 import GuestPinResetRequestForm from "../components/GuestPinResetRequestForm.jsx";
+import SecretInput from "../components/SecretInput.jsx";
 
 function HeaderBlock({ eyebrow, title, copy }) {
   return (
@@ -253,9 +254,9 @@ export default function GuestMode() {
               minLength={2}
               required
             />
-            <input
+            <SecretInput
+              kind="pin"
               name="guestPasscode"
-              type="password"
               className="field"
               placeholder={t("hardcoded.4DigitPasscodeEG1234")}
               value={passcodeInput}
@@ -367,9 +368,9 @@ export default function GuestMode() {
                 required
               />
             )}
-            <input
+            <SecretInput
+              kind="pin"
               name="guestResumePasscode"
-              type="password"
               className="field"
               placeholder={t("hardcoded.4DigitPasscode")}
               value={resumePasscode}

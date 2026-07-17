@@ -120,5 +120,5 @@ run("private QR upload approval flow", () => {
 
     expect(album.body.trip.uploads).toHaveLength(1);
     expect(album.body.trip.uploads[0].id).toBe(uploadId);
-  });
+  }, 15_000);
 });

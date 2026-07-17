@@ -1064,6 +1064,13 @@ const translations = {
   },
   "security": {
     "accountSecurity": "खाता सुरक्षा",
+    "setPasswordTitle": "ईमेल लॉगिन के लिए पासवर्ड सेट करें",
+    "oauthPasswordHelp": "आपका खाता Google या Microsoft साइन-इन का उपयोग करता है। पासवर्ड बनाने के लिए हम आपके ईमेल पर एक सुरक्षित सेटअप लिंक भेजेंगे।",
+    "sendPasswordSetupLink": "पासवर्ड सेटअप लिंक भेजें",
+    "passwordSetupSent": "आपके ईमेल पर एक सुरक्षित पासवर्ड सेटअप लिंक भेज दिया गया है।",
+    "passwordSetupFailed": "पासवर्ड सेटअप लिंक नहीं भेजा जा सका।",
+    "showPinValue": "PIN दिखाएँ",
+    "hidePinValue": "PIN छिपाएँ",
     "changePassword": "पासवर्ड बदलें",
     "changePasswordHelp": "नया पासवर्ड चुनने से पहले वर्तमान पासवर्ड की पुष्टि करें।",
     "forcedPasswordReset": "आगे बढ़ने से पहले व्यवस्थापक ने पासवर्ड बदलना आवश्यक किया है।",

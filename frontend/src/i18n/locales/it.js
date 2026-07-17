@@ -273,6 +273,13 @@ const translations = {
   },
   "security": {
     "accountSecurity": "Sicurezza dell’account",
+    "setPasswordTitle": "Imposta una password per l’accesso via e-mail",
+    "oauthPasswordHelp": "Il tuo account usa l’accesso con Google o Microsoft. Per creare una password, invieremo un link di configurazione sicuro al tuo indirizzo e-mail.",
+    "sendPasswordSetupLink": "Invia il link per configurare la password",
+    "passwordSetupSent": "Un link sicuro per configurare la password è stato inviato al tuo indirizzo e-mail.",
+    "passwordSetupFailed": "Impossibile inviare il link per configurare la password.",
+    "showPinValue": "Mostra PIN",
+    "hidePinValue": "Nascondi PIN",
     "changePassword": "Cambia password",
     "changePasswordHelp": "Conferma la password attuale prima di sceglierne una nuova.",
     "forcedPasswordReset": "Un amministratore richiede di cambiare la password prima di continuare.",

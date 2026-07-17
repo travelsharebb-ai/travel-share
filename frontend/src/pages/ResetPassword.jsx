@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import AppTopbar from "../components/AppTopbar";
 import { api } from "../lib/api.js";
+import SecretInput from "../components/SecretInput.jsx";
 
 export default function ResetPassword() {
   const { t } = useLanguage();
@@ -44,10 +45,9 @@ export default function ResetPassword() {
         <form className="space-y-4" onSubmit={submit}>
         <div className="space-y-3">
           <label htmlFor="reset-password-new" className="block text-sm uppercase tracking-[0.28em] text-slatebody/70">{t("hardcoded.newPassword")}</label>
-          <input
+          <SecretInput
             id="reset-password-new"
             name="password"
-            type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             className="field w-full"
@@ -59,10 +59,9 @@ export default function ResetPassword() {
 
         <div className="space-y-3">
           <label htmlFor="reset-password-confirm" className="block text-sm uppercase tracking-[0.28em] text-slatebody/70">{t("hardcoded.confirmPassword")}</label>
-          <input
+          <SecretInput
             id="reset-password-confirm"
             name="confirmPassword"
-            type="password"
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
             className="field w-full"
