@@ -344,6 +344,13 @@ const translations = {
   },
   "security": {
     "accountSecurity": "Account security",
+    "setPasswordTitle": "Set password for email login",
+    "oauthPasswordHelp": "Your account uses Google or Microsoft sign-in. To create a password, we’ll send a secure setup link to your email.",
+    "sendPasswordSetupLink": "Send password setup link",
+    "passwordSetupSent": "A secure password setup link was sent to your email.",
+    "passwordSetupFailed": "Unable to send the password setup link.",
+    "showPinValue": "Show PIN",
+    "hidePinValue": "Hide PIN",
     "changePassword": "Change password",
     "changePasswordHelp": "Confirm your current password before choosing a new one.",
     "forcedPasswordReset": "An administrator requires you to change your password before continuing.",

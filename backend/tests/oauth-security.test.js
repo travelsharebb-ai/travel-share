@@ -142,7 +142,12 @@ describe("OAuth security flow", () => {
     const exchange = await request(app).post("/api/auth/oauth/exchange").send({ code: handoffCode });
     expect(exchange.status).toBe(200);
     expect(exchange.headers["cache-control"]).toBe("no-store");
-    expect(exchange.body.user).toEqual(safeUser);
+    expect(exchange.body.user).toEqual({ ...safeUser, hasLocalPassword: false });
+    expect(exchange.body.user).not.toHaveProperty("passwordHash");
+    expect(mocks.userUpsert).toHaveBeenCalledWith(expect.objectContaining({
+      create: expect.objectContaining({ passwordHash: null }),
+      select: expect.objectContaining({ passwordHash: true })
+    }));
     expect(exchange.body.token).toEqual(expect.any(String));
     expect(exchange.body.redirect).toBeNull();
 

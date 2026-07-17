@@ -705,6 +705,13 @@ const translations = {
   },
   "security": {
     "accountSecurity": "Sécurité du compte",
+    "setPasswordTitle": "Définir un mot de passe pour la connexion par e-mail",
+    "oauthPasswordHelp": "Votre compte utilise la connexion Google ou Microsoft. Pour créer un mot de passe, nous enverrons un lien de configuration sécurisé à votre adresse e-mail.",
+    "sendPasswordSetupLink": "Envoyer le lien de configuration du mot de passe",
+    "passwordSetupSent": "Un lien sécurisé de configuration du mot de passe a été envoyé à votre adresse e-mail.",
+    "passwordSetupFailed": "Impossible d’envoyer le lien de configuration du mot de passe.",
+    "showPinValue": "Afficher le code PIN",
+    "hidePinValue": "Masquer le code PIN",
     "changePassword": "Modifier le mot de passe",
     "changePasswordHelp": "Confirmez votre mot de passe actuel avant d’en choisir un nouveau.",
     "forcedPasswordReset": "Un administrateur exige que vous changiez votre mot de passe avant de continuer.",

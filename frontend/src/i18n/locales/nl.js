@@ -273,6 +273,13 @@ const translations = {
   },
   "security": {
     "accountSecurity": "Accountbeveiliging",
+    "setPasswordTitle": "Wachtwoord instellen voor aanmelden via e-mail",
+    "oauthPasswordHelp": "Je account gebruikt aanmelding via Google of Microsoft. Om een wachtwoord te maken, sturen we een beveiligde instellink naar je e-mailadres.",
+    "sendPasswordSetupLink": "Link voor wachtwoordinstelling verzenden",
+    "passwordSetupSent": "Er is een beveiligde link voor wachtwoordinstelling naar je e-mailadres verzonden.",
+    "passwordSetupFailed": "De link voor wachtwoordinstelling kon niet worden verzonden.",
+    "showPinValue": "Pincode tonen",
+    "hidePinValue": "Pincode verbergen",
     "changePassword": "Wachtwoord wijzigen",
     "changePasswordHelp": "Bevestig uw huidige wachtwoord voordat u een nieuw kiest.",
     "forcedPasswordReset": "Een beheerder vereist dat u uw wachtwoord wijzigt voordat u doorgaat.",

@@ -5,6 +5,7 @@ import { api, currentUser, updateStoredUser } from "../lib/api";
 import { setTheme, getTheme, getStoredThemeMode, setStoredThemeMode, applyThemeMode, getResolvedThemeMode } from "../lib/theme.js";
 import { useLanguage } from "../lib/i18n";
 import GuestPinResetRequestForm from "../components/GuestPinResetRequestForm.jsx";
+import SecretInput from "../components/SecretInput.jsx";
 
 function daysUntil(value, now = new Date()) {
   if (!value) return 0;
@@ -36,6 +37,10 @@ export default function Settings() {
   const [copied, setCopied] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
   const [passwordStatus, setPasswordStatus] = useState({ loading: false, error: "", success: "" });
+  const [passwordSetupStatus, setPasswordSetupStatus] = useState({ loading: false, error: "", success: "", devResetUrl: "" });
+  const [accountSecurityLoaded, setAccountSecurityLoaded] = useState(
+    user?.role === "guest" || typeof user?.hasLocalPassword === "boolean"
+  );
   const [pinForm, setPinForm] = useState({ currentPin: "", newPin: "", confirmPin: "" });
   const [pinStatus, setPinStatus] = useState({ loading: false, error: "", success: "" });
   const [passwordResetMessage, setPasswordResetMessage] = useState("");
@@ -78,6 +83,7 @@ export default function Settings() {
         setCurrentEmail(u.email || "");
         setPendingEmail(u.pendingEmail || null);
         setEmailVerifiedAt(u.emailVerifiedAt || null);
+        setAccountSecurityLoaded(true);
       } catch (err) {
         // ignore
       }
@@ -236,6 +242,26 @@ export default function Settings() {
     }
   }
 
+  async function requestPasswordSetup() {
+    setPasswordSetupStatus({ loading: true, error: "", success: "", devResetUrl: "" });
+    try {
+      const response = await api("/api/auth/me/password-setup", { method: "POST", body: JSON.stringify({}) });
+      setPasswordSetupStatus({
+        loading: false,
+        error: "",
+        success: t("security.passwordSetupSent"),
+        devResetUrl: response.devResetUrl || ""
+      });
+    } catch (requestError) {
+      setPasswordSetupStatus({
+        loading: false,
+        error: requestError.message || t("security.passwordSetupFailed"),
+        success: "",
+        devResetUrl: ""
+      });
+    }
+  }
+
   async function requestPasswordReset(event) {
     event.preventDefault();
     setPasswordResetStatus({ loading: true, error: "", success: "" });
@@ -320,23 +346,44 @@ export default function Settings() {
           <h2 className="mt-2 text-3xl font-black font-serif">{t("security.changePin")}</h2>
           <p className="mt-2 text-slatebody">{t("security.changePinHelp")}</p>
           <div className="mt-4 grid gap-3 sm:grid-cols-3">
-            <input className="field" name="currentPin" type="password" inputMode="numeric" pattern="[0-9]{4}" maxLength={4} required placeholder={t("security.currentPin")} value={pinForm.currentPin} onChange={(event) => setPinForm((value) => ({ ...value, currentPin: event.target.value }))} />
-            <input className="field" name="newPin" type="password" inputMode="numeric" pattern="[0-9]{4}" maxLength={4} required placeholder={t("security.newPin")} value={pinForm.newPin} onChange={(event) => setPinForm((value) => ({ ...value, newPin: event.target.value }))} />
-            <input className="field" name="confirmPin" type="password" inputMode="numeric" pattern="[0-9]{4}" maxLength={4} required placeholder={t("security.confirmPin")} value={pinForm.confirmPin} onChange={(event) => setPinForm((value) => ({ ...value, confirmPin: event.target.value }))} />
+            <SecretInput kind="pin" className="field" name="currentPin" inputMode="numeric" pattern="[0-9]{4}" maxLength={4} required placeholder={t("security.currentPin")} value={pinForm.currentPin} onChange={(event) => setPinForm((value) => ({ ...value, currentPin: event.target.value }))} />
+            <SecretInput kind="pin" className="field" name="newPin" inputMode="numeric" pattern="[0-9]{4}" maxLength={4} required placeholder={t("security.newPin")} value={pinForm.newPin} onChange={(event) => setPinForm((value) => ({ ...value, newPin: event.target.value }))} />
+            <SecretInput kind="pin" className="field" name="confirmPin" inputMode="numeric" pattern="[0-9]{4}" maxLength={4} required placeholder={t("security.confirmPin")} value={pinForm.confirmPin} onChange={(event) => setPinForm((value) => ({ ...value, confirmPin: event.target.value }))} />
           </div>
           {pinStatus.error ? <p className="mt-3 text-sm text-red-400" role="alert">{pinStatus.error}</p> : null}
           {pinStatus.success ? <p className="mt-3 text-sm text-green-400" role="status">{pinStatus.success}</p> : null}
           <button className="btn-primary mt-4" disabled={pinStatus.loading}>{pinStatus.loading ? t("common.loading") : t("security.changePin")}</button>
         </form>
+      ) : !accountSecurityLoaded ? (
+        <section className="card p-5 bg-slate-950/90 border border-white/10" aria-busy="true">
+          <p className="text-sm uppercase tracking-[0.32em] text-primary">{t("security.accountSecurity")}</p>
+          <p className="mt-3 text-slatebody">{t("common.loading")}</p>
+        </section>
+      ) : user?.hasLocalPassword === false ? (
+        <section className="card p-5 bg-slate-950/90 border border-white/10">
+          <p className="text-sm uppercase tracking-[0.32em] text-primary">{t("security.accountSecurity")}</p>
+          <h2 className="mt-2 text-3xl font-black font-serif">{t("security.setPasswordTitle")}</h2>
+          <p className="mt-2 text-slatebody">{t("security.oauthPasswordHelp")}</p>
+          {passwordSetupStatus.error ? <p className="mt-3 text-sm text-red-400" role="alert">{passwordSetupStatus.error}</p> : null}
+          {passwordSetupStatus.success ? <p className="mt-3 text-sm text-green-400" role="status">{passwordSetupStatus.success}</p> : null}
+          {passwordSetupStatus.devResetUrl ? (
+            <p className="mt-3 break-all text-sm text-slatebody">
+              {t("security.devResetUrl")} <a className="text-primary underline" href={passwordSetupStatus.devResetUrl}>{passwordSetupStatus.devResetUrl}</a>
+            </p>
+          ) : null}
+          <button type="button" className="btn-primary mt-4" disabled={passwordSetupStatus.loading} onClick={requestPasswordSetup}>
+            {passwordSetupStatus.loading ? t("common.loading") : t("security.sendPasswordSetupLink")}
+          </button>
+        </section>
       ) : (
         <form className="card p-5 bg-slate-950/90 border border-white/10" onSubmit={changePassword}>
           <p className="text-sm uppercase tracking-[0.32em] text-primary">{t("security.accountSecurity")}</p>
           <h2 className="mt-2 text-3xl font-black font-serif">{t("security.changePassword")}</h2>
           <p className="mt-2 text-slatebody">{user?.mustResetPassword ? t("security.forcedPasswordReset") : t("security.changePasswordHelp")}</p>
           <div className="mt-4 grid gap-3">
-            <input className="field" name="currentPassword" type="password" autoComplete="current-password" required placeholder={t("security.currentPassword")} value={passwordForm.currentPassword} onChange={(event) => setPasswordForm((value) => ({ ...value, currentPassword: event.target.value }))} />
-            <input className="field" name="newPassword" type="password" autoComplete="new-password" minLength={10} required placeholder={t("security.newPassword")} value={passwordForm.newPassword} onChange={(event) => setPasswordForm((value) => ({ ...value, newPassword: event.target.value }))} />
-            <input className="field" name="confirmPassword" type="password" autoComplete="new-password" minLength={10} required placeholder={t("security.confirmPassword")} value={passwordForm.confirmPassword} onChange={(event) => setPasswordForm((value) => ({ ...value, confirmPassword: event.target.value }))} />
+            <SecretInput className="field" name="currentPassword" autoComplete="current-password" required placeholder={t("security.currentPassword")} value={passwordForm.currentPassword} onChange={(event) => setPasswordForm((value) => ({ ...value, currentPassword: event.target.value }))} />
+            <SecretInput className="field" name="newPassword" autoComplete="new-password" minLength={10} required placeholder={t("security.newPassword")} value={passwordForm.newPassword} onChange={(event) => setPasswordForm((value) => ({ ...value, newPassword: event.target.value }))} />
+            <SecretInput className="field" name="confirmPassword" autoComplete="new-password" minLength={10} required placeholder={t("security.confirmPassword")} value={passwordForm.confirmPassword} onChange={(event) => setPasswordForm((value) => ({ ...value, confirmPassword: event.target.value }))} />
           </div>
           <p className="mt-3 text-sm text-slatebody">{t("security.passwordRequirements")}</p>
           {passwordStatus.error ? <p className="mt-3 text-sm text-red-400" role="alert">{passwordStatus.error}</p> : null}

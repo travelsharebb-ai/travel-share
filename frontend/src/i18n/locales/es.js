@@ -374,6 +374,13 @@ const translations = {
   },
   "security": {
     "accountSecurity": "Seguridad de la cuenta",
+    "setPasswordTitle": "Configurar contraseña para iniciar sesión por correo",
+    "oauthPasswordHelp": "Tu cuenta usa el inicio de sesión de Google o Microsoft. Para crear una contraseña, enviaremos un enlace seguro de configuración a tu correo electrónico.",
+    "sendPasswordSetupLink": "Enviar enlace para configurar la contraseña",
+    "passwordSetupSent": "Se envió un enlace seguro para configurar la contraseña a tu correo electrónico.",
+    "passwordSetupFailed": "No se pudo enviar el enlace para configurar la contraseña.",
+    "showPinValue": "Mostrar PIN",
+    "hidePinValue": "Ocultar PIN",
     "changePassword": "Cambiar contraseña",
     "changePasswordHelp": "Confirma tu contraseña actual antes de elegir una nueva.",
     "forcedPasswordReset": "Un administrador requiere que cambies tu contraseña antes de continuar.",

@@ -9,28 +9,33 @@ process.env.JWT_SECRET = "account-security-test-secret";
 const mocks = vi.hoisted(() => ({
   userFindUnique: vi.fn(),
   userUpdate: vi.fn(),
+  userPreferenceUpsert: vi.fn(),
   resetUpdateMany: vi.fn(),
+  resetCreate: vi.fn(),
+  sendPasswordResetEmail: vi.fn(),
+  ensureBasicSkinUnlocks: vi.fn(),
   auditCreate: vi.fn()
 }));
 
 vi.mock("../src/utils/prisma.js", () => ({
   prisma: {
     user: { findUnique: mocks.userFindUnique, update: mocks.userUpdate },
-    passwordResetToken: { updateMany: mocks.resetUpdateMany },
+    userPreference: { upsert: mocks.userPreferenceUpsert },
+    passwordResetToken: { updateMany: mocks.resetUpdateMany, create: mocks.resetCreate },
     adminSecurityAuditLog: { create: mocks.auditCreate },
     $transaction: vi.fn(async (input) => {
       if (typeof input === "function") return input({
         user: { update: mocks.userUpdate },
-        passwordResetToken: { updateMany: mocks.resetUpdateMany },
+        passwordResetToken: { updateMany: mocks.resetUpdateMany, create: mocks.resetCreate },
         adminSecurityAuditLog: { create: mocks.auditCreate }
       });
       return Promise.all(input);
     })
   }
 }));
-vi.mock("../src/utils/skins.js", () => ({ ensureBasicSkinUnlocks: vi.fn() }));
+vi.mock("../src/utils/skins.js", () => ({ ensureBasicSkinUnlocks: mocks.ensureBasicSkinUnlocks }));
 vi.mock("../src/services/notifications.js", () => ({ createNotification: vi.fn(), notifyActiveAdmins: vi.fn() }));
-vi.mock("../src/utils/email.js", () => ({ sendPasswordResetEmail: vi.fn(), sendEmailChangeRequest: vi.fn() }));
+vi.mock("../src/utils/email.js", () => ({ sendPasswordResetEmail: mocks.sendPasswordResetEmail, sendEmailChangeRequest: vi.fn() }));
 vi.mock("../src/services/oauthTempStore.js", () => ({ oauthTempStore: {}, OAUTH_HANDOFF_TTL_MS: 1, OAUTH_STATE_TTL_MS: 1 }));
 
 const authRoutes = (await import("../src/routes/auth.js")).default;
@@ -61,11 +66,35 @@ async function authenticatedUser(role = "tourist", password = "OldPassword1") {
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.userUpdate.mockResolvedValue({ id: "user-1" });
+  mocks.userPreferenceUpsert.mockResolvedValue({ userId: "user-1" });
   mocks.resetUpdateMany.mockResolvedValue({ count: 1 });
+  mocks.resetCreate.mockResolvedValue({ id: "reset-1" });
+  mocks.sendPasswordResetEmail.mockResolvedValue({ sent: true });
+  mocks.ensureBasicSkinUnlocks.mockResolvedValue(undefined);
   mocks.auditCreate.mockResolvedValue({ id: "audit-1" });
+  process.env.NODE_ENV = "test";
+  process.env.FRONTEND_URL = "http://frontend.test";
 });
 
 describe("registered account password settings", () => {
+  it.each([
+    ["local-password", "stored-hash", true],
+    ["OAuth-only", null, false]
+  ])("returns a safe password capability for a %s account", async (_label, passwordHash, hasLocalPassword) => {
+    const authUser = { id: "user-1", name: "User", email: "user@example.test", role: "tourist", accountStatus: "active", mustResetPassword: false };
+    mocks.userFindUnique
+      .mockResolvedValueOnce(authUser)
+      .mockResolvedValueOnce({ ...authUser, passwordHash, preferences: {}, purchases: [], activeStoreItem: null });
+
+    const response = await request(app())
+      .get("/api/auth/me")
+      .set("Authorization", `Bearer ${tokenFor()}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.user.hasLocalPassword).toBe(hasLocalPassword);
+    expect(response.body.user).not.toHaveProperty("passwordHash");
+  });
+
   it.each(["tourist", "platform_admin"])("allows a %s to change their own password", async (role) => {
     await authenticatedUser(role);
     const response = await request(app())
@@ -86,6 +115,66 @@ describe("registered account password settings", () => {
     const response = await request(app()).patch("/api/auth/me/password").set("Authorization", `Bearer ${tokenFor()}`).send({ currentPassword: "WrongPassword1", newPassword: "NewPassword2", confirmPassword: "NewPassword2" });
     expect(response.status).toBe(403);
     expect(mocks.userUpdate).not.toHaveBeenCalled();
+  });
+
+  it("directs an OAuth-only account to the secure setup-link flow", async () => {
+    mocks.userFindUnique
+      .mockResolvedValueOnce({ id: "user-1", name: "OAuth User", email: "oauth@example.test", role: "tourist", accountStatus: "active", mustResetPassword: false })
+      .mockResolvedValueOnce({ passwordHash: null });
+
+    const response = await request(app())
+      .patch("/api/auth/me/password")
+      .set("Authorization", `Bearer ${tokenFor()}`)
+      .send({ currentPassword: "NeverHadOne1", newPassword: "NewPassword2", confirmPassword: "NewPassword2" });
+
+    expect(response.status).toBe(409);
+    expect(response.body.code).toBe("LOCAL_PASSWORD_NOT_SET");
+    expect(response.body).not.toHaveProperty("passwordHash");
+    expect(mocks.userUpdate).not.toHaveBeenCalled();
+  });
+
+  it.each(["tourist", "platform_admin"])("revokes old links and emails a one-time password setup link for a %s without exposing hashes", async (role) => {
+    mocks.userFindUnique
+      .mockResolvedValueOnce({ id: "user-1", name: "OAuth User", email: "oauth@example.test", role, accountStatus: "active", mustResetPassword: false })
+      .mockResolvedValueOnce({ id: "user-1", name: "OAuth User", email: "oauth@example.test", passwordHash: null });
+
+    const response = await request(app())
+      .post("/api/auth/me/password-setup")
+      .set("Authorization", `Bearer ${tokenFor()}`)
+      .send({});
+
+    expect(response.status).toBe(201);
+    expect(mocks.resetUpdateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { userId: "user-1", usedAt: null, revokedAt: null }
+    }));
+    expect(mocks.resetCreate).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ userId: "user-1", tokenHash: expect.any(String), expiresAt: expect.any(Date) })
+    }));
+    const resetUrl = mocks.sendPasswordResetEmail.mock.calls[0][0].resetUrl;
+    const rawToken = resetUrl.split("/").at(-1);
+    expect(mocks.resetCreate.mock.calls[0][0].data.tokenHash).not.toBe(rawToken);
+    expect(response.body.devResetUrl).toBe(resetUrl);
+    expect(response.body).not.toHaveProperty("passwordHash");
+    expect(response.body).not.toHaveProperty("tokenHash");
+    expect(response.body).not.toHaveProperty("token");
+    expect(mocks.auditCreate).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ action: "password_setup_requested", oldLinksRevoked: true })
+    }));
+  });
+
+  it("never returns a raw password setup token in production", async () => {
+    process.env.NODE_ENV = "production";
+    mocks.userFindUnique
+      .mockResolvedValueOnce({ id: "user-1", name: "OAuth User", email: "oauth@example.test", role: "tourist", accountStatus: "active", mustResetPassword: false })
+      .mockResolvedValueOnce({ id: "user-1", name: "OAuth User", email: "oauth@example.test", passwordHash: null });
+
+    const response = await request(app())
+      .post("/api/auth/me/password-setup")
+      .set("Authorization", `Bearer ${tokenFor()}`)
+      .send({});
+
+    expect(response.status).toBe(201);
+    expect(response.body).toEqual({ message: "A secure password setup link was sent to your email." });
   });
 
   it.each([

@@ -1050,6 +1050,13 @@ const translations = {
   },
   "security": {
     "accountSecurity": "أمان الحساب",
+    "setPasswordTitle": "تعيين كلمة مرور لتسجيل الدخول بالبريد الإلكتروني",
+    "oauthPasswordHelp": "يستخدم حسابك تسجيل الدخول عبر Google أو Microsoft. لإنشاء كلمة مرور، سنرسل رابط إعداد آمنًا إلى بريدك الإلكتروني.",
+    "sendPasswordSetupLink": "إرسال رابط إعداد كلمة المرور",
+    "passwordSetupSent": "تم إرسال رابط آمن لإعداد كلمة المرور إلى بريدك الإلكتروني.",
+    "passwordSetupFailed": "تعذر إرسال رابط إعداد كلمة المرور.",
+    "showPinValue": "إظهار رمز PIN",
+    "hidePinValue": "إخفاء رمز PIN",
     "changePassword": "تغيير كلمة المرور",
     "changePasswordHelp": "أكّد كلمة المرور الحالية قبل اختيار كلمة جديدة.",
     "forcedPasswordReset": "يطلب منك المسؤول تغيير كلمة المرور قبل المتابعة.",

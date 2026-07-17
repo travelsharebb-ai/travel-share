@@ -19,7 +19,9 @@ export async function requireAuth(req, res, next) {
       return res.status(403).json({ error: "This account is not active.", code: "ACCOUNT_INACTIVE" });
     }
     const requestPath = req.originalUrl?.split("?")[0];
-    const forcedResetAllowed = requestPath === "/api/auth/me/password" || (requestPath === "/api/auth/me" && req.method === "GET");
+    const forcedResetAllowed = requestPath === "/api/auth/me/password"
+      || requestPath === "/api/auth/me/password-setup"
+      || (requestPath === "/api/auth/me" && req.method === "GET");
     if (user.mustResetPassword && !forcedResetAllowed) {
       return res.status(403).json({ error: "Password reset required.", code: "PASSWORD_RESET_REQUIRED" });
     }

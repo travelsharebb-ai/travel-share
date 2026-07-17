@@ -539,6 +539,13 @@ const translations = {
   },
   "security": {
     "accountSecurity": "Segurança da conta",
+    "setPasswordTitle": "Definir palavra-passe para iniciar sessão por e-mail",
+    "oauthPasswordHelp": "A sua conta usa o início de sessão da Google ou Microsoft. Para criar uma palavra-passe, enviaremos uma ligação segura de configuração para o seu e-mail.",
+    "sendPasswordSetupLink": "Enviar ligação para configurar a palavra-passe",
+    "passwordSetupSent": "Foi enviada uma ligação segura para configurar a palavra-passe para o seu e-mail.",
+    "passwordSetupFailed": "Não foi possível enviar a ligação para configurar a palavra-passe.",
+    "showPinValue": "Mostrar PIN",
+    "hidePinValue": "Ocultar PIN",
     "changePassword": "Alterar senha",
     "changePasswordHelp": "Confirme sua senha atual antes de escolher uma nova.",
     "forcedPasswordReset": "Um administrador exige que você altere sua senha antes de continuar.",

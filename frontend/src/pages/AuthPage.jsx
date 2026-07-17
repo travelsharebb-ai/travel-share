@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import AppTopbar from "../components/AppTopbar";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Eye, EyeOff } from "lucide-react";
+import SecretInput from "../components/SecretInput.jsx";
 import { api, currentUser, getToken, getGuestToken, setSession } from "../lib/api";
 import { useLanguage } from "../lib/i18n";
 import { APP_NAME } from "../lib/appConfig.js";
@@ -14,7 +14,6 @@ export default function AuthPage({ mode }) {
   const location = useLocation();
   const [form, setForm] = useState({ name: "", email: "", password: "" });
   const [errorKey, setErrorKey] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
   const isSignup = mode === "signup";
 
   async function submit(event) {
@@ -83,26 +82,15 @@ export default function AuthPage({ mode }) {
               onChange={(e) => setForm({ ...form, email: e.target.value })} 
             />
           
-          <div className="relative">
-            <input 
+          <SecretInput
               id="auth-password"
               name="password"
               aria-label={t("authPage.passwordPlaceholder")}
-              className="field pr-14" 
-              type={showPassword ? "text" : "password"} 
+              className="field"
               placeholder={t("authPage.passwordPlaceholder")} 
               value={form.password} 
               onChange={(e) => setForm({ ...form, password: e.target.value })} 
-            />
-            <button 
-              type="button" 
-              aria-label={showPassword ? t("authPage.hidePassword") : t("authPage.showPassword")} 
-              className="absolute right-2 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full text-report hover:bg-skysoft" 
-              onClick={() => setShowPassword((value) => !value)}
-            >
-              {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-            </button>
-          </div>
+          />
           
           {errorKey && (
             <p className="break-words rounded-lg bg-red-50 p-3 text-sm font-bold text-reject">{t("authPage.error")}</p>

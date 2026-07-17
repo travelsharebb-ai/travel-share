@@ -15,7 +15,7 @@ model User {
   emailChangeTokenHash      String?                @unique
   emailChangeTokenExpiresAt DateTime?
   emailVerifiedAt           DateTime?
-  passwordHash              String
+  passwordHash              String?
   role                      UserRole               @default(tourist)
   accountStatus             AccountStatus          @default(active)
   mustResetPassword         Boolean                @default(false)
